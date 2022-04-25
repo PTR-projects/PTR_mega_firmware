@@ -1,0 +1,80 @@
+# put here your custom config value
+menu "KP-PTR Configuration"
+	config KPPTR_FIRMWARE_VER
+	    string "KP-PTR firmware version"
+	    default "v0.1"
+	    help
+			Version of the current firmware.
+			
+	config ESP_WIFI_SSID
+	    string "WiFi SSID"
+	    default "myssid"
+	    help
+			SSID (network name) for the example to connect to.
+	
+	config ESP_WIFI_PASSWORD
+	    string "WiFi Password"
+	    default "mypassword"
+	    help
+			WiFi password (WPA or WPA2) for the example to use.
+		
+	config KPPTR_MEAS_RATE_HZ
+	    int "KP-PTR measuremnt rate in Hz"
+	    range 10 1000
+	    default "100"
+	    help
+			Sensors update rate in Hz.
+	
+	config KPPTR_TELEMETRY_DUTYCYCLE_PRECENTAGE
+	    int "KP-PTR telemetry duty cycle in %"
+	    range 1 100
+	    default "20"
+	    help
+			Telemetry send duty cycle in %. Equivalent to RF band ocupation.
+		
+	config KPPTR_LOG_RATE_HZ
+	    int "KP-PTR logging rate in Hz"
+	    range 1 1000
+	    default 1
+	    help
+			Logging rate in Hz.
+		
+	choice KPPTR_LOG_DEVICE
+        prompt "KP-PTR logging device"
+        default KPPTR_LOG_DEVICE_FLASH
+        help
+            Select storage (uSD, Flash, None).
+
+        config KPPTR_LOG_DEVICE_FLASH
+            bool "Flash"
+        config KPPTR_LOG_DEVICE_USD
+            bool "uSD"
+        config KPPTR_LOG_DEVICE_NONE
+			bool "None"
+    endchoice
+    
+    config KPPTR_SENSOR_EN_LSM
+    	bool "Enable LSM acc+gyro sensor"
+    	default 0
+    	help
+    		Check if you want use LSM acc+gyro sensor.
+    
+    config KPPTR_SENSOR_EN_LIS
+    	bool "Enable H3LIS331 high G sensor"
+    	default 0
+    	help
+    		Check if you want use H3LIS331 high G sensor.
+    
+    config KPPTR_SENSOR_EN_MMC
+    	bool "Enable MMC5983 magnetic sensor"
+    	default 0
+    	help
+    		Check if you want use MMC5983 magnetic sensor.
+    		
+    config KPPTR_SENSOR_EN_GNSS
+    	bool "Enable GNSS receiver"
+    	default 0
+    	help
+    		Check if you want use GNSS receiver.
+	
+endmenu
