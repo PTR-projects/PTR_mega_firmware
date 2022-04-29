@@ -1,76 +1,82 @@
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_mac.h"
-#include "esp_wifi.h"
+#include "freertos/timers.h"
+
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
-#include <string.h>
 #include "driver/gpio.h"
+
+//----------- Our includes --------------
+#include "HAL_SPI.h"
+
+#include "Sensors.h"
+#include "AHRS.h"
+#include "Detector.h"
+#include "WiFi_AP.h"
+
+
+//----------- Our defines --------------
+#define ESP_CORE_0 0
+#define ESP_CORE_1 1
 
 static const char *TAG = "KP-PTR";
 
-static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                    int32_t event_id, void* event_data)
-{
-    if (event_id == WIFI_EVENT_AP_STACONNECTED) {
-        wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
-        ESP_LOGI(TAG, "station "MACSTR" join, AID=%d",
-                 MAC2STR(event->mac), event->aid);
-    } else if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
-        wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
-        ESP_LOGI(TAG, "station "MACSTR" leave, AID=%d",
-                 MAC2STR(event->mac), event->aid);
-    }
+// periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
+
+void task_kpptr_main(void *pvParameter){
+	Sensors_init();
+	//Detector_init();
+	//AHRS_init();
+
+	while(1){				//<<----- TODO zrobiæ wyzwalanie z timera
+		Sensors_update();
+		//AHRS_calc();
+		//Detector_detect();
+		//send data to logging task
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+	}
+	vTaskDelete(NULL);
 }
 
-//--------------------- WiFi init ------------------------
-void wifi_init_softap()
-{
-	ESP_ERROR_CHECK(esp_netif_init());
-	ESP_ERROR_CHECK(esp_event_loop_create_default());
-	esp_netif_create_default_wifi_ap();
+void task_kpptr_logging(void *pvParameter){
+	//SDinit();
+	//FAT_init();
+	//FLASH_init();
 
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-	ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
-														ESP_EVENT_ANY_ID,
-														&wifi_event_handler,
-														NULL,
-														NULL));
-
-	wifi_config_t wifi_config = {
-		.ap = {
-			.ssid = CONFIG_ESP_WIFI_SSID,
-			.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
-			.channel = 1,
-			.password = CONFIG_ESP_WIFI_PASSWORD,
-			.max_connection = 4,
-			.authmode = WIFI_AUTH_WPA_WPA2_PSK
-		},
-	};
-
-	if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
-			wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-		}
-
-		ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-		ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
-		ESP_ERROR_CHECK(esp_wifi_start());
-
-		ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
-				CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD, 1);
+	while(1){
+		//wait for data from main task
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+	}
+	vTaskDelete(NULL);
 }
+
+void task_kpptr_telemetry(void *pvParameter){
+	//SDinit();
+	HAL_SPI_init();
+	//FAT_init();
+	//FLASH_init();
+
+	while(1){
+		//wait for data from main task
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+	}
+	vTaskDelete(NULL);
+}
+
 
 
 void app_main(void)
 {
     nvs_flash_init();
-    ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
-    wifi_init_softap();
+    WiFi_init();
 
+
+    xTaskCreatePinnedToCore(&task_kpptr_main,      "task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_logging,   "task_kpptr_logging",   1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
+    xTaskCreatePinnedToCore(&task_kpptr_telemetry, "task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
 
 
     while (true) {
