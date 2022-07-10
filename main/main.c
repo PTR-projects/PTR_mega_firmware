@@ -10,12 +10,12 @@
 #include "driver/gpio.h"
 
 //----------- Our includes --------------
-#include "HAL_SPI.h"
+#include "SPI_driver.h"
 
 #include "Sensors.h"
-#include "AHRS.h"
-#include "Detector.h"
-#include "WiFi_AP.h"
+#include "AHRS_driver.h"
+#include "FlightStateDetector.h"
+#include "WiFi_driver.h"
 
 
 //----------- Our defines --------------
@@ -55,7 +55,7 @@ void task_kpptr_logging(void *pvParameter){
 
 void task_kpptr_telemetry(void *pvParameter){
 	//SDinit();
-	HAL_SPI_init();
+	SPI_init(1000000);
 	//FAT_init();
 	//FLASH_init();
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "esp_err.h"
 
 typedef enum{
 	LIS331_IC,
