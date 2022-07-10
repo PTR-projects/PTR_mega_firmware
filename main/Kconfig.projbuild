@@ -6,6 +6,20 @@ menu "KP-PTR Configuration"
 	    help
 			Version of the current firmware.
 			
+	choice KPPTR_HW
+        prompt "KP-PTR HW version"
+        default BOARD_KPPTR_VER_1_REV_0
+        help
+            Select hardware version and revision.
+
+        config BOARD_KPPTR_VER_1_REV_0
+            bool "Version 1 revision 0"
+        config BOARD_KPPTR_VER_1_REV_1
+            bool "Version 1 revision 1"
+        config BOARD_KPPTR_VER_1_REV_2
+			bool "Version 1 revision 2"
+    endchoice
+			
 	config ESP_WIFI_SSID
 	    string "WiFi SSID"
 	    default "myssid"
