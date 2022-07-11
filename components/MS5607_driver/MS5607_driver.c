@@ -57,10 +57,10 @@ esp_err_t MS5607_startConv(char oversamplingRate) {
 }
 
 esp_err_t MS5607_startMeas() {
-
+	return ESP_OK;
 }
 
-void MS5607_readMeas(MS5607 * data) {
+void MS5607_readMeas(MS5607_t * data) {
 	uint8_t = {0};
 	SPI_RW(SPI_SLAVE_MS5607, MS5607_Prom_Read, buf, 16);
 }
