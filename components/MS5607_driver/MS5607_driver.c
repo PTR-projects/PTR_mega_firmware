@@ -12,7 +12,7 @@ esp_err_t MS5607_init() {
 	return ESP_OK;	//ESP_FAIL
 }
 
-esp_err_t Ms5607_resetDevice() {
+esp_err_t MS5607_resetDevice() {
 
 	SPI_RW(slave, MS5607_Reset, NULL, 2); //trzeba dokonczyc, co zwraca reset? I w razie failu wywalic blad
 
@@ -22,7 +22,7 @@ esp_err_t Ms5607_resetDevice() {
 esp_err_t MS5607_readCalibration() {
 	MS5607_resetDevice();
 
-	uint8_t buf[15] = {0};
+	uint8_t buf[17] = {0};
 	SPI_RW(SPI_SLAVE_MS5607, MS5607_Prom_Read, buf, 16);
 
 	MS5607_cal_d.C1 = *((uint16_t*)&buf[2]);
@@ -61,7 +61,7 @@ esp_err_t MS5607_startMeas() {
 }
 
 void MS5607_readMeas(MS5607_t * data) {
-	uint8_t = {0};
+	uint8_t[17] = {0};
 	SPI_RW(SPI_SLAVE_MS5607, MS5607_Prom_Read, buf, 16);
 }
 

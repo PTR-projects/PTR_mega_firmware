@@ -22,7 +22,7 @@ typedef struct {
 
 
 esp_err_t MS5607_init();
-esp_err_t Ms5607_resetDevice();
+esp_err_t MS5607_resetDevice();
 esp_err_t MS5607_startConv(char oversamplingRate);
 esp_err_t MS5607_startMeas();
 void MS5607_readMeas(MS5607_t * data);
