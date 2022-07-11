@@ -15,6 +15,7 @@
 
 #define LED_WS_PIN				47
 #define LED_2_PIN				46
+#define WS_LED_NUMBER			3
 #define BUZZER_PIN				45
 
 #define RF_BUSY_PIN				37
