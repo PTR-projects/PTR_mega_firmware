@@ -63,8 +63,8 @@ void ws2812_write_leds(struct led_state_t new_state) {
 }
 
 void ws2812_write_led_number(uint8_t number, uint32_t R, uint32_t G, uint32_t B){
-	R = R * 2^16;
-	G = G * 2^8;
+	R <<= 16;
+	G <<= 8;
 	new_state.leds[number]=(R | G | B);
 	ws2812_write_leds(new_state);
 }
