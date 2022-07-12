@@ -4,9 +4,10 @@
 typedef struct {
 	uint32_t D1;
 	uint32_t D2;
+	int32_t dT;
+	int64_t SENS2;
+	int64_t OFF2;
 
-	int32_t temp_raw;
-	int32_t pres_raw;
 	float temp;
 	float press;
 } MS5607_t;
@@ -23,35 +24,43 @@ typedef struct {
 
 esp_err_t MS5607_init();
 esp_err_t MS5607_resetDevice();
-esp_err_t MS5607_startConv(char oversamplingRate);
-esp_err_t MS5607_startMeas();
-void MS5607_readMeas(MS5607_t * data);
+
+esp_err_t MS5607_reqPress();
+esp_err_t MS5607_reqTemp();
+
+esp_err_t MS5607_getPress(MS5607_t * data);
+esp_err_t MS5607_getTemp(MS5607_t * data);
+
+esp_err_t MS5607_calcPress(MS5607_t * data);
+esp_err_t MS5607_calcTemp(MS5607_t * data);
+
+void MS5607_getReloadSmart(MS5607_t * data);
 
 
 
 /*
  * Registers
  */
-#define MS5607_ADC_Read 		0x00
-#define MS5607_Prom_Read		0xA0
-#define MS5607_Reset 			0x1E
+#define MS5607_ADC_READ 		0x00
+#define MS5607_PROM_READ		0xA0
+#define MS5607_RESET			0x1E
 
 
 /*
  * Digital pressure oversampling settings
  */
-#define MS5607_Convert_D1_256 	0x40
-#define MS5607_Convert_D1_512 	0x42
-#define MS5607_Convert_D1_1024 	0x44
-#define MS5607_Convert_D1_2048 	0x46
-#define MS5607_Convert_D1_4096	0x48
+#define MS5607_CONVERT_D1_256 	0x40
+#define MS5607_CONVERT_D1_512 	0x42
+#define MS5607_CONVERT_D1_1024 	0x44
+#define MS5607_CONVERT_D1_2048 	0x46
+#define MS5607_CONVERT_D1_4096	0x48
 
 
 /*
  * Digital temperature oversampling settings
  */
-#define MS5607_Convert_D2_256 	0x50
-#define MS5607_Convert_D2_512 	0x52
-#define MS5607_Convert_D2_1024 	0x54
-#define MS5607_Convert_D2_2048 	0x56
-#define MS5607_Convert_D2_4096	0x58
+#define MS5607_CONVERT_D2_256 	0x50
+#define MS5607_CONVERT_D2_512 	0x52
+#define MS5607_CONVERT_D2_1024 	0x54
+#define MS5607_CONVERT_D2_2048 	0x56
+#define MS5607_CONVERT_D2_4096	0x58
