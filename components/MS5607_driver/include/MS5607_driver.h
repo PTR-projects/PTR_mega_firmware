@@ -22,8 +22,12 @@ typedef struct {
 } MS5607_cal_t;
 
 
+
 esp_err_t MS5607_init();
 esp_err_t MS5607_resetDevice();
+
+void MS5607_write(uint8_t command);
+void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len);
 
 esp_err_t MS5607_reqPress();
 esp_err_t MS5607_reqTemp();

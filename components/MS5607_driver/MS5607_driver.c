@@ -9,14 +9,11 @@
 
 MS5607_cal_t MS5607_cal_d;
 
-
-
-
 esp_err_t MS5607_readCalibration() {
 	MS5607_resetDevice();
 
-	uint8_t buf[17] = {0};
-	SPI_RW(SPI_SLAVE_MS5607, MS5607_PROM_READ, buf, 16);
+	uint8_t buf[16] = {0};
+	MS5607_read(MS5607_PROM_READ, buf, 17);
 
 	MS5607_cal_d.C1 = *((uint16_t*)&buf[2]);
 	MS5607_cal_d.C2 = *((uint16_t*)&buf[4]);
@@ -43,27 +40,37 @@ esp_err_t MS5607_readCalibration() {
 	 */
 }
 
+void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
+    uint8_t txBuff[4] = {0U};
+    txBuff[0] = address;
+    SPI_RW(SPI_SLAVE_MS5607, txBuff, buf, len+1);
+}
+
+void MS5607_write(uint8_t address) {
+    uint8_t txBuff[1] = {address};
+    SPI_RW(SPI_SLAVE_MS5607, txBuff, NULL, 1);
+}
+
 esp_err_t MS5607_resetDevice() {
 
-	SPI_RW(SPI_SLAVE_MS5607, MS5607_RESET, NULL, 2); //trzeba dokonczyc, co zwraca reset? I w razie failu wywalic blad
-	vTaskDelay(3/portTICK_PERIOD_MS);  //3ms/1ms = 3 ticks
+	MS5607_write(MS5607_RESET);
+	vTaskDelay(4/portTICK_PERIOD_MS);  //4ms/1ms = 4 ticks
 	return ESP_OK;
 }
 
 esp_err_t MS5607_reqPress() {
-	SPI_RW(SPI_SLAVE_MS5607, MS5607_CONVERT_D1_256, NULL, 2);
+	MS5607_write(MS5607_CONVERT_D1_256);
 	return ESP_OK;
 }
 
 esp_err_t MS5607_reqTemp() {
-	SPI_RW(SPI_SLAVE_MS5607, MS5607_CONVERT_D2_256, NULL, 2);
+	MS5607_write(MS5607_CONVERT_D2_256);
 	return ESP_OK;
 }
 
 esp_err_t MS5607_getPress(MS5607_t * data) {
-	uint8_t buf[7] = {0};
-	SPI_RW(SPI_SLAVE_MS5607, MS5607_ADC_READ, buf, 6);
-
+	uint8_t buf[3] = {0};
+	MS5607_read(MS5607_ADC_READ, buf, 4);
 	data -> D1 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2])) >> 4;
 
 	if(data->D1 == 0) {
@@ -73,10 +80,10 @@ esp_err_t MS5607_getPress(MS5607_t * data) {
 }
 
 esp_err_t MS5607_getTemp(MS5607_t * data) {
-	uint32_t buf[7] = {0};
-	SPI_RW(SPI_SLAVE_MS5607, MS5607_ADC_READ, buf, 6);
+	uint8_t buf[3] = {0};
+	MS5607_read(MS5607_ADC_READ, buf, 4);
 
-	data->D2 = ((uint32_t)(((uint32_t)buf[3])<<16 | ((uint32_t)buf[4])<<8 | (uint32_t)buf[5])) >> 4;
+	data->D2 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2])) >> 4;
 
 	if(data->D2 == 0) {
 		return ESP_FAIL; //Requested ADC_READ before conversion was completed
