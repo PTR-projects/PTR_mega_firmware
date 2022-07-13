@@ -13,7 +13,7 @@ esp_err_t MS5607_readCalibration() {
 	MS5607_resetDevice();
 
 	uint8_t buf[16] = {0};
-	MS5607_read(MS5607_PROM_READ, buf, 17);
+	MS5607_read(MS5607_PROM_READ, buf, 16);
 
 	MS5607_cal_d.C1 = *((uint16_t*)&buf[2]);
 	MS5607_cal_d.C2 = *((uint16_t*)&buf[4]);
@@ -70,7 +70,7 @@ esp_err_t MS5607_reqTemp() {
 
 esp_err_t MS5607_getPress(MS5607_t * data) {
 	uint8_t buf[3] = {0};
-	MS5607_read(MS5607_ADC_READ, buf, 4);
+	MS5607_read(MS5607_ADC_READ, buf, 3);
 	data -> D1 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2])) >> 4;
 
 	if(data->D1 == 0) {
@@ -81,7 +81,7 @@ esp_err_t MS5607_getPress(MS5607_t * data) {
 
 esp_err_t MS5607_getTemp(MS5607_t * data) {
 	uint8_t buf[3] = {0};
-	MS5607_read(MS5607_ADC_READ, buf, 4);
+	MS5607_read(MS5607_ADC_READ, buf, 3);
 
 	data->D2 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2])) >> 4;
 
