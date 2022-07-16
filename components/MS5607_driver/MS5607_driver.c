@@ -12,16 +12,26 @@ MS5607_cal_t MS5607_cal_d;
 esp_err_t MS5607_readCalibration() {
 	MS5607_resetDevice();
 
-	uint8_t buf[16] = {0};
-	MS5607_read(MS5607_PROM_READ, buf, 16);
+	uint8_t buf[3] = {0};
+	MS5607_read(MS5607_PROM_READ, buf, 2);
 
-	MS5607_cal_d.C1 = *((uint16_t*)&buf[2]);
-	MS5607_cal_d.C2 = *((uint16_t*)&buf[4]);
-	MS5607_cal_d.C3 = *((uint16_t*)&buf[6]);
-	MS5607_cal_d.C4 = *((uint16_t*)&buf[8]);
-	MS5607_cal_d.C5 = *((uint16_t*)&buf[10]);
-	MS5607_cal_d.C6 = *((uint16_t*)&buf[12]);
+	MS5607_read(MS5607_PROM_READ+2, buf, 2);
+	MS5607_cal_d.C1 = ((uint16_t)buf[1] << 8) | buf[2];
 
+	MS5607_read(MS5607_PROM_READ+4, buf, 2);
+	MS5607_cal_d.C2 = ((uint16_t)buf[1] << 8) | buf[2];
+
+	MS5607_read(MS5607_PROM_READ+6, buf, 2);
+	MS5607_cal_d.C3 = ((uint16_t)buf[1] << 8) | buf[2];
+
+	MS5607_read(MS5607_PROM_READ+8, buf, 2);
+	MS5607_cal_d.C4 = ((uint16_t)buf[1] << 8) | buf[2];
+
+	MS5607_read(MS5607_PROM_READ+10, buf, 2);
+	MS5607_cal_d.C5 = ((uint16_t)buf[1] << 8) | buf[2];
+
+	MS5607_read(MS5607_PROM_READ+12, buf, 2);
+	MS5607_cal_d.C6 = ((uint16_t)buf[1] << 8) | buf[2];
 
 	return ESP_OK;
 
