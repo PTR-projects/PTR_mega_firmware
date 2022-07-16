@@ -2,10 +2,21 @@
 #ifndef _MMC5983MA_CONSTANTS_
 #define _MMC5983MA_CONSTANTS_
 #include "SPI_driver.h"
-
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "esp_system.h"
 typedef struct {
 
 } MMC5983MA_t;
+
+
+typedef struct
+  {
+    uint8_t internalControl0;
+    uint8_t internalControl1;
+    uint8_t internalControl2;
+    uint8_t internalControl3;
+  } controlBitMemory_t;
 
 esp_err_t MMC5983MA_init();
 
@@ -77,8 +88,49 @@ esp_err_t MMC5983MA_command(uint8_t command);
 esp_err_t MMC5983MA_writeSingleByte(uint8_t adress, uint8_t value);
 esp_err_t MMC5983MA_init();
 esp_err_t MMC5983MA_setRegisterBit(uint8_t registerAddress, uint8_t bitMask);
-
-
+void MMC5983MA_setControlBit(uint8_t registerAddress, const uint8_t bitMask);
+void MMC5983MA_clearControlBit(uint8_t registerAddress, const uint8_t bitMask);
+bool MMC5983MA_isControlBitSet(uint8_t registerAddress, const uint8_t bitMask);
+int MMC5983MA_getTemperature();
+void MMC5983MA_softReset();
+void MMC5983MA_enableInterrupt();
+void MMC5983MA_disableInterrupt();
+bool MMC5983MA_isInterruptEnabled();
+void MMC5983MA_enable3WireSPI();
+void MMC5983MA_disable3WireSPI();
+bool MMC5983MA_is3WireSPIEnabled();
+void MMC5983MA_performSetOperation();
+void MMC5983MA_performResetOperation();
+void MMC5983MA_enableAutomaticSetReset();
+void MMC5983MA_disableAutomaticSetReset();
+bool MMC5983MA_isAutomaticSetResetEnabled();
+void MMC5983MA_enableXChannel();
+void MMC5983MA_disableXChannel();
+bool MMC5983MA_isXChannelEnabled();
+void MMC5983MA_enableYZChannels();
+void MMC5983MA_disableYZChannels();
+bool MMC5983MA_areYZChannelsEnabled();
+void MMC5983MA_setFilterBandwidth(uint16_t bandwidth);
+uint16_t MMC5983MA_getFilterBandwith();
+void MMC5983MA_enableContinuousMode();
+void MMC5983MA_disableContinuousMode();
+bool MMC5983MA_isContinuousModeEnabled();
+void MMC5983MA_setContinuousModeFrequency(uint16_t frequency);
+uint16_t MMC5983MA_getContinuousModeFrequency();
+void MMC5983MA_enablePeriodicSet();
+void MMC5983MA_disablePeriodicSet();
+bool MMC5983MA_isPeriodicSetEnabled();
+void MMC5983MA_setPeriodicSetSamples(const uint16_t numberOfSamples);
+uint16_t MMC5983MA_getPeriodicSetSamples();
+void MMC5983MA_applyExtraCurrentPosToNeg();
+void MMC5983MA_removeExtraCurrentPosToNeg();
+bool MMC5983MA_isExtraCurrentAppliedPosToNeg();
+void MMC5983MA_applyExtracurrentNegToPos();
+void MMC5983MA_removeExtracurrentNegToPos();
+bool MMC5983MA_isExtraCurrentAppliedNegToPos();
+uint32_t MMC5983MA_getMeasurementX();
+uint32_t MMC5983MA_getMeasurementY();
+uint32_t MMC5983MA_getMeasurementZ();
 
 
 
