@@ -804,7 +804,7 @@ bool MMC5983MA_isExtraCurrentAppliedNegToPos()
     // allow reading INT_CTRL_3_REG register.
     return MMC5983MA_isControlBitSet(INT_CTRL_3_REG, ST_ENM);
 }
-/*
+
 uint32_t MMC5983MA_getMeasurementX()
 {
     // Send command to device. TM_M self clears so we can access it directly.
@@ -814,7 +814,7 @@ uint32_t MMC5983MA_getMeasurementX()
     do
     {
         // Wait a little so we won't flood MMC with requests
-        delay(5);
+    	vTaskDelay(5 / portTICK_PERIOD_MS);
     } while (!MMC5983MA_isRegisterSet(STATUS_REG, MEAS_M_DONE));
 
     uint32_t temp = 0;
@@ -823,20 +823,21 @@ uint32_t MMC5983MA_getMeasurementX()
 
     MMC5983MA_read(X_OUT_0_REG, buffer, 7);
 
-    temp = static_cast<uint32_t>(buffer[X_OUT_0_REG]);
+    temp = (uint32_t) buffer[X_OUT_0_REG];
     temp = temp << XYZ_0_SHIFT;
     result |= temp;
 
-    temp = static_cast<uint32_t>(buffer[X_OUT_1_REG]);
+    temp = (uint32_t) buffer[X_OUT_1_REG];
     temp = temp << XYZ_1_SHIFT;
     result |= temp;
 
-    temp = static_cast<uint32_t>(buffer[XYZ_OUT_2_REG]);
+    temp = (uint32_t) buffer[XYZ_OUT_2_REG];
     temp &= X2_MASK;
     temp = temp >> 6;
     result |= temp;
     return result;
 }
+
 
 uint32_t MMC5983MA_getMeasurementY()
 {
@@ -847,7 +848,7 @@ uint32_t MMC5983MA_getMeasurementY()
     do
     {
         // Wait a little so we won't flood MMC with requests
-        delay(5);
+    	vTaskDelay(5 / portTICK_PERIOD_MS);
     } while (!MMC5983MA_isRegisterSet(STATUS_REG, MEAS_M_DONE));
 
     uint32_t temp = 0;
@@ -856,18 +857,18 @@ uint32_t MMC5983MA_getMeasurementY()
 
     registerValue = (MMC5983MA_readSingleByte(Y_OUT_0_REG));
 
-    temp = static_cast<uint32_t>(registerValue);
+    temp = (uint32_t) registerValue;
     temp = temp << XYZ_0_SHIFT;
     result |= temp;
 
     registerValue = (MMC5983MA_readSingleByte(Y_OUT_1_REG));
 
-    temp = static_cast<uint32_t>(registerValue);
+    temp = (uint32_t) registerValue;
     temp = temp << XYZ_1_SHIFT;
     result |= temp;
 
     registerValue = (MMC5983MA_readSingleByte(XYZ_OUT_2_REG));
-    temp = static_cast<uint32_t>(registerValue);
+    temp = (uint32_t) registerValue;
     temp &= Y2_MASK;
     temp = temp >> 4;
     result |= temp;
@@ -883,7 +884,7 @@ uint32_t MMC5983MA_getMeasurementZ()
     do
     {
         // Wait a little so we won't flood MMC with requests
-        delay(5);
+    	vTaskDelay(5 / portTICK_PERIOD_MS);
     } while (!MMC5983MA_isRegisterSet(STATUS_REG, MEAS_M_DONE));
 
     uint32_t temp = 0;
@@ -892,24 +893,24 @@ uint32_t MMC5983MA_getMeasurementZ()
 
     registerValue = (MMC5983MA_readSingleByte(Z_OUT_0_REG));
 
-    temp = static_cast<uint32_t>(registerValue);
+    temp = (uint32_t) registerValue;
     temp = temp << XYZ_0_SHIFT;
     result |= temp;
 
     registerValue = (MMC5983MA_readSingleByte(Z_OUT_1_REG));
 
-    temp = static_cast<uint32_t>(registerValue);
+    temp = (uint32_t) registerValue;
     temp = temp << XYZ_1_SHIFT;
     result |= temp;
 
     registerValue = (MMC5983MA_readSingleByte(XYZ_OUT_2_REG));
 
-    temp = static_cast<uint32_t>(registerValue);
+    temp = (uint32_t) registerValue;
     temp &= Z2_MASK;
     temp = temp >> 2;
     result |= temp;
     return result;
 }
 
-*/
+
 
