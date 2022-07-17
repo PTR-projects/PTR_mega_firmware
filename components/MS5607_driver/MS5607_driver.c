@@ -9,6 +9,25 @@
 
 MS5607_cal_t MS5607_cal_d;
 
+
+void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
+    uint8_t txBuff[4] = {0U};
+    txBuff[0] = address;
+    SPI_RW(SPI_SLAVE_MS5607, txBuff, buf, len+1);
+}
+
+void MS5607_write(uint8_t address) {
+    uint8_t txBuff[1] = {address};
+    SPI_RW(SPI_SLAVE_MS5607, txBuff, NULL, 1);
+}
+
+esp_err_t MS5607_resetDevice() {
+
+	MS5607_write(MS5607_RESET);
+	vTaskDelay(12/portTICK_PERIOD_MS);  //4ms/1ms = 4 ticks
+	return ESP_OK;
+}
+
 esp_err_t MS5607_readCalibration() {
 	MS5607_resetDevice();
 
@@ -48,24 +67,6 @@ esp_err_t MS5607_readCalibration() {
 	 *
 	 * 8 bytes - > 128 bits
 	 */
-}
-
-void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
-    uint8_t txBuff[4] = {0U};
-    txBuff[0] = address;
-    SPI_RW(SPI_SLAVE_MS5607, txBuff, buf, len+1);
-}
-
-void MS5607_write(uint8_t address) {
-    uint8_t txBuff[1] = {address};
-    SPI_RW(SPI_SLAVE_MS5607, txBuff, NULL, 1);
-}
-
-esp_err_t MS5607_resetDevice() {
-
-	MS5607_write(MS5607_RESET);
-	vTaskDelay(4/portTICK_PERIOD_MS);  //4ms/1ms = 4 ticks
-	return ESP_OK;
 }
 
 esp_err_t MS5607_reqPress() {
