@@ -7,8 +7,7 @@
 #include "MS5607_driver.h"
 
 
-MS5607_cal_t MS5607_cal_d;
-
+static MS5607_cal_t MS5607_cal_d;
 
 void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
     uint8_t txBuff[4] = {0U};
@@ -24,7 +23,7 @@ void MS5607_write(uint8_t address) {
 esp_err_t MS5607_resetDevice() {
 
 	MS5607_write(MS5607_RESET);
-	vTaskDelay(12/portTICK_PERIOD_MS);  //4ms/1ms = 4 ticks
+	vTaskDelay(10/portTICK_PERIOD_MS);  //10ms
 	return ESP_OK;
 }
 
@@ -80,69 +79,86 @@ esp_err_t MS5607_reqTemp() {
 }
 
 esp_err_t MS5607_getPress(MS5607_t * data) {
-	uint8_t buf[3] = {0};
+	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
-	data -> D1 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2])) >> 4;
 
-	if(data->D1 == 0) {
+	uint32_t D1 = ((uint32_t)(((uint32_t)buf[1])<<16 | ((uint32_t)buf[2])<<8 | (uint32_t)buf[3]));
+
+	if(D1 == 0) {
 		return ESP_FAIL; //Requested ADC_READ before conversion was completed
 	}
+
+	data->D1 = D1;
 	return ESP_OK;
 }
 
 esp_err_t MS5607_getTemp(MS5607_t * data) {
-	uint8_t buf[3] = {0};
+	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
 
-	data->D2 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2])) >> 4;
+	uint32_t D2 = ((uint32_t)(((uint32_t)buf[1])<<16 | ((uint32_t)buf[2])<<8 | (uint32_t)buf[3])) ;
 
-	if(data->D2 == 0) {
+	if(D2 == 0) {
 		return ESP_FAIL; //Requested ADC_READ before conversion was completed
 	}
+
+	data->D2 = D2;
 	return ESP_OK;
 }
 
 esp_err_t  MS5607_calcPress(MS5607_t * data) {
-	int64_t OFF = (((int64_t)MS5607_cal_d.C2) * ((int64_t)1<<17)) + ((((int64_t)MS5607_cal_d.C4) * ((int64_t)(data->dT))) / ((int64_t)1<<6)) - data->OFF2;
-	int64_t SENS = (((int64_t)MS5607_cal_d.C1) * ((int64_t)1<<16)) + (((int64_t)MS5607_cal_d.C3) * ((int64_t)data->dT)) /  ((int64_t)1<<7) - data->SENS2;
-	int64_t P =  (((((int64_t)data->D1) * SENS) / ((int64_t)1<<21)) - OFF) / ((int64_t)1<<15);
-	data->press = ((float)P) / 100.0;
+	int64_t dT = data->dT;
+	int64_t C1 = MS5607_cal_d.C1;
+	int64_t C2 = MS5607_cal_d.C2;
+	int64_t C3 = MS5607_cal_d.C3;
+	int64_t C4 = MS5607_cal_d.C4;
+	int64_t D1 = data->D1;
+
+	int64_t OFF  = (C2 << 17) + ((C4 * dT) >> 6);
+	int64_t SENS = (C1 << 16) + ((C3 * dT) >> 7);
+	int64_t P    = (((D1 * SENS) >> 21) - OFF) >> 15;
+	data->press  = (float)P;
 
 	return ESP_OK;
 }
 
 esp_err_t  MS5607_calcTemp(MS5607_t * data) {
-	int32_t dT =  ((int64_t)data -> D2) - (((int64_t)MS5607_cal_d.C5) *  ((int64_t)1<<8));
-	int32_t TEMP = 2000 + dT * (((int64_t)MS5607_cal_d.C6) / ((int64_t)1<<23));
+	uint64_t C5 = MS5607_cal_d.C5;
+	int64_t  C6 = MS5607_cal_d.C6;
+	int64_t  D2 = data->D2;
 
-	/*
-	 * Second order temperature compensation (as per datasheet)
-	 */
-	int32_t T2;
-	int32_t OFF2;
-	int64_t SENS2;
-	if(TEMP < 2000) {
-		T2 = dT / ((uint32_t)1<<31);
-		OFF2 = (61 * ((TEMP-2000) * (TEMP-2000))) / ((uint32_t)1<<4);
-		SENS2 = 2 * ((((uint64_t)TEMP)-2000) * (((uint64_t)TEMP)-2000));
+	int32_t dT   = D2 - (C5 << 8);
+	int32_t TEMP = 2000 + ((dT * C6) >> 23);
 
-		if(TEMP < -1500) {
-			OFF2 = OFF2 + (15 * ((TEMP + 1500) * (TEMP + 1500)));
-			SENS2 = SENS2 + (8 * ((TEMP + 1500) * (TEMP + 1500)));
-		}
-	}
-	else {
-		T2 = 0;
-		OFF2 = 0;
-		SENS2 = 0;
-	}
+//	---------------------- Do dopracowania ----------------------------------
+//	/*
+//	 * Second order temperature compensation (as per datasheet)
+//	 */
+//	int32_t T2;
+//	int32_t OFF2;
+//	int64_t SENS2;
+//	if(TEMP < 2000) {
+//		T2 = dT / ((uint32_t)1<<31);
+//		OFF2 = (61 * ((TEMP-2000) * (TEMP-2000))) / ((uint32_t)1<<4);
+//		SENS2 = 2 * ((((uint64_t)TEMP)-2000) * (((uint64_t)TEMP)-2000));
+//
+//		if(TEMP < -1500) {
+//			OFF2 = OFF2 + (15 * ((TEMP + 1500) * (TEMP + 1500)));
+//			SENS2 = SENS2 + (8 * ((TEMP + 1500) * (TEMP + 1500)));
+//		}
+//	}
+//	else {
+//		T2 = 0;
+//		OFF2 = 0;
+//		SENS2 = 0;
+//	}
+//
+//	TEMP = TEMP - T2;
+//	data->OFF2 = OFF2;
+//	data->SENS2 = SENS2;
 
-	TEMP = TEMP - T2;
-	data->OFF2 = OFF2;
-	data->SENS2 = SENS2;
-
+	data->dT   = dT;
 	data->temp = ((float)TEMP) / 100.0;
-
 
 	return ESP_OK;
 }
@@ -188,6 +204,3 @@ esp_err_t MS5607_init() {
 
 	return ESP_OK;
 }
-
-
-
