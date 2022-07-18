@@ -9,8 +9,9 @@
 static const char* TAG = "MMC5983MA";
 static controlBitMemory_t controlBitMemory;
 
+
 esp_err_t MMC5983MA_read(uint8_t  address, uint8_t * buf, uint8_t len) {
-	uint8_t txBuff[7] = {READ_REG(address)};
+	uint8_t txBuff[8] = {READ_REG(address)};
     SPI_RW(SPI_SLAVE_MMC5983MA, txBuff, buf, len+1);
     return ESP_OK;
 }
@@ -38,7 +39,12 @@ esp_err_t MMC5983MA_writeSingleByte(uint8_t adress, uint8_t value) {
 
 esp_err_t MMC5983MA_init()
 {
-
+	MMC5983MA_enableAutomaticSetReset();
+	MMC5983MA_enablePeriodicSet();
+	MMC5983MA_setPeriodicSetSamples(100);
+	MMC5983MA_setFilterBandwidth(MMC5983MA_BAND_100);
+	MMC5983MA_setContinuousModeFrequency(MMC5983MA_FREQ_100HZ);
+	MMC5983MA_enableContinuousMode();
 	uint8_t buf[2] = {0};
 	MMC5983MA_read(PROD_ID_REG, buf, 1);
 
@@ -368,7 +374,7 @@ bool MMC5983MA_areYZChannelsEnabled()
     return MMC5983MA_isControlBitSet(INT_CTRL_1_REG, YZ_INHIBIT);
 }
 
-void MMC5983MA_setFilterBandwidth(uint16_t bandwidth)
+void MMC5983MA_setFilterBandwidth(mmc5983ma_band_t bandwidth)
 {
     // These must be set/cleared using the shadow memory since it can be read
     // using getFilterBandwith()
@@ -456,7 +462,7 @@ bool MMC5983MA_isContinuousModeEnabled()
     return MMC5983MA_isControlBitSet(INT_CTRL_2_REG, CMM_EN);
 }
 
-void MMC5983MA_setContinuousModeFrequency(uint16_t frequency)
+void MMC5983MA_setContinuousModeFrequency(mmc5983ma_cm_freq_t frequency)
 {
     // These must be set/cleared using the shadow memory since it can be read
     // using getContinuousModeFrequency()
@@ -913,4 +919,19 @@ uint32_t MMC5983MA_getMeasurementZ()
 }
 
 
+void MMC5983MA_getMeasurementXYZ_c(float* X, float* Y, float* Z)
+{
+	if(MMC5983MA_isRegisterSet(STATUS_REG, MEAS_M_DONE)){
+		uint8_t buffer[8] = {0};
+		MMC5983MA_read(X_OUT_0_REG, buffer, 7);
+
+		int32_t Xraw = (((uint32_t) buffer[1]) << 10) | (((uint32_t) buffer[2]) << 2) | ((buffer[7] & 0xC0) >> 6);
+		int32_t Yraw = (((uint32_t) buffer[3]) << 10) | (((uint32_t) buffer[4]) << 2) | ((buffer[7] & 0x30) >> 4);
+		int32_t Zraw = (((uint32_t) buffer[5]) << 10) | (((uint32_t) buffer[6]) << 2) | ((buffer[7] & 0x0C) >> 2);
+
+		*X = Xraw / 16.3840f;
+		*Y = Yraw / 16.3840f;
+ 	  	*Z = Zraw / 16.3840f;
+	}
+}
 

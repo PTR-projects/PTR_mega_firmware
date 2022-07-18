@@ -72,8 +72,8 @@ static const uint8_t PROD_ID        = 0x30;
 #define Z2_MASK                     (3 << 2)
 #define XYZ_0_SHIFT                 10
 #define XYZ_1_SHIFT                 2
-
-typedef enum class
+/*
+typedef enum SF_MMC5983MA_ERROR
 {
   NONE,
   I2C_INITIALIZATION_ERROR,
@@ -81,6 +81,30 @@ typedef enum class
   INVALID_DEVICE,
 
 }SF_MMC5983MA_ERROR;
+*/
+typedef enum mmc5983ma_cm_freq
+{
+	MMC5983MA_FREQ_1HZ = 1,
+	MMC5983MA_FREQ_25HZ = 10,
+	MMC5983MA_FREQ_75HZ = 20,
+	MMC5983MA_FREQ_100HZ = 50,
+	MMC5983MA_FREQ_250HZ = 100,
+	MMC5983MA_FREQ_500HZ = 200,
+	MMC5983MA_FREQ_1000HZ = 1000,
+	MMC5983MA_FREQ_2000HZ = 0
+
+}mmc5983ma_cm_freq_t;
+
+typedef enum mmc5983ma_band
+{
+	MMC5983MA_BAND_100 = 100,
+	MMC5983MA_BAND_200 = 200,
+	MMC5983MA_BAND_400 = 400,
+	MMC5983MA_BAND_800 = 800
+
+}mmc5983ma_band_t;
+
+
 
 esp_err_t MMC5983MA_read(uint8_t  address, uint8_t * buf, uint8_t len);
 uint8_t MMC5983MA_readSingleByte(uint8_t  address);
@@ -110,12 +134,12 @@ bool MMC5983MA_isXChannelEnabled();
 void MMC5983MA_enableYZChannels();
 void MMC5983MA_disableYZChannels();
 bool MMC5983MA_areYZChannelsEnabled();
-void MMC5983MA_setFilterBandwidth(uint16_t bandwidth);
+void MMC5983MA_setFilterBandwidth(mmc5983ma_band_t bandwidth);
 uint16_t MMC5983MA_getFilterBandwith();
 void MMC5983MA_enableContinuousMode();
 void MMC5983MA_disableContinuousMode();
 bool MMC5983MA_isContinuousModeEnabled();
-void MMC5983MA_setContinuousModeFrequency(uint16_t frequency);
+void MMC5983MA_setContinuousModeFrequency(mmc5983ma_cm_freq_t frequency);
 uint16_t MMC5983MA_getContinuousModeFrequency();
 void MMC5983MA_enablePeriodicSet();
 void MMC5983MA_disablePeriodicSet();
