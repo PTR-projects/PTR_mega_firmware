@@ -18,6 +18,10 @@ typedef enum{
 	COLOUR_BLUE = 0x0000FF,
 } led_colour_t;
 
+typedef enum{
+    GENERATOR,
+	NO_GENERATOR
+} buzzer_type_t;
 
 //Led configuration struct
 typedef struct{
@@ -32,8 +36,8 @@ typedef struct{
 } LED_t;
 
 
-void LED_srv(); //Update LED status task
-void led_blink_rate(uint8_t number, uint8_t on_time_tics, uint8_t off_time_tics); //Set blink rate for LED
+esp_err_t LED_srv(); //Update LED status task
+void led_blink_rate(uint8_t number, uint16_t on_time_tics, uint16_t off_time_tics); //Set blink rate for LED
 void led_mode(uint8_t number, led_mode_t mode); //Set blink mode for LED
 void strip_led_colour(uint8_t number, led_colour_t colour); //Set colour of RGB LED
 

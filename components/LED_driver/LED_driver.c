@@ -1,23 +1,25 @@
 #include "LED_driver.h"
 #include "esp_log.h"
 #include "BOARD.h"
-
-
+#include "driver/gpio.h"
+#include "esp_check.h"
+#include "esp_err.h"
 //LED/BUZZER DEFINITIONS
 #define LED_COUNT 1
 #define BUZZER_COUNT 1
-
-
+#define BUZZER_GENERATOR 1
+#define SRV_CLOCK 100
 //STRIP LED DEFINITIONS
 
-#define led_CHANNEL	0
+#define STRIP_LED_CHANNEL	0
 #define BITS_PER_LED_CMD 8
 #define STRIP_LED_COLOURS 3
 #define STRIP_LED_COUNT 3
-#define led_GPIO 33
+#define STRIP_LED_GPIO LED_WS_PIN
 #define LED_BUFFER_ITEMS ((STRIP_LED_COUNT * BITS_PER_LED_CMD * STRIP_LED_COLOURS))
-#define LED_ARRAY_SIZE ((STRIP_LED_COUNT * STRIP_LED_COLOURS) + LED_COUNT + BUZZER_COUNT)
-
+#define LED_ARRAY_SIZE (LED_POS + LED_COUNT + BUZZER_COUNT)
+#define BUZZER_POS LED_POS + LED_COUNT
+#define LED_POS STRIP_LED_COUNT * STRIP_LED_COLOURS
 // HIGH/LOW times for StripLED 
 #define T0H 3  // 0 bit high time
 #define T1H 7  // 1 bit high time
@@ -29,13 +31,13 @@ static const char *TAG = "LED";
 
 
 rmt_item32_t led_data_buffer[LED_BUFFER_ITEMS * STRIP_LED_COUNT]; //Strip LED set buffer
-static LED_t led[LED_ARRAY_SIZE]; //LED BUZZER STATUS ARRAY
+static LED_t led_array[LED_ARRAY_SIZE]; //LED BUZZER STATUS ARRAY
 
 void ws2812_control_init(void) {
 	rmt_config_t config;
 	config.rmt_mode = RMT_MODE_TX;
-	config.channel = led_CHANNEL;
-	config.gpio_num = led_GPIO;
+	config.channel = STRIP_LED_CHANNEL;
+	config.gpio_num = STRIP_LED_GPIO;
 	config.mem_block_num = 3;
 	config.tx_config.loop_en = false;
 	config.tx_config.carrier_en = false;
@@ -49,18 +51,52 @@ void ws2812_control_init(void) {
 	ESP_LOGI(TAG, "Strip LED init");
 }
 
+esp_err_t LED_init(){
+	gpio_config_t io_conf = {};
+	io_conf.intr_type = GPIO_INTR_DISABLE;
+	io_conf.mode = GPIO_MODE_OUTPUT;
+	io_conf.pin_bit_mask = ((1ULL<<LED_2_PIN));
+	io_conf.pull_down_en = 0;
+	io_conf.pull_up_en = 0;
+	gpio_config(&io_conf);
+
+	return ESP_OK;
+}
+
+esp_err_t Buzzer_init(){
+#if BUZZER_GENERATOR == 1
+	gpio_config_t io_conf = {};
+
+	io_conf.intr_type = GPIO_INTR_DISABLE;
+	io_conf.mode = GPIO_MODE_OUTPUT;
+	io_conf.pin_bit_mask = ((1ULL<<BUZZER_PIN));
+	io_conf.pull_down_en = 0;
+	io_conf.pull_up_en = 0;
+
+	gpio_config(&io_conf);
+
+#else
+	// space for passive buzzer code
+#endif
+
+	return ESP_OK;
+}
+
+
+
+
 void ws2812_update() {
 	ESP_ERROR_CHECK(
-			rmt_write_items(led_CHANNEL, led_data_buffer,
+			rmt_write_items(STRIP_LED_CHANNEL, led_data_buffer,
 					LED_BUFFER_ITEMS, false));
-	ESP_ERROR_CHECK (rmt_wait_tx_done( led_CHANNEL, portMAX_DELAY));
+	ESP_ERROR_CHECK (rmt_wait_tx_done( STRIP_LED_CHANNEL, portMAX_DELAY));
 }
 
 void setup_rmt_data_buffer(void) {
 	uint8_t blank = 0;
 	for (uint32_t x = 0; x < STRIP_LED_COUNT * 3; x++) {
 		uint8_t bits_to_send =
-				led[x].state ? led[x].bright : blank;
+				led_array[x].state ? led_array[x].bright : blank;
 		uint8_t mask = 1 << (BITS_PER_LED_CMD - 1);
 		for (uint8_t bit = 0; bit < BITS_PER_LED_CMD; bit++) {
 			uint8_t bit_is_set = bits_to_send & mask;
@@ -76,83 +112,113 @@ void setup_rmt_data_buffer(void) {
 
 void strip_led_colour(uint8_t number, led_colour_t colour) {
 	uint8_t *rgb = (uint8_t*)&colour; //read colour in 8bit chunks
-
-	led[number * 3].bright = rgb[2];
-	led[number * 3 + 1].bright = rgb[1];
-	led[number * 3 + 2].bright = rgb[0];
+	for (int8_t i = STRIP_LED_COLOURS - 1; i >= 0; i--){
+	led_array[number * 3 + i].bright = rgb[2-i];
+	}
 	ESP_LOGI(TAG, "Strip LED %d colour set to: %X %X %X", number, rgb[2], rgb[1], rgb[0]);
 }
 
 
 void strip_led_mode(uint8_t number, led_mode_t mode) {
-	led[number * 3].mode = mode;
-	led[number * 3 + 1].mode = mode;
-	led[number * 3 + 2].mode = mode;
+	for (int8_t i = STRIP_LED_COLOURS - 1; i >= 0; i--){
+	led_array[number * 3 + i].mode = mode;
+	}
 	ESP_LOGI(TAG, "Strip LED %d mode set to: %d", number, mode);
 }
 
+void strip_led_blink_counter(uint8_t number, uint16_t counter) {
+	for (int8_t i = STRIP_LED_COLOURS - 1; i >= 0; i--){
+	led_array[number * 3 + i].counter = counter;
+	}
+	ESP_LOGI(TAG, "Strip LED %d blink counter set to: %d", number, counter);
+}
 void led_mode(uint8_t number, led_mode_t mode) {
-	led[((STRIP_LED_COUNT * STRIP_LED_COLOURS) + number)].mode = mode;
+	led_array[(LED_POS + number)].mode = mode;
 	ESP_LOGI(TAG, "LED %d mode set to: %d", number, mode);
 }
 
-void strip_led_blink_rate(uint8_t number, uint8_t on_time_tics,
-		uint8_t off_time_tics) {
-	led[number * 3].off_time_tics = off_time_tics;
-	led[number * 3 + 1].off_time_tics = off_time_tics;
-	led[number * 3 + 2].off_time_tics = off_time_tics;
-	led[number * 3].on_time_tics = on_time_tics;
-	led[number * 3 + 1].on_time_tics = on_time_tics;
-	led[number * 3 + 2].on_time_tics = on_time_tics;
+void strip_led_blink_rate(uint8_t number, uint16_t on_time_tics, uint16_t off_time_tics) {
+	for (int8_t i = STRIP_LED_COLOURS - 1; i >= 0; i--){
+		led_array[number * 3 + i].off_time_tics = off_time_tics;
+		led_array[number * 3 + i].on_time_tics = on_time_tics;
+	}
 	ESP_LOGI(TAG, "Strip LED %d blink rate set to: %d/%d ON/OFF", number, on_time_tics, off_time_tics);
 }
 
-void led_blink_rate(uint8_t number, uint8_t on_time_tics,
-		uint8_t off_time_tics) {
-	led[((STRIP_LED_COUNT * STRIP_LED_COLOURS) + number)].off_time_tics = off_time_tics;
-	led[((STRIP_LED_COUNT * STRIP_LED_COLOURS) + number)].on_time_tics = on_time_tics;
+void led_blink_rate(uint8_t number, uint16_t on_time_tics, uint16_t off_time_tics) {
+	led_array[(LED_POS + number)].off_time_tics = off_time_tics;
+	led_array[(LED_POS + number)].on_time_tics = on_time_tics;
 	ESP_LOGI(TAG, "LED %d blink rate set to: %d/%d ON/OFF", number, on_time_tics, off_time_tics);
 }
 
-void LED_srv() {
+
+void any_led_state(uint8_t i, uint8_t state){
+	if (i < STRIP_LED_COUNT * STRIP_LED_COLOURS)
+				{
+					led_array[i].state = state;
+
+				}
+
+				if ( i < (LED_POS + 1))
+				{
+					gpio_set_level(LED_2_PIN, state);
+
+				}
+
+				else
+	#if BUZZER_GENERATOR == 1
+				{
+					gpio_set_level(BUZZER_PIN, state);
+
+				}
+	#elif
+				{
+					//Passive buzzer code
+
+				}
+	#endif
+}
+
+esp_err_t LED_srv() {
 
 	for (uint8_t i = 0; i < (LED_ARRAY_SIZE); i++) {
 
-		switch (led[i].mode) {
+		switch (led_array[i].mode) {
 		case LED_MODE_ON:
-			led[i].state = 1;
+			any_led_state(i, 1);
 			break;
 
+
 		case LED_MODE_OFF:
-			led[i].state = 0;
-			break;
+			any_led_state(i, 0);
+						break;
 
 		case LED_MODE_BLINK:
 
-			if (led[i].state == 0) {
-				if (++led[i].counter > led[i].off_time_tics) {
-					led[i].state = 1;
-					led[i].counter = 0;
+			if (led_array[i].state == 0) {
+				if (++led_array[i].counter > led_array[i].off_time_tics) {
+					any_led_state(i, 1);
+					led_array[i].counter = 0;
 				}
 			}
-			if (led[i].state == 1) {
-				if (++led[i].counter > led[i].on_time_tics) {
-					led[i].state = 0;
-					led[i].counter = 0;
+			if (led_array[i].state == 1) {
+				if (++led_array[i].counter > led_array[i].on_time_tics) {
+					any_led_state(i, 0);
+					led_array[i].counter = 0;
 				}
 			}
 			break;
 
 		case LED_MODE_PULSE:
-			if (led[i].state == 0) {
-				led[i].state = 1;
-				led[i].counter = 0;
+			if (led_array[i].state == 0) {
+				any_led_state(i, 1);
+				led_array[i].counter = 0;
 			}
 
-			if (led[i].state == 1) {
-				if (++led[i].counter > led[i].on_time_tics) {
-					led[i].state = 0;
-					led[i].counter = 0;
+			if (led_array[i].state == 1) {
+				if (++led_array[i].counter > led_array[i].on_time_tics) {
+					any_led_state(i, 0);
+					led_array[i].counter = 0;
 				}
 			}
 			break;
@@ -161,4 +227,51 @@ void LED_srv() {
 		}
 	}
 	setup_rmt_data_buffer();
+	return ESP_OK;
+}
+
+
+
+
+
+
+esp_err_t LED_blink(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+	if (blinks_number == 0) {
+		led_mode(LED_POS + led_no, LED_MODE_BLINK);
+		led_blink_rate(led_no, t_on_ms/100, t_off_ms/100);
+	}
+	else{
+		led_mode(LED_POS + led_no, LED_MODE_PULSE);
+		led_blink_rate(led_no, t_on_ms/100, t_off_ms/100);
+		led_array[led_no].counter = blinks_number;
+	}
+	return ESP_OK;
+}
+esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+
+	if (blinks_number == 0) {
+		strip_led_colour(led_no, colour);
+		strip_led_mode(led_no, LED_MODE_BLINK);
+		strip_led_blink_rate(led_no, t_on_ms/100, t_off_ms/100);
+	}
+	else{
+		strip_led_colour(led_no, colour);
+		strip_led_mode(led_no, LED_MODE_PULSE);
+		strip_led_blink_rate(led_no, t_on_ms/100, t_off_ms/100);
+		strip_led_blink_counter(led_no, blinks_number);
+	}
+	return ESP_OK;
+}
+
+esp_err_t Buzzer_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number){
+	if (beeps_number == 0) {
+		led_mode(BUZZER_POS, LED_MODE_BLINK);
+		led_blink_rate(BUZZER_POS, t_on_ms/100, t_off_ms/100);
+	}
+	else{
+		led_mode(BUZZER_POS, LED_MODE_PULSE);
+		led_blink_rate(BUZZER_POS, t_on_ms/100, t_off_ms/100);
+		led_array[BUZZER_POS].counter = beeps_number;
+	}
+	return ESP_OK;
 }
