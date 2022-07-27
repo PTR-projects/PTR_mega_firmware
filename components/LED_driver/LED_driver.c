@@ -30,7 +30,7 @@
 static const char *TAG = "LED";
 
 
-rmt_item32_t led_data_buffer[LED_BUFFER_ITEMS * STRIP_LED_COUNT]; //Strip LED set buffer
+rmt_item32_t led_data_buffer[LED_BUFFER_ITEMS * STRIP_LED_COLOURS]; //Strip LED set buffer TODO Tu chyba nie powinno byæ tego * STRIP_LED_COUNT
 static LED_t led_array[LED_ARRAY_SIZE]; //LED BUZZER STATUS ARRAY
 
 void ws2812_control_init(void) {
