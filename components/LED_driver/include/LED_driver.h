@@ -55,16 +55,7 @@ esp_err_t BUZZER_set(uint8_t state); 	//Set buzzer LED ON/OFF
 esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number); // Beep Buzzer on/off in MS 0 beeps number means infinite
 
 
-//Backend
-esp_err_t led_blink_rate(uint8_t number, uint16_t on_time_tics, uint16_t off_time_tics); //Set blink rate for LED
-esp_err_t led_mode(uint8_t number, led_mode_t mode); //Set blink mode for LED
-esp_err_t strip_led_colour(uint8_t number, led_colour_t colour, uint8_t brightness); //Set colour of RGB LED Brightness 0-255
-esp_err_t setup_rmt_data_buffer(void); //Prepare strip leds set array for update
-esp_err_t ws2812_update(void); //update strip leds
-esp_err_t ws2812_control_init(void); //Strip LED init
-esp_err_t strip_led_mode(uint8_t number, led_mode_t mode);
-esp_err_t strip_led_blink_pulses(uint8_t number, uint16_t pulses);
-esp_err_t strip_led_blink_rate(uint8_t number, uint16_t on_time_tics, uint16_t off_time_tics);
-esp_err_t any_led_state(uint8_t i, uint8_t state);
+
+
 
 #endif
