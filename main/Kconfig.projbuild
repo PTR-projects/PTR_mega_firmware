@@ -90,5 +90,17 @@ menu "KP-PTR Configuration"
     	default 0
     	help
     		Check if you want use GNSS receiver.
-	
+    		
+
+  
+    config CONSOLE_MAX_COMMAND_LINE_LENGTH
+        int "Maximum command line length"
+        default 1024
+        help
+            This value marks the maximum length of a single command line. Once it is
+            reached, no more characters will be accepted by the console.
+
 endmenu
+
+
+

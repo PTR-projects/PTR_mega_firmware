@@ -1279,6 +1279,11 @@
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/console/linenoise/linenoise.c</location>
 		</link>
 		<link>
+			<name>esp_idf_components/driver/esp32s3/rtc_tempsensor.c</name>
+			<type>1</type>
+			<location>C:/Espressif/frameworks/esp-idf-v4.4.2/components/driver/esp32s3/rtc_tempsensor.c</location>
+		</link>
+		<link>
 			<name>esp_idf_components/driver/esp32s3/touch_sensor.c</name>
 			<type>1</type>
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/driver/esp32s3/touch_sensor.c</location>
