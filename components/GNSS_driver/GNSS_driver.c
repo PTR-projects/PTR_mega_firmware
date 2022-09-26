@@ -12,7 +12,7 @@ static const char *TAG = "GNSS";
 static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
 static MessageBufferHandle_t xMessageBuffer_GNSS2Storage;
-static uint8_t xMessageBuffer_GNSS2Storage_buffer[2048];
+static uint8_t xMessageBuffer_GNSS2Storage_buffer[1 + (4 + sizeof(gps_t)) * 10];
 static StaticMessageBuffer_t  xMessageBuffer_GNSS2Storage_struct;
 
 ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
@@ -27,6 +27,9 @@ void GPS_init(void)
 	                                    xMessageBuffer_GNSS2Storage_buffer,
 	                                    &xMessageBuffer_GNSS2Storage_struct);
 
+	ESP_LOGI(TAG, "New queue created - size %i B, free spaces %i", sizeof(xMessageBuffer_GNSS2Storage_buffer),
+								xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage)/(4+sizeof(gps_t)));
+
     /* NMEA parser configuration */
     nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
     /* init NMEA parser library */
@@ -36,7 +39,7 @@ void GPS_init(void)
     /* register event handler for NMEA parser library */
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
-
+    ESP_LOGI(TAG, "Init ready");
 }
 
 
@@ -451,6 +454,7 @@ out:
  */
 static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
 {
+	ESP_LOGV(TAG, "New frame");
     const uint8_t *d = esp_gps->buffer;
     while (*d) {
         /* Start of a statement */
@@ -495,6 +499,7 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
             uint8_t crc = (uint8_t)strtol(esp_gps->item_str, NULL, 16);
             /* CRC passed */
             if (esp_gps->crc == crc) {
+            	ESP_LOGV(TAG, "Frame type %i", (int)(esp_gps->cur_statement));
                 switch (esp_gps->cur_statement) {
 #if CONFIG_NMEA_STATEMENT_GGA
                 case STATEMENT_GGA:
@@ -533,16 +538,22 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
                 }
                 /* Check if all statements have been parsed */
                 if (((esp_gps->parsed_statement) & esp_gps->all_statements) == esp_gps->all_statements) {
-                    esp_gps->parsed_statement = 0;
-                    /* Send signal to notify that GPS information has been updated */
-                    /*esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UPDATE,
-                                      &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
-                   */
+					esp_gps->parsed_statement = 0;
+					/* Send signal to notify that GPS information has been updated */
+					/*esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UPDATE,
+									  &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
+				   */
+					ESP_LOGI(TAG, "New data parsed! Add to queue");
+					if(xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage) < (4+sizeof(gps_t))){
+						ESP_LOGI(TAG, "Oldest packet removed");
+						gps_t tmp_gps;
+						xMessageBufferReceive( xMessageBuffer_GNSS2Storage, (void*) &tmp_gps, sizeof( gps_t ), 0);
+					}
+					xMessageBufferSend(xMessageBuffer_GNSS2Storage, (void *)&(esp_gps->parent), sizeof(gps_t), 0);
+					ESP_LOGI(TAG, "free space %i B, %i packets", xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage),
+																 xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage)/(4+sizeof(gps_t)));
 
-                    xMessageBufferSend(xMessageBuffer_GNSS2Storage, (void *)&(esp_gps->parent), sizeof(gps_t), 0);
-
-
-                }
+				}
             } else {
                 ESP_LOGD(TAG, "CRC Error for statement:%s", esp_gps->buffer);
             }
@@ -585,10 +596,10 @@ static void esp_handle_uart_pattern(esp_gps_t *esp_gps)
         esp_gps->buffer[read_len] = '\0';
         /* Send new line to handle */
         if (gps_decode(esp_gps, read_len + 1) != ESP_OK) {
-            printf( "GPS decode line failed");
+        	ESP_LOGE(TAG, "GPS decode line failed");
         }
     } else {
-        printf( "Pattern Queue Size too small");
+    	ESP_LOGI(TAG, "Pattern Queue Size too small");
         uart_flush_input(esp_gps->uart_port);
     }
 }
@@ -608,25 +619,26 @@ static void nmea_parser_task_entry(void *arg)
             case UART_DATA:
                 break;
             case UART_FIFO_OVF:
-                printf( "HW FIFO Overflow");
+            	ESP_LOGE(TAG, "HW FIFO Overflow");
                 uart_flush(esp_gps->uart_port);
                 xQueueReset(esp_gps->event_queue);
                 break;
             case UART_BUFFER_FULL:
-                printf( "Ring Buffer Full");
+            	ESP_LOGE(TAG, "Ring Buffer Full");
                 uart_flush(esp_gps->uart_port);
                 xQueueReset(esp_gps->event_queue);
                 break;
             case UART_BREAK:
-                printf( "Rx Break");
+            	ESP_LOGV(TAG, "Rx Break");
                 break;
             case UART_PARITY_ERR:
-                printf( "Parity Error");
+            	ESP_LOGV(TAG, "Parity Error");;
                 break;
             case UART_FRAME_ERR:
-                printf( "Frame Error");
+            	ESP_LOGV(TAG, "Frame Error");
                 break;
             case UART_PATTERN_DET:
+            	ESP_LOGV(TAG, "New line!");
                 esp_handle_uart_pattern(esp_gps);
                 break;
             default:
@@ -650,12 +662,12 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
 {
     esp_gps_t *esp_gps = calloc(1, sizeof(esp_gps_t));
     if (!esp_gps) {
-        printf( "calloc memory for esp_fps failed");
+    	ESP_LOGE(TAG, "calloc memory for esp_fps failed");
         goto err_gps;
     }
     esp_gps->buffer = calloc(1, NMEA_PARSER_RUNTIME_BUFFER_SIZE);
     if (!esp_gps->buffer) {
-        printf( "calloc memory for runtime buffer failed");
+    	ESP_LOGE(TAG, "calloc memory for runtime buffer failed");
         goto err_buffer;
     }
 #if CONFIG_NMEA_STATEMENT_GSA
@@ -690,16 +702,16 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     };
     if (uart_driver_install(esp_gps->uart_port, CONFIG_NMEA_PARSER_RING_BUFFER_SIZE, 0,
                             config->uart.event_queue_size, &esp_gps->event_queue, 0) != ESP_OK) {
-        printf( "install uart driver failed");
+    	ESP_LOGE(TAG, "install uart driver failed");
         goto err_uart_install;
     }
     if (uart_param_config(esp_gps->uart_port, &uart_config) != ESP_OK) {
-        printf( "config uart parameter failed");
+    	ESP_LOGE(TAG, "config uart parameter failed");
         goto err_uart_config;
     }
     if (uart_set_pin(esp_gps->uart_port, UART_PIN_NO_CHANGE, config->uart.rx_pin,
                      UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) != ESP_OK) {
-        printf( "config uart gpio failed");
+    	ESP_LOGE(TAG, "config uart gpio failed");
         goto err_uart_config;
     }
     /* Set pattern interrupt, used to detect the end of a line */
@@ -713,7 +725,7 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
         .task_name = NULL
     };
     if (esp_event_loop_create(&loop_args, &esp_gps->event_loop_hdl) != ESP_OK) {
-        printf( "create event loop faild");
+    	ESP_LOGE(TAG, "create event loop failed");
         goto err_eloop;
     }
     /* Create NMEA Parser task */
@@ -725,10 +737,10 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
                          CONFIG_NMEA_PARSER_TASK_PRIORITY,
                          &esp_gps->tsk_hdl);
     if (err != pdTRUE) {
-        printf( "create NMEA Parser task failed");
+    	ESP_LOGE(TAG, "create NMEA Parser task failed");
         goto err_task_create;
     }
-    printf( "NMEA Parser init OK");
+    ESP_LOGI(TAG, "NMEA Parser init OK");
     return esp_gps;
     /*Error Handling*/
 err_task_create:
@@ -802,9 +814,6 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
     switch (event_id) {
     case GPS_UPDATE:
-
-       // xMessageBufferSend(xMessageBuffer_GNSS2Storage, (void *)&event_data, sizeof(gps_t), 0);
-
         break;
     case GPS_UNKNOWN:
         /* print unknown statements */

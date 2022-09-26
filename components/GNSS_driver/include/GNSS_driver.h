@@ -13,7 +13,7 @@
 
 #define NMEA_MAX_STATEMENT_ITEM_LENGTH 16
 #define NMEA_EVENT_LOOP_QUEUE_SIZE 16
-#define TIME_ZONE (+1)   //Beijing Time
+#define TIME_ZONE (+1)   //Warsaw Time
 #define YEAR_BASE (2000) //date in GPS starts from 2000
 
 #define NMEA_PARSER_RUNTIME_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
