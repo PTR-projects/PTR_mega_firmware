@@ -58,7 +58,7 @@ esp_err_t BUZZER_init(void){
 }
 
 esp_err_t LED_srv() {
-	ESP_LOGI(TAG, "LED UPDATE");
+	ESP_LOGV(TAG, "LED UPDATE");
 	for (uint8_t i = 0; i < (LED_ARRAY_SIZE); i++) {
 
 		switch (led_array[i].mode) {
@@ -71,7 +71,7 @@ esp_err_t LED_srv() {
 						break;
 
 		case LED_MODE_BLINK:
-			ESP_LOGI(TAG, "LED blink");
+			ESP_LOGV(TAG, "LED blink");
 			if (led_array[i].state == 0) {
 				if (++led_array[i].counter > led_array[i].off_time_tics) {
 					any_led_state(i, 1);
@@ -87,7 +87,7 @@ esp_err_t LED_srv() {
 			break;
 
 		case LED_MODE_PULSE:
-			ESP_LOGI(TAG, "LED pulse");
+			ESP_LOGV(TAG, "LED pulse");
 			if (led_array[i].state == 0 && led_array[i].pulses > 0) {
 				if (++led_array[i].counter > led_array[i].off_time_tics) {
 					any_led_state(i, 1);
@@ -257,7 +257,7 @@ static esp_err_t any_led_state(uint8_t i, uint8_t state){
 	if (i >= (LED_POS) && i < BUZZER_POS )
 	{
 		gpio_set_level(LED_2_PIN, state);
-		ESP_LOGI(TAG, "LED %d set %d", LED_2_PIN, state);
+		ESP_LOGV(TAG, "LED %d set %d", LED_2_PIN, state);
 	}
 
 	if( i >= BUZZER_POS)
