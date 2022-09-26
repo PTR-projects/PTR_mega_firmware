@@ -5,16 +5,18 @@
 #include "esp_err.h"
 #include "driver/uart.h"
 #include "freertos/message_buffer.h"
+#include "BOARD.h"
 
 
 #define GPS_MAX_SATELLITES_IN_USE (12)
 #define GPS_MAX_SATELLITES_IN_VIEW (16)
 
-#define NMEA_PARSER_UART_RXD 2
+#define NMEA_MAX_STATEMENT_ITEM_LENGTH 16
+#define NMEA_EVENT_LOOP_QUEUE_SIZE 16
+#define TIME_ZONE (+1)   //Beijing Time
+#define YEAR_BASE (2000) //date in GPS starts from 2000
 
-
-
-
+#define NMEA_PARSER_RUNTIME_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
 
 /**
  * @brief Declare of NMEA Parser Event base
@@ -154,6 +156,25 @@ typedef struct {
  */
 typedef void *nmea_parser_handle_t;
 
+typedef struct {
+    uint8_t item_pos;                              /*!< Current position in item */
+    uint8_t item_num;                              /*!< Current item number */
+    uint8_t asterisk;                              /*!< Asterisk detected flag */
+    uint8_t crc;                                   /*!< Calculated CRC value */
+    uint8_t parsed_statement;                      /*!< OR'd of statements that have been parsed */
+    uint8_t sat_num;                               /*!< Satellite number */
+    uint8_t sat_count;                             /*!< Satellite count */
+    uint8_t cur_statement;                         /*!< Current statement ID */
+    uint32_t all_statements;                       /*!< All statements mask */
+    char item_str[NMEA_MAX_STATEMENT_ITEM_LENGTH]; /*!< Current item */
+    gps_t parent;                                  /*!< Parent class */
+    uart_port_t uart_port;                         /*!< Uart port number */
+    uint8_t *buffer;                               /*!< Runtime buffer */
+    esp_event_loop_handle_t event_loop_hdl;        /*!< Event loop handle */
+    TaskHandle_t tsk_hdl;                          /*!< NMEA Parser task handle */
+    QueueHandle_t event_queue;                     /*!< UART event queue handle */
+} esp_gps_t;
+
 /**
  * @brief Default configuration for NMEA Parser
  *
@@ -162,7 +183,7 @@ typedef void *nmea_parser_handle_t;
     {                                             \
         .uart = {                                 \
             .uart_port = UART_NUM_1,              \
-            .rx_pin = NMEA_PARSER_UART_RXD, \
+            .rx_pin = GNSS_TX_PIN, \
             .baud_rate = 9600,                    \
             .data_bits = UART_DATA_8_BITS,        \
             .parity = UART_PARITY_DISABLE,        \
@@ -221,6 +242,6 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
  *  - Others: Fail
  */
 esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler);
-void gps_main();
+void GPS_init();
 uint8_t GNSS_message_size(void);
-uint32_t gps_getData(gps_t * data, uint16_t ms); // Send GPS DATA to
+uint32_t GPS_getData(gps_t * data, uint16_t ms); // Send GPS DATA to

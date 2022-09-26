@@ -7,16 +7,9 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+static const char *TAG = "GNSS";
 
-
-#define NMEA_MAX_STATEMENT_ITEM_LENGTH 16
-#define NMEA_EVENT_LOOP_QUEUE_SIZE 16
-#define TIME_ZONE (+1)   //Beijing Time
-#define YEAR_BASE (2000) //date in GPS starts from 2000
-
-
-
-#define NMEA_PARSER_RUNTIME_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
+static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
 static MessageBufferHandle_t xMessageBuffer_GNSS2Storage;
 static uint8_t xMessageBuffer_GNSS2Storage_buffer[2048];
@@ -24,40 +17,44 @@ static StaticMessageBuffer_t  xMessageBuffer_GNSS2Storage_struct;
 
 ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
-static const char *TAG = "GNSS";
 
 
-typedef struct {
-    uint8_t item_pos;                              /*!< Current position in item */
-    uint8_t item_num;                              /*!< Current item number */
-    uint8_t asterisk;                              /*!< Asterisk detected flag */
-    uint8_t crc;                                   /*!< Calculated CRC value */
-    uint8_t parsed_statement;                      /*!< OR'd of statements that have been parsed */
-    uint8_t sat_num;                               /*!< Satellite number */
-    uint8_t sat_count;                             /*!< Satellite count */
-    uint8_t cur_statement;                         /*!< Current statement ID */
-    uint32_t all_statements;                       /*!< All statements mask */
-    char item_str[NMEA_MAX_STATEMENT_ITEM_LENGTH]; /*!< Current item */
-    gps_t parent;                                  /*!< Parent class */
-    uart_port_t uart_port;                         /*!< Uart port number */
-    uint8_t *buffer;                               /*!< Runtime buffer */
-    esp_event_loop_handle_t event_loop_hdl;        /*!< Event loop handle */
-    TaskHandle_t tsk_hdl;                          /*!< NMEA Parser task handle */
-    QueueHandle_t event_queue;                     /*!< UART event queue handle */
-} esp_gps_t;
+
+void GPS_init(void)
+{
+	xMessageBuffer_GNSS2Storage = xMessageBufferCreateStatic(
+	                                    sizeof(xMessageBuffer_GNSS2Storage_buffer),
+	                                    xMessageBuffer_GNSS2Storage_buffer,
+	                                    &xMessageBuffer_GNSS2Storage_struct);
+
+    /* NMEA parser configuration */
+    nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+    /* init NMEA parser library */
+
+    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+
+    /* register event handler for NMEA parser library */
+    nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+
+
+}
+
+
+uint32_t GPS_getData(gps_t * data, uint16_t ms){
+	return xMessageBufferReceive( xMessageBuffer_GNSS2Storage,
+								 ( void * ) data,
+								 sizeof( gps_t ),
+								 pdMS_TO_TICKS( ms ));
+}
+
+//---------------------------------------------
+//	Low Level
+//---------------------------------------------
 
 uint8_t GNSS_message_size(void)
 {
 	return sizeof(gps_t);
 }
-
-float GNSS_lat(void);                                                /*!< Latitude (degrees) */
-float longitude;                                               /*!< Longitude (degrees) */
-float altitude;                                                /*!< Altitude (meters) */
-gps_fix_t fix;
-
-
-
 
 static float parse_lat_long(esp_gps_t *esp_gps)
 {
@@ -67,8 +64,6 @@ static float parse_lat_long(esp_gps_t *esp_gps)
     ll = deg + min / 60.0f;
     return ll;
 }
-
-
 
 /**
  * @brief Converter two continuous numeric character into a uint8_t number
@@ -818,33 +813,4 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     default:
         break;
     }
-}
-
-
-
-void gps_main(void)
-{
-	xMessageBuffer_GNSS2Storage = xMessageBufferCreateStatic(
-	                                    sizeof(xMessageBuffer_GNSS2Storage_buffer),
-	                                    xMessageBuffer_GNSS2Storage_buffer,
-	                                    &xMessageBuffer_GNSS2Storage_struct);
-
-    /* NMEA parser configuration */
-    nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-    /* init NMEA parser library */
-
-    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-
-    /* register event handler for NMEA parser library */
-    nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
-
-
-}
-
-
-uint32_t gps_getData(gps_t * data, uint16_t ms){
-	return xMessageBufferReceive( xMessageBuffer_GNSS2Storage,
-								 ( void * ) data,
-								 sizeof( gps_t ),
-								 pdMS_TO_TICKS( ms ));
 }

@@ -31,6 +31,7 @@
 
 #define GNSS_RX_PIN				1
 #define GNSS_TX_PIN				2
+#define GNSS_UART 				UART_NUM_1
 
 #define UART_EXT_OUT			13
 #define UART_EXT_IN				14
@@ -45,6 +46,7 @@
 #define IGN4_DET_PIN			4
 
 #define VBAT_MEAS_PIN			8
+
 #endif
 
 #else
