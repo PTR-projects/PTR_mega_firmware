@@ -11,6 +11,9 @@ static spi_device_handle_t spi_dev_handle;
 
 
 esp_err_t SPI_init(uint32_t frequency){
+	if(frequency < 10000) frequency = 10000;		//min freq 10kHz
+	if(frequency > 40000000) frequency = 40000000;	//max freq 40MHz
+
 	// -------------- Configure CS pins ----------------------------------
 	gpio_reset_pin		(SPI_SLAVE_MS5607_PIN);
 	gpio_set_direction	(SPI_SLAVE_MS5607_PIN, GPIO_MODE_OUTPUT);
@@ -46,13 +49,13 @@ esp_err_t SPI_init(uint32_t frequency){
 		.quadhd_io_num = -1,
 	};
 
-	ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_DISABLED); //Initialize the SPI bus (prev: SPI_DMA_CH_AUTO)
+	ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO); //Initialize the SPI bus (prev: SPI_DMA_CH_AUTO)
 	ESP_ERROR_CHECK(ret);
 
 	spi_device_interface_config_t devcfg = {
 		.mode           =  0,
 		.spics_io_num   = -1,
-		.clock_speed_hz =  1 * 1000 * 1000,
+		.clock_speed_hz =  frequency,
 		.queue_size     =  1,
 	};
 
