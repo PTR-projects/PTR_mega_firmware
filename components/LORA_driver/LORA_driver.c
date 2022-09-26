@@ -4,8 +4,8 @@
 #include "freertos/timers.h"
 #include "esp_log.h"
 
+#include "SX126x_hal.h"
 #include "SX126x_driver.h"
-#include "sx126x_hal.h"
 #include "LORA_driver.h"
 
 static const char *TAG = "LORA driver";

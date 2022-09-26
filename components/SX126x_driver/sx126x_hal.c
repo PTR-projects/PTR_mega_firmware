@@ -1,5 +1,5 @@
 /*
- * SX1262_hal.c
+ * SX1262_driver.c
  *
  *  Created on: 22 maj 2019
  *      Author: b.moczala
@@ -14,7 +14,7 @@
 #include "esp_err.h"
 #include "driver/gpio.h"
 #include "SPI_driver.h"
-#include "sx126x_hal.h"
+#include "SX126x_hal.h"
 
 void SX126X_initIO(){
 	gpio_reset_pin(RF_BUSY_PIN);
@@ -86,7 +86,7 @@ sx126x_hal_status_t sx126x_hal_read(const void* context, const uint8_t *command,
 
 	return 0;
 }
- 
+
 sx126x_hal_status_t sx126x_hal_write(const void* context, const uint8_t *command, const uint16_t command_length,
 									  const uint8_t *data, const uint16_t data_length) {
 	SX126X_checkBusy();
@@ -99,7 +99,7 @@ sx126x_hal_status_t sx126x_hal_write(const void* context, const uint8_t *command
 	SX126X_SPICS(1);
 
 	return 0;
-}		
+}
 
 sx126x_hal_status_t sx126x_hal_reset( const void* context ){
 	vTaskDelay(20);
@@ -109,7 +109,7 @@ sx126x_hal_status_t sx126x_hal_reset( const void* context ){
 	vTaskDelay(20);
 
 	return 0;
-}			  
+}
 
 sx126x_hal_status_t sx126x_hal_wakeup( const void* context ){
 	SX126X_SPICS(0);
@@ -119,10 +119,3 @@ sx126x_hal_status_t sx126x_hal_wakeup( const void* context ){
 
 	return 0;
 }
-
-
-
-
-
-
-
