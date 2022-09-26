@@ -6,28 +6,83 @@
 
 #include "MS5607_driver.h"
 
+static void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len);
+static void MS5607_write(uint8_t address);
+static esp_err_t MS5607_resetDevice();
+static esp_err_t MS5607_readCalibration();
+static esp_err_t MS5607_reqPress();
+static esp_err_t MS5607_reqTemp();
+static esp_err_t MS5607_getPress(MS5607_t * data);
+static esp_err_t MS5607_getTemp(MS5607_t * data);
+static esp_err_t  MS5607_calcPress(MS5607_t * data);
+static esp_err_t  MS5607_calcTemp(MS5607_t * data);
 
 static MS5607_cal_t MS5607_cal_d;
 
-void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
+esp_err_t MS5607_init(MS5607_t * data) {
+	MS5607_readCalibration();
+
+	MS5607_reqPress();
+	vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
+	MS5607_getPress(data);
+	MS5607_reqTemp();
+	vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
+	MS5607_getTemp(data);
+	MS5607_reqPress();
+
+	return ESP_OK;
+}
+
+esp_err_t MS5607_getReloadSmart(MS5607_t * data){
+    static int8_t count = -1;
+    count++;
+
+    if((count != 0 ) && (count < 100)){
+        MS5607_getPress(data);
+        MS5607_reqPress();
+    }
+
+    if(count == 100){
+        MS5607_getPress(data);
+        MS5607_reqTemp();
+    }
+
+    if(count == 101){
+        count = 1;
+        MS5607_getTemp(data);
+        MS5607_reqPress();
+    }
+
+    if(count == 0){
+        MS5607_reqPress();
+    }
+
+    data->temp = count;
+    MS5607_calcTemp(data);
+    MS5607_calcPress(data);
+
+    return ESP_OK;
+}
+
+static void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
     uint8_t txBuff[4] = {0U};
     txBuff[0] = address;
     SPI_RW(SPI_SLAVE_MS5607, txBuff, buf, len+1);
 }
 
-void MS5607_write(uint8_t address) {
+static void MS5607_write(uint8_t address) {
     uint8_t txBuff[1] = {address};
     SPI_RW(SPI_SLAVE_MS5607, txBuff, NULL, 1);
 }
 
-esp_err_t MS5607_resetDevice() {
+static esp_err_t MS5607_resetDevice() {
 
 	MS5607_write(MS5607_RESET);
 	vTaskDelay(10/portTICK_PERIOD_MS);  //10ms
 	return ESP_OK;
 }
 
-esp_err_t MS5607_readCalibration() {
+static esp_err_t MS5607_readCalibration() {
 	MS5607_resetDevice();
 
 	uint8_t buf[3] = {0};
@@ -68,17 +123,17 @@ esp_err_t MS5607_readCalibration() {
 	 */
 }
 
-esp_err_t MS5607_reqPress() {
+static esp_err_t MS5607_reqPress() {
 	MS5607_write(MS5607_CONVERT_D1_256);
 	return ESP_OK;
 }
 
-esp_err_t MS5607_reqTemp() {
+static esp_err_t MS5607_reqTemp() {
 	MS5607_write(MS5607_CONVERT_D2_256);
 	return ESP_OK;
 }
 
-esp_err_t MS5607_getPress(MS5607_t * data) {
+static esp_err_t MS5607_getPress(MS5607_t * data) {
 	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
 
@@ -92,7 +147,7 @@ esp_err_t MS5607_getPress(MS5607_t * data) {
 	return ESP_OK;
 }
 
-esp_err_t MS5607_getTemp(MS5607_t * data) {
+static esp_err_t MS5607_getTemp(MS5607_t * data) {
 	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
 
@@ -106,7 +161,7 @@ esp_err_t MS5607_getTemp(MS5607_t * data) {
 	return ESP_OK;
 }
 
-esp_err_t  MS5607_calcPress(MS5607_t * data) {
+static esp_err_t  MS5607_calcPress(MS5607_t * data) {
 	int64_t dT = data->dT;
 	int64_t C1 = MS5607_cal_d.C1;
 	int64_t C2 = MS5607_cal_d.C2;
@@ -122,7 +177,7 @@ esp_err_t  MS5607_calcPress(MS5607_t * data) {
 	return ESP_OK;
 }
 
-esp_err_t  MS5607_calcTemp(MS5607_t * data) {
+static esp_err_t  MS5607_calcTemp(MS5607_t * data) {
 	uint64_t C5 = MS5607_cal_d.C5;
 	int64_t  C6 = MS5607_cal_d.C6;
 	int64_t  D2 = data->D2;
@@ -159,48 +214,6 @@ esp_err_t  MS5607_calcTemp(MS5607_t * data) {
 
 	data->dT   = dT;
 	data->temp = ((float)TEMP) / 100.0;
-
-	return ESP_OK;
-}
-
-
-void MS5607_getReloadSmart(MS5607_t * data){
-    static int8_t count = -1;
-    count++;
-
-    if((count != 0 ) && (count < 100)){
-        MS5607_getPress(data);
-        MS5607_reqPress();
-    }
-
-    if(count == 100){
-        MS5607_getPress(data);
-        MS5607_reqTemp();
-    }
-
-    if(count == 101){
-        count = 1;
-        MS5607_getTemp(data);
-        MS5607_reqPress();
-    }
-
-    if(count == 0){
-        MS5607_reqPress();
-        vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
-        MS5607_getPress(data);
-        MS5607_reqTemp();
-        vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
-        MS5607_getTemp(data);
-        MS5607_reqPress();
-    }
-
-    data->temp = count;
-    MS5607_calcTemp(data);
-    MS5607_calcPress(data);
-}
-
-esp_err_t MS5607_init() {
-	MS5607_readCalibration();
 
 	return ESP_OK;
 }
