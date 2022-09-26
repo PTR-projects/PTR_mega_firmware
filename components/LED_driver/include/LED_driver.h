@@ -16,10 +16,12 @@ typedef enum{
     COLOUR_RED = 0x00FF00,
 	COLOUR_GREEN = 0xFF0000,
 	COLOUR_BLUE = 0x0000FF,
-	COLOUR_YELLOW = 0xFFFF00,
+	COLOUR_YELLOW = 0xABAB00,
 	COLOUR_WHITE = 0xFFFFFF,
-	COLOUR_AQUA = 0xFF00FF,
-	COLOUR_PURPLE = 0x00FFFF
+	COLOUR_AQUA = 0xAB0055,
+	COLOUR_PURPLE = 0x0055AB,
+	COLOUR_PINK = 0x00AB55,
+	COLOUR_ORANGE = 0x55AB00
 } led_colour_t; //Colours in GRB NOT RGB
 
 
@@ -37,10 +39,27 @@ typedef struct{
 
 //Main User Interface
 
+#define SRV_CLOCK 100
+//STRIP LED DEFINITIONS
+
+#define STRIP_LED_CHANNEL	0
+#define BITS_PER_LED_CMD 8
+#define STRIP_LED_COLOURS 3
+#define STRIP_LED_GPIO LED_WS_PIN
+#define LED_BUFFER_ITEMS ((LED_WS_COUNT * BITS_PER_LED_CMD * STRIP_LED_COLOURS))
+#define LED_ARRAY_SIZE (LED_POS + LED_STD_COUNT + BUZZER_COUNT)
+#define BUZZER_POS LED_POS + LED_STD_COUNT
+#define LED_POS LED_WS_COUNT * STRIP_LED_COLOURS
+// HIGH/LOW times for StripLED
+#define WS_T0H 3  // 0 bit high time
+#define WS_T1H 7  // 1 bit high time
+#define WS_T0L 7  // 0 bit low time
+#define WS_T1L 3  // 1 bit low time
+
 
 esp_err_t LED_srv(void); //Update LED status task should be run in SRV_CLOCK intervals
 
-//Normal LED
+// LED
 esp_err_t LED_init(void); 	//Initialize LED and Strip LED
 esp_err_t LED_set(uint8_t led_no, uint8_t state); 		//Set normal LED on/off
 esp_err_t LED_blink(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number); // Blink LED on/off time in MS 0 beeps number means infinite
