@@ -45,6 +45,11 @@
 #define IGN4_DET_PIN			4
 
 #define VBAT_MEAS_PIN			8
+
+#define LED_STD_COUNT			1
+#define LED_WS_COUNT			3
+#define BUZZER_COUNT			1
+#define BUZZER_GENERATOR		1
 #endif
 
 #else
