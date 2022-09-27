@@ -31,6 +31,7 @@
 
 #define GNSS_RX_PIN				1
 #define GNSS_TX_PIN				2
+#define GNSS_UART 				UART_NUM_2
 
 #define UART_EXT_OUT			13
 #define UART_EXT_IN				14
