@@ -12,44 +12,47 @@ static esp_err_t MS5607_resetDevice();
 static esp_err_t MS5607_readCalibration();
 static esp_err_t MS5607_reqPress();
 static esp_err_t MS5607_reqTemp();
-static esp_err_t MS5607_getPress(MS5607_t * data);
-static esp_err_t MS5607_getTemp(MS5607_t * data);
-static esp_err_t  MS5607_calcPress(MS5607_t * data);
-static esp_err_t  MS5607_calcTemp(MS5607_t * data);
+static esp_err_t MS5607_readPress();
+static esp_err_t MS5607_readTemp();
+static esp_err_t  MS5607_calcPress();
+static esp_err_t  MS5607_calcTemp();
+
 
 static MS5607_cal_t MS5607_cal_d;
+static MS5607_t 	MS5607_d;
 
-esp_err_t MS5607_init(MS5607_t * data) {
+
+esp_err_t MS5607_init() {
 	MS5607_readCalibration();
 
 	MS5607_reqPress();
 	vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
-	MS5607_getPress(data);
+	MS5607_readPress();
 	MS5607_reqTemp();
 	vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
-	MS5607_getTemp(data);
+	MS5607_readTemp();
 	MS5607_reqPress();
 
 	return ESP_OK;
 }
 
-esp_err_t MS5607_getReloadSmart(MS5607_t * data){
+esp_err_t MS5607_getReloadSmart(){
     static int8_t count = -1;
     count++;
 
     if((count != 0 ) && (count < 100)){
-        MS5607_getPress(data);
+        MS5607_readPress();
         MS5607_reqPress();
     }
 
     if(count == 100){
-        MS5607_getPress(data);
+        MS5607_readPress();
         MS5607_reqTemp();
     }
 
     if(count == 101){
         count = 1;
-        MS5607_getTemp(data);
+        MS5607_readTemp();
         MS5607_reqPress();
     }
 
@@ -57,11 +60,24 @@ esp_err_t MS5607_getReloadSmart(MS5607_t * data){
         MS5607_reqPress();
     }
 
-    data->temp = count;
-    MS5607_calcTemp(data);
-    MS5607_calcPress(data);
+    MS5607_calcTemp();
+    MS5607_calcPress();
 
     return ESP_OK;
+}
+
+float MS5607_getPress(){
+	return MS5607_d.meas.press;
+}
+
+float MS5607_getTemp(){
+	return MS5607_d.meas.temp;
+}
+
+esp_err_t MS5607_getMeas(MS5607_meas_t * meas){
+	*meas = MS5607_d.meas;
+
+	return ESP_OK;
 }
 
 static void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
@@ -133,7 +149,7 @@ static esp_err_t MS5607_reqTemp() {
 	return ESP_OK;
 }
 
-static esp_err_t MS5607_getPress(MS5607_t * data) {
+static esp_err_t MS5607_readPress() {
 	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
 
@@ -143,11 +159,11 @@ static esp_err_t MS5607_getPress(MS5607_t * data) {
 		return ESP_FAIL; //Requested ADC_READ before conversion was completed
 	}
 
-	data->D1 = D1;
+	MS5607_d.D1 = D1;
 	return ESP_OK;
 }
 
-static esp_err_t MS5607_getTemp(MS5607_t * data) {
+static esp_err_t MS5607_readTemp() {
 	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
 
@@ -157,30 +173,30 @@ static esp_err_t MS5607_getTemp(MS5607_t * data) {
 		return ESP_FAIL; //Requested ADC_READ before conversion was completed
 	}
 
-	data->D2 = D2;
+	MS5607_d.D2 = D2;
 	return ESP_OK;
 }
 
-static esp_err_t  MS5607_calcPress(MS5607_t * data) {
-	int64_t dT = data->dT;
+static esp_err_t  MS5607_calcPress() {
+	int64_t dT = MS5607_d.dT;
 	int64_t C1 = MS5607_cal_d.C1;
 	int64_t C2 = MS5607_cal_d.C2;
 	int64_t C3 = MS5607_cal_d.C3;
 	int64_t C4 = MS5607_cal_d.C4;
-	int64_t D1 = data->D1;
+	int64_t D1 = MS5607_d.D1;
 
 	int64_t OFF  = (C2 << 17) + ((C4 * dT) >> 6);
 	int64_t SENS = (C1 << 16) + ((C3 * dT) >> 7);
 	int64_t P    = (((D1 * SENS) >> 21) - OFF) >> 15;
-	data->press  = (float)P;
+	MS5607_d.meas.press  = (float)P;
 
 	return ESP_OK;
 }
 
-static esp_err_t  MS5607_calcTemp(MS5607_t * data) {
+static esp_err_t  MS5607_calcTemp() {
 	uint64_t C5 = MS5607_cal_d.C5;
 	int64_t  C6 = MS5607_cal_d.C6;
-	int64_t  D2 = data->D2;
+	int64_t  D2 = MS5607_d.D2;
 
 	int32_t dT   = D2 - (C5 << 8);
 	int32_t TEMP = 2000 + ((dT * C6) >> 23);
@@ -212,8 +228,8 @@ static esp_err_t  MS5607_calcTemp(MS5607_t * data) {
 //	data->OFF2 = OFF2;
 //	data->SENS2 = SENS2;
 
-	data->dT   = dT;
-	data->temp = ((float)TEMP) / 100.0;
+	MS5607_d.dT   = dT;
+	MS5607_d.meas.temp = ((float)TEMP) / 100.0f;
 
 	return ESP_OK;
 }

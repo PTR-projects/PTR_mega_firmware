@@ -1,6 +1,11 @@
 #pragma once
 #include "esp_err.h"
 
+typedef struct{
+	float temp;
+	float press;
+} MS5607_meas_t;
+
 typedef struct {
 	uint32_t D1;
 	uint32_t D2;
@@ -8,8 +13,7 @@ typedef struct {
 	int64_t SENS2;
 	int64_t OFF2;
 
-	float temp;
-	float press;
+	MS5607_meas_t meas;
 } MS5607_t;
 
 typedef struct {
@@ -23,9 +27,11 @@ typedef struct {
 
 
 
-esp_err_t MS5607_init(MS5607_t * data);
-esp_err_t MS5607_getReloadSmart(MS5607_t * data);
-
+esp_err_t MS5607_init();
+esp_err_t MS5607_getReloadSmart();
+float MS5607_getPress();
+float MS5607_getTemp();
+esp_err_t MS5607_getMeas(MS5607_meas_t * meas);
 
 
 /*
