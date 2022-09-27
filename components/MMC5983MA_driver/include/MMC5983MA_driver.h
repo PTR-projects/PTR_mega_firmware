@@ -1,11 +1,16 @@
 #pragma once
-#ifndef _MMC5983MA_CONSTANTS_
-#define _MMC5983MA_CONSTANTS_
+
 #include "SPI_driver.h"
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "esp_system.h"
 
+
+typedef struct{
+	float magX;
+	float magY;
+	float magZ;
+} MMC5983MA_meas_t;
 
 typedef struct {
 	int32_t Xraw;
@@ -20,9 +25,7 @@ typedef struct {
 	float offsetY;
 	float offsetZ;
 
-	float magX;
-	float magY;
-	float magZ;
+	MMC5983MA_meas_t meas;
 } MMC5983MA_t;
 
 
@@ -35,7 +38,8 @@ typedef struct
   } controlBitMemory_t;
 
 esp_err_t MMC5983MA_init();
-void MMC5983MA_getMeasurementXYZ_c(float* X, float* Y, float* Z);
+esp_err_t MMC5983MA_readMeas();
+esp_err_t MMC5983MA_getMeas(MMC5983MA_meas_t * meas);
 
 #define MMC_X_OUT_0_REG     0x00
 #define MMC_X_OUT_1_REG     0x01
@@ -120,7 +124,3 @@ typedef enum mmc5983ma_band
 	MMC5983MA_BAND_800 = 800
 
 } mmc5983ma_band_t;
-
-
-
-#endif

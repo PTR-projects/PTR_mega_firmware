@@ -92,7 +92,7 @@ esp_err_t MMC5983MA_init()
 	return ESP_FAIL;
 }
 
-void MMC5983MA_getMeasurementXYZ_c(float* X, float* Y, float* Z)
+esp_err_t MMC5983MA_readMeas()
 {
 	if(MMC5983MA_isRegisterSet(MMC_STATUS_REG, MMC_MEAS_M_DONE)){
 		uint8_t buffer[8] = {0};
@@ -112,14 +112,19 @@ void MMC5983MA_getMeasurementXYZ_c(float* X, float* Y, float* Z)
 		MMC5983MA_d.Yraw = Yraw;
 		MMC5983MA_d.Zraw = Zraw;
 
-		MMC5983MA_d.magX = (Xraw - MMC5983MA_d.offsetX) / MMC5983MA_d.gainX;
-		MMC5983MA_d.magY = (Yraw - MMC5983MA_d.offsetY) / MMC5983MA_d.gainY;
-		MMC5983MA_d.magZ = (Zraw - MMC5983MA_d.offsetZ) / MMC5983MA_d.gainZ;
+		MMC5983MA_d.meas.magX = (Xraw - MMC5983MA_d.offsetX) / MMC5983MA_d.gainX;
+		MMC5983MA_d.meas.magY = (Yraw - MMC5983MA_d.offsetY) / MMC5983MA_d.gainY;
+		MMC5983MA_d.meas.magZ = (Zraw - MMC5983MA_d.offsetZ) / MMC5983MA_d.gainZ;
 
-		*X = MMC5983MA_d.magX;
-		*Y = MMC5983MA_d.magY;
- 	  	*Z = MMC5983MA_d.magZ;
+		return ESP_OK;
 	}
+	return ESP_ERR_NOT_FOUND;
+}
+
+esp_err_t MMC5983MA_getMeas(MMC5983MA_meas_t * meas){
+	*meas = MMC5983MA_d.meas;
+
+	return ESP_OK;
 }
 
 static esp_err_t MMC5983MA_read(uint8_t  address, uint8_t * buf, uint8_t len) {
