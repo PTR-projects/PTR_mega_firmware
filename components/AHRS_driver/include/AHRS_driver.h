@@ -1,1 +1,5 @@
-void func(void);
+#pragma once
+
+typedef struct{
+
+} AHRS_t;
