@@ -113,6 +113,9 @@ esp_err_t SPI_CS(spi_slave_t slave, uint8_t state){
 		gpio_set_level(SPI_SLAVE_SX1262_PIN, state);
 		break;
 
+	case SPI_SLAVE_NONE:
+		break;
+
 	default:
 		return ESP_ERR_INVALID_ARG;
 	}

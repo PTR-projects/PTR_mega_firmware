@@ -2,6 +2,7 @@
 #include "esp_err.h"
 
 typedef enum{
+	SPI_SLAVE_NONE,
     SPI_SLAVE_MS5607,
     SPI_SLAVE_LIS331,
 	SPI_SLAVE_LSM6DSO32,
