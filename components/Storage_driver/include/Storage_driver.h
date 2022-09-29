@@ -1,10 +1,12 @@
 #pragma once
 #include "esp_err.h"
+#include "esp_spiffs.h"
 
 typedef enum{
 	FILESYSTEM_LITTLEFS = 1,
 	FILESYSTEM_SPIFFS = 2
 } Storage_filesystem_t; 
+
 
 
 esp_err_t Storage_init(Storage_filesystem_t FS, uint32_t key);
