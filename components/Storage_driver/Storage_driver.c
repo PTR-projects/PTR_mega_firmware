@@ -59,9 +59,7 @@ esp_err_t Storage_init_Spiffs(uint32_t key){
     while(stat(path, &st)){
         fileCnt++;
 
-        itoa(fileCnt/10, path+12, 10);
-        itoa(fileCnt%10, path+13, 10);
-        strcat(path, ".csv");
+        sprintf(path, "/spiffs/Meas%02i.csv", fileCnt); 
     }
 
     Storage_data_d.fileCount = fileCnt;
