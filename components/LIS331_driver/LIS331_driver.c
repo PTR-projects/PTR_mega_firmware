@@ -201,7 +201,7 @@ esp_err_t LIS331_init(LIS331_type_t type)
 
 esp_err_t LIS331_x_axis_set(bool val)
 {
-	if (val){
+	if (!val){
 		LIS331_set(LIS331_CTRL_REG1, Xen_mask , 0x0);
 	}
 	else
@@ -219,7 +219,7 @@ bool LIS331_x_axis_get(void)
 
 esp_err_t LIS331_y_axis_set(bool val)
 {
-	if (val){
+	if (!val){
 		LIS331_set(LIS331_CTRL_REG1, Yen_mask , 0x0);
 	}
 	else
@@ -236,7 +236,7 @@ bool LIS331_y_axis_get(void)
 
 esp_err_t LIS331_z_axis_set(bool val)
 {
-	if (val){
+	if (!val){
 		LIS331_set(LIS331_CTRL_REG1, Zen_mask , 0x0);
 	}
 	else
@@ -329,22 +329,22 @@ esp_err_t LIS331_hp_en_set(uint8_t interup, bool val)
 {
 	switch(interup){
 	case 1:
-		if (val){
-			LIS331_set(LIS331_CTRL_REG2, HP_En1_mask, HP_En1_mask);
+		if (!val){
+			LIS331_set(LIS331_CTRL_REG2, HP_En1_mask, 0);
 		}
 		else
 		{
-			LIS331_set(LIS331_CTRL_REG2, HP_En1_mask, 0);
+			LIS331_set(LIS331_CTRL_REG2, HP_En1_mask, HP_En1_mask);
 		}
 		break;
 
 	case 2:
-		if (val){
-			LIS331_set(LIS331_CTRL_REG2, HP_En2_mask, HP_En1_mask);
+		if (!val){
+			LIS331_set(LIS331_CTRL_REG2, HP_En2_mask, 0);
 		}
 		else
 		{
-			LIS331_set(LIS331_CTRL_REG2, HP_En2_mask, 0);
+			LIS331_set(LIS331_CTRL_REG2, HP_En2_mask,HP_En1_mask);
 		}
 		break;
 	default:
@@ -378,3 +378,64 @@ LIS331_hp_cutoff_t LIS331_hp_cutoff_get(void)
 {
 	return LIS331_get(LIS331_CTRL_REG2, HP_Cutoff_mask);
 }
+
+
+esp_err_t LIS331_bdu_set(bool val)
+{
+	if (!val){
+		LIS331_set(LIS331_CTRL_REG4, BDU_mask, 0);
+	}
+	else{
+		LIS331_set(LIS331_CTRL_REG4, BDU_mask, BDU_mask);
+	}
+	return ESP_OK;
+}
+
+bool LIS331_bdu_get(void)
+{
+	return LIS331_get(LIS331_CTRL_REG4, BDU_mask) == BDU_mask;
+}
+
+esp_err_t LIS331_ble_set(bool val)
+{
+	if (!val){
+		LIS331_set(LIS331_CTRL_REG4, BLE_mask, 0);
+	}
+	else{
+		LIS331_set(LIS331_CTRL_REG4, BLE_mask, BLE_mask);
+	}
+	return ESP_OK;
+}
+
+bool LIS331_ble_get(void)
+{
+	return LIS331_get(LIS331_CTRL_REG4, BLE_mask) == BLE_mask;
+}
+
+
+
+esp_err_t LIS331_range_set(LIS331_range_t val)
+{
+	LIS331_set(LIS331_CTRL_REG4, FS_mask , val);
+	switch(val){
+	case LIS331_RANGE_100G:
+		LIS331_d.sensor_range = 100;
+		break;
+	case LIS331_RANGE_200G:
+		LIS331_d.sensor_range = 200;
+		break;
+	case LIS331_RANGE_400G:
+		LIS331_d.sensor_range = 400;
+		break;
+	default:
+		return ESP_ERR_INVALID_ARG;
+	}
+
+  return ESP_OK;
+}
+
+LIS331_range_t LIS331_range_get(void)
+{
+	return LIS331_get(LIS331_CTRL_REG4, FS_mask);
+}
+
