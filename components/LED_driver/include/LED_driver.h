@@ -39,7 +39,7 @@ typedef struct{
 
 //Main User Interface
 
-#define SRV_CLOCK 100
+//#define SRV_CLOCK 100
 //STRIP LED DEFINITIONS
 
 #define STRIP_LED_CHANNEL	0
@@ -60,16 +60,16 @@ typedef struct{
 esp_err_t LED_srv(void); //Update LED status task should be run in SRV_CLOCK intervals
 
 // LED
-esp_err_t LED_init(void); 	//Initialize LED and Strip LED
+esp_err_t LED_init(uint32_t interval_ms); 	//Initialize LED and Strip LED
 esp_err_t LED_set(uint8_t led_no, uint8_t state); 		//Set normal LED on/off
 esp_err_t LED_blink(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number); // Blink LED on/off time in MS 0 beeps number means infinite
 
 //Strip LED
-esp_err_t LED_setWS(uint8_t led_no, led_colour_t colour, uint8_t brightness, uint8_t state); 	//Set strip LED ON/OFF Brightness 0-255
-esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);	// Blink strip LED on/off time in MS 0 beeps number means infinite
+esp_err_t LED_setWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint8_t state); 	//Set strip LED ON/OFF Brightness 0-255
+esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);	// Blink strip LED on/off time in MS 0 beeps number means infinite
 
 //Buzzer
-esp_err_t BUZZER_init(void); //Initialize Buzzer
+esp_err_t BUZZER_init(); //Initialize Buzzer
 esp_err_t BUZZER_set(uint8_t state); 	//Set buzzer LED ON/OFF
 esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number); // Beep Buzzer on/off in MS 0 beeps number means infinite
 
