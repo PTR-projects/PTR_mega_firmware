@@ -2,7 +2,9 @@
 #include "BOARD.h"
 #include "Data_aggregator.h"
 
-void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
+static uint16_t packet_counter = 0;
+
+void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
 
 	package->sys_time = time_us;
 
@@ -25,10 +27,37 @@ void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensor
 	package->sensors.pressure = sensors->MS5607.press;
 	package->sensors.temp = sensors->MS5607.temp;
 
-	package->sensors.latitude = 0;
-	package->sensors.longitude = 0;
-	package->sensors.altitude_gnss = 0;
-	package->sensors.gnss_fix = 0;
+	package->sensors.latitude = gps->latitude;
+	package->sensors.longitude = gps->longitude;
+	package->sensors.altitude_gnss = gps->altitude;
+	package->sensors.gnss_fix = (int8_t)(gps->fix);
 
-	package->flightstate = (uint8_t)(flightstate->state);
+	//package->flightstate = (uint8_t)(flightstate->state);
+}
+
+#include <stdio.h>
+#include "BOARD.h"
+#include "Data_aggregator.h"
+
+void Data_aggregateRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
+	package->id           = 0xAAAA;
+	package->packet_no    = packet_counter++;
+	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
+	package->timestamp_ms = (uint32_t)(time_us/1000);
+
+	package->vbat_10  = 0;						// 1mV/LSB -> 100mV/LSB
+	package->accX_100 = (int16_t)(sensors->LSM6DSO32.accX * 100.0f);
+	package->accY_100 = (int16_t)(sensors->LSM6DSO32.accY * 100.0f);
+	package->accZ_100 = (int16_t)(sensors->LSM6DSO32.accZ * 100.0f);
+
+	package->gyroX_10 = (int16_t)(sensors->LSM6DSO32.gyroX * 100.0f);
+	package->gyroY_10 = (int16_t)(sensors->LSM6DSO32.gyroY * 100.0f);
+	package->gyroZ_10 = (int16_t)(sensors->LSM6DSO32.gyroZ * 100.0f);
+
+	package->pressure = sensors->MS5607.press;
+
+	package->lat      = (int32_t)(gps->latitude  * 10000000.0f);
+	package->lon      = (int32_t)(gps->longitude * 10000000.0f);
+	package->alti_gps = (int32_t)(gps->altitude);
+	package->sats_fix     = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
 }
