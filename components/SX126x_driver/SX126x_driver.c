@@ -35,10 +35,10 @@
  */
 
 #include <string.h>  // memcpy
-#include "sx126x_driver.h"
+#include "SX126x_driver.h"
 #include "sx126x_hal.h"
 #include "sx126x_regs.h"
-
+#include "esp_log.h"
 /*
  * -----------------------------------------------------------------------------
  * --- PRIVATE MACROS-----------------------------------------------------------

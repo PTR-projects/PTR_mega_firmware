@@ -43,7 +43,7 @@ void SX126X_checkBusy() {
 	busy_timeout_cnt = 0;
 
 	while (SX126X_getBUSY()) {
-		vTaskDelay(2);
+		vTaskDelay(1);
 		busy_timeout_cnt++;
 
 		if (busy_timeout_cnt > 10){ //wait 5mS for busy to complete
@@ -91,8 +91,6 @@ sx126x_hal_status_t sx126x_hal_write(const void* context, const uint8_t *command
 									  const uint8_t *data, const uint16_t data_length) {
 	SX126X_checkBusy();
 
-	memset(data, 0xFF, data_length);
-
 	SX126X_SPICS(0);
 	SX126X_SPItransfer(command, NULL, command_length);
 	SX126X_SPItransfer(data, NULL, data_length);
@@ -102,9 +100,9 @@ sx126x_hal_status_t sx126x_hal_write(const void* context, const uint8_t *command
 }
 
 sx126x_hal_status_t sx126x_hal_reset( const void* context ){
-	vTaskDelay(20);
+	vTaskDelay(pdMS_TO_TICKS(20));
 	gpio_set_level(RF_RST_PIN, 0);
-	vTaskDelay(40);
+	vTaskDelay(pdMS_TO_TICKS(40));
 	gpio_set_level(RF_RST_PIN, 1);
 	vTaskDelay(20);
 
@@ -113,9 +111,9 @@ sx126x_hal_status_t sx126x_hal_reset( const void* context ){
 
 sx126x_hal_status_t sx126x_hal_wakeup( const void* context ){
 	SX126X_SPICS(0);
-	vTaskDelay(2);
+	vTaskDelay(pdMS_TO_TICKS(2));
 	SX126X_SPICS(1);
-	vTaskDelay(2);
+	vTaskDelay(pdMS_TO_TICKS(2));
 
 	return 0;
 }
