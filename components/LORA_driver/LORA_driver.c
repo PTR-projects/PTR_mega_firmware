@@ -10,15 +10,15 @@
 
 static const char *TAG = "LORA driver";
 
+void LORA_modeLORA();
+
 void LORA_init()
 {
-	sx126x_reset(0);
-	vTaskDelay(20);
+	SX126X_initIO();
+	vTaskDelay(pdMS_TO_TICKS( 20 ));
 
 	ESP_LOGI(TAG, "SX1262 init...   ");
-	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
-	LORA_setupLoRaTX(433000000UL, 0, SX126X_LORA_SF8, SX126X_LORA_BW_125, SX126X_LORA_CR_4_5,
-			0x02, 0x02);
+	LORA_modeLORA();
 	ESP_LOGI(TAG, "SX1262 ready\n");
 }
 
@@ -35,7 +35,7 @@ void LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1,
 	sx126x_set_pa_cfg(0, &sx126x_pa_cfg_params_d);
 
 	sx126x_set_dio3_as_tcxo_ctrl(0, SX126X_TCXO_CTRL_3_3V, 100);
-	vTaskDelay(5);
+	vTaskDelay(pdMS_TO_TICKS( 5 ));
 	sx126x_cal(0, SX126X_CAL_ALL);	//is required after setting TCXO
 	sx126x_cal_img(0, frequency);
 	sx126x_set_dio2_as_rf_sw_ctrl(0, true);
@@ -64,7 +64,7 @@ void LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1,
 
 void LORA_modeLORA(){
 	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
-	LORA_setupLoRaTX(433000000UL, 0, SX126X_LORA_SF10, SX126X_LORA_BW_125, SX126X_LORA_CR_4_5,
+	LORA_setupLoRaTX(433000000UL, 0, SX126X_LORA_SF8, SX126X_LORA_BW_125, SX126X_LORA_CR_4_5,
 				0x02, 0x02);
 }
 
@@ -79,19 +79,17 @@ uint16_t SX126X_readIrqStatus(){
 	return res;
 }
 
-bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint8_t size, uint32_t txtimeout, int8_t txpower) {
-
-	if (size == 0) {
+bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout, int8_t txpower) {
+	if ((size == 0) || (size > 256)) {
 		return false;
 	}
 
+	LORA_modeLORA();
+
 	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
 	sx126x_set_buffer_base_address(0, 0, 0);
-	SX126X_checkBusy();
 
 	sx126x_write_buffer(0, 0, txbuffer,	size);
-
-	SX126X_checkBusy();
 
 	sx126x_pkt_params_lora_t sx126x_pkt_params_lora_d;
 	sx126x_pkt_params_lora_d.crc_is_on 				= true;
@@ -99,20 +97,25 @@ bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint8_t size, uint32_t txtimeout, in
 	sx126x_pkt_params_lora_d.invert_iq_is_on 		= false;
 	sx126x_pkt_params_lora_d.pld_len_in_bytes 		= size;
 	sx126x_pkt_params_lora_d.preamble_len_in_symb 	= 8;
+
 	sx126x_set_lora_pkt_params(0, &sx126x_pkt_params_lora_d);
 
 	sx126x_set_tx_params(0, txpower, SX126X_RAMP_10_US);
 	sx126x_set_tx(0, txtimeout);	//this starts the TX
 
-	volatile uint16_t timeout = 10000;
-	while ((!(SX126X_readIrqStatus() & SX126X_IRQ_TX_DONE)) && timeout){	//Wait for TX done
-		vTaskDelay(1);
-		timeout--;
+	if(txtimeout){
+		volatile uint16_t timeout = 10000;
+		while ((!(SX126X_readIrqStatus() & SX126X_IRQ_TX_DONE)) && timeout){	//Wait for TX done
+			vTaskDelay(1);
+			timeout--;
+		}
+
+		if (SX126X_readIrqStatus() & SX126X_IRQ_TIMEOUT) {        //check for timeout
+			return false;
+		} else {
+			return true;
+		}
 	}
 
-	if (SX126X_readIrqStatus() & SX126X_IRQ_TIMEOUT) {        //check for timeout
-		return false;
-	} else {
-		return true;
-	}
+	return true;
 }
