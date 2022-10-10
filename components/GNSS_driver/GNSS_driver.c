@@ -550,9 +550,9 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
 						xMessageBufferReceive( xMessageBuffer_GNSS2Storage, (void*) &tmp_gps, sizeof( gps_t ), 0);
 					}
 					xMessageBufferSend(xMessageBuffer_GNSS2Storage, (void *)&(esp_gps->parent), sizeof(gps_t), 0);
-					ESP_LOGI(TAG, "free space %i B, %i packets", xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage),
-																 xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage)/(4+sizeof(gps_t)));
-
+//					ESP_LOGI(TAG, "free space %i B, %i packets", xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage),
+//																 xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage)/(4+sizeof(gps_t)));
+					ESP_LOGI(TAG, "%f, %f, %i", esp_gps->parent.latitude, esp_gps->parent.longitude, esp_gps->parent.fix);
 				}
             } else {
                 ESP_LOGD(TAG, "CRC Error for statement:%s", esp_gps->buffer);
@@ -729,13 +729,14 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
         goto err_eloop;
     }
     /* Create NMEA Parser task */
-    BaseType_t err = xTaskCreate(
+    BaseType_t err = xTaskCreatePinnedToCore(
                          nmea_parser_task_entry,
                          "nmea_parser",
                          CONFIG_NMEA_PARSER_TASK_STACK_SIZE,
                          esp_gps,
                          CONFIG_NMEA_PARSER_TASK_PRIORITY,
-                         &esp_gps->tsk_hdl);
+                         &esp_gps->tsk_hdl,
+						 0);
     if (err != pdTRUE) {
     	ESP_LOGE(TAG, "create NMEA Parser task failed");
         goto err_task_create;
