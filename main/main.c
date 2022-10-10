@@ -11,10 +11,15 @@
 
 //----------- Our includes --------------
 #include "SPI_driver.h"
+#include "LED_driver.h"
+#include "LORA_driver.h"
+#include "GNSS_driver.h"
 
 #include "Sensors.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
+#include "Data_aggregator.h"
+
 #include "WiFi_driver.h"
 
 
@@ -27,41 +32,62 @@ static const char *TAG = "KP-PTR";
 // periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
 
 void task_kpptr_main(void *pvParameter){
+	TickType_t xLastWakeTime = 0;
+	TickType_t prevTickCountRF = 0;
+	DataPackage_t   DataPackage_d;
+	DataPackageRF_t DataPackageRF_d;
+	gps_t gps_d;
+
 	Sensors_init();
+	GPS_init();
+	LORA_init();
 	//Detector_init();
 	//AHRS_init();
+	ESP_LOGI(TAG, "Task Main - ready!\n");
 
-	while(1){				//<<----- TODO zrobiæ wyzwalanie z timera
+	xLastWakeTime = xTaskGetTickCount ();
+	while(1){				//<<----- TODO zrobiï¿½ wyzwalanie z timera
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 100 ));
+
+		struct timeval tv_now;
+		gettimeofday(&tv_now, NULL);
+		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+
 		Sensors_update();
 		//AHRS_calc();
 		//Detector_detect();
-		//send data to logging task
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+		LED_blinkWS(0, COLOUR_AQUA, 20, 100, 1, 1);
+
+		if(GPS_getData(&gps_d, 0)) LED_blinkWS(1, COLOUR_ORANGE, 20, 100, 1, 1);
+
+		Data_aggregate(&DataPackage_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL);
+
+		//send data to Flash
+
+		//send data to RF
+		if(((prevTickCountRF + pdMS_TO_TICKS( 300 )) <= xLastWakeTime)){
+			prevTickCountRF = xLastWakeTime;
+			Data_aggregateRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL);
+			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), 0, 0);
+			LED_blinkWS(2, COLOUR_PURPLE, 20, 100, 1, 1);
+		}
 	}
 	vTaskDelete(NULL);
 }
 
-void task_kpptr_logging(void *pvParameter){
-	//SDinit();
-	//FAT_init();
-	//FLASH_init();
+void task_kpptr_utils(void *pvParameter){
+	TickType_t xLastWakeTime = 0;
+	uint32_t interval_ms = 20;
 
+	LED_init(interval_ms);
+	BUZZER_init();
+	printf("Task Utils - ready!\n");
+
+	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
-		//wait for data from main task
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
-	}
-	vTaskDelete(NULL);
-}
-
-void task_kpptr_telemetry(void *pvParameter){
-	//SDinit();
-	SPI_init(1000000);
-	//FAT_init();
-	//FLASH_init();
-
-	while(1){
-		//wait for data from main task
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
+		LED_srv();
 	}
 	vTaskDelete(NULL);
 }
@@ -72,16 +98,15 @@ void app_main(void)
 {
     nvs_flash_init();
     WiFi_init();
+    SPI_init(1000000);
 
-
-    xTaskCreatePinnedToCore(&task_kpptr_main,      "task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_logging,   "task_kpptr_logging",   1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
-    xTaskCreatePinnedToCore(&task_kpptr_telemetry, "task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
+    xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
+    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
 
 
     while (true) {
 
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS( 1000 ));
     }
 }
 
