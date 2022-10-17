@@ -34,6 +34,8 @@ esp_err_t Storage_init(Storage_filesystem_t filesys , uint32_t key){
 
     Storage_data_d.Storage_filestystem_d = filesys;
 
+    vTaskDelay(pdMS_TO_TICKS( 1000 ));
+
     if(filesys == 1){
         return Storage_init_Spiffs(key);
     }
@@ -69,7 +71,7 @@ esp_err_t Storage_init_Spiffs(uint32_t key){
 
     size_t freeSpace = Storage_getFreeMem_Spiffs();
     if(freeSpace < Storage_data_d.minFreeMem){
-        return ESP_FAIL;
+        return ESP_ERR_NO_MEM;
     }
 
     strncpy(Storage_data_d.path, path, 20);
@@ -104,9 +106,9 @@ esp_err_t Storage_init_Littlefs(uint32_t key){
 
     Storage_data_d.fileCount = fileCnt;
 
-    size_t freeSpace = Storage_getFreeMem_Spiffs();
+    size_t freeSpace = Storage_getFreeMem_Littlefs();
     if(freeSpace < Storage_data_d.minFreeMem){
-        return ESP_FAIL;
+    	return ESP_ERR_NO_MEM;
     }
 
     strncpy(Storage_data_d.path, path, 22);
@@ -138,7 +140,7 @@ esp_err_t Storage_erase(uint32_t key){
 
 esp_err_t Storage_erase_Spiffs(uint32_t key){
 	if(key != Storage_data_d.MasterKey){
-		return ESP_FAIL;
+		return ESP_ERR_INVALID_ARG;
 	}
 
     return esp_spiffs_format(conf_spiffs.partition_label);
@@ -146,7 +148,7 @@ esp_err_t Storage_erase_Spiffs(uint32_t key){
 
 esp_err_t Storage_erase_Littlefs(uint32_t key){
 	if(key != Storage_data_d.MasterKey){
-		return ESP_FAIL;
+		return ESP_ERR_INVALID_ARG;
 	}
 
     return esp_littlefs_format(conf_littlefs.partition_label);
@@ -174,7 +176,7 @@ esp_err_t Storage_writePacket_Spiffs(void * buf, uint16_t len){
     FILE* f = fopen(Storage_data_d.path, "a");
 
     if(f == NULL){
-        return ESP_FAIL;
+        return ESP_ERR_NOT_FOUND;
     }
 
     fwrite(buf, len, 1, f);
@@ -189,8 +191,7 @@ esp_err_t Storage_writePacket_Littlefs(void * buf, uint16_t len){
     FILE* f = fopen(Storage_data_d.path, "a");
 
     if(f == NULL){
-        //ESP_LOGE(TAG, "Failed to open file for reading");
-        return ESP_FAIL;
+    	return ESP_ERR_NOT_FOUND;
     }
 
     fwrite(buf, len, 1, f);
@@ -221,7 +222,7 @@ esp_err_t Storage_readFile_Spiffs(void * buf){
     FILE* f = fopen(Storage_data_d.path, "r");
 
     if(f == NULL){
-        return ESP_FAIL;
+    	return ESP_ERR_NOT_FOUND;
     }
 
     fseek(f, 0L, SEEK_END);
@@ -239,7 +240,7 @@ esp_err_t Storage_readFile_Littlefs(void * buf){
 	 FILE* f = fopen(Storage_data_d.path, "r");
 
 	 if(f == NULL){
-		 return ESP_FAIL;
+		 return ESP_ERR_NOT_FOUND;
 	 }
 
 	fseek(f, 0L, SEEK_END);
@@ -290,7 +291,11 @@ size_t Storage_getFreeMem_Spiffs(void){
 size_t Storage_getFreeMem_Littlefs(void){
     size_t total_bytes = 0, used_bytes = 0;
 
-    esp_littlefs_info(conf_littlefs.partition_label,  &total_bytes,  &used_bytes);
+    esp_err_t ret = esp_littlefs_info(conf_littlefs.partition_label,  &total_bytes,  &used_bytes);
+
+    if(ret == ESP_ERR_INVALID_STATE){
+    	return ESP_ERR_INVALID_STATE;
+    }
 
 	return (total_bytes-used_bytes)/1000;
 
@@ -320,11 +325,16 @@ esp_err_t Storage_listFiles(void){
 
 		 FILE* f = fopen(path, "r");
 
+		 if(f == NULL){
+			 return ESP_ERR_NOT_FOUND;
+		 }
+
 
 		 fseek(f, 0L, SEEK_END);
 		 size_t size = ftell(f);
 		 fseek(f, 0L, SEEK_SET);
-		 files[fileCnt].size = size;
+		 files[fileCnt].size = size/1000;
+		 fclose(f);
 
 
 		 //ESP_LOGI(TAG, "Size: %s, %d Bytes", filename, size);

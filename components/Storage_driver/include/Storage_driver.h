@@ -21,7 +21,7 @@ typedef struct{
 typedef struct{
     char filename[12];
     uint32_t start_pos;
-    size_t size; //in Bytes
+    size_t size; //in kB
 } file_stat_t;
 
 file_stat_t files[256];
