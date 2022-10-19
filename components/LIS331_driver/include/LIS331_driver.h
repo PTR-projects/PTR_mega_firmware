@@ -177,7 +177,8 @@ typedef enum LIS331_hp_cutoff
 
 esp_err_t 	LIS331_init(LIS331_type_t type); 	//Base init
 uint8_t 	LIS331_WhoAmI(void); 				//read device ID default respond 32
-esp_err_t	LIS331_xyz_acc_calc(void); 		//Get and calculate readings
+
+esp_err_t LIS331_getMeasurementXYZ(float* X, float* Y, float* Z); //Get and calculate readings
 
 esp_err_t		 	LIS331_x_axis_set(bool val); 		//Enable/Disable X Axis measurments
 bool 				LIS331_x_axis_get(void);				//Check if X Axis measurments are ON

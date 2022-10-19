@@ -8,8 +8,6 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "SPI_driver.h"
-
 #include "LIS331_driver.h"
 #include <string.h>
 #include "driver/uart.h"
@@ -296,6 +294,15 @@ esp_err_t LIS331_xyz_acc_calc(void)
 	LIS331_d.meas.accX = (LIS331_d.accX_raw)*(range/4096.0f) - LIS331_d.accXoffset;
 	LIS331_d.meas.accY = (LIS331_d.accY_raw)*(range/4096.0f) - LIS331_d.accYoffset;
 	LIS331_d.meas.accZ = (LIS331_d.accZ_raw)*(range/4096.0f) - LIS331_d.accZoffset;
+	return ESP_OK;
+}
+
+esp_err_t LIS331_getMeasurementXYZ(float* X, float* Y, float* Z)
+{
+	LIS331_xyz_acc_calc();
+	*X = LIS331_d.meas.accX;
+	*Y = LIS331_d.meas.accY;
+	*Z = LIS331_d.meas.accZ;
 	return ESP_OK;
 }
 
