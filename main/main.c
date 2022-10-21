@@ -16,7 +16,7 @@
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
 #include "WiFi_driver.h"
-
+#include "UART_console.h"
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
@@ -31,7 +31,7 @@ void task_kpptr_main(void *pvParameter){
 	//Detector_init();
 	//AHRS_init();
 
-	while(1){				//<<----- TODO zrobiæ wyzwalanie z timera
+	while(1){				//<<----- TODO zrobiï¿½ wyzwalanie z timera
 		Sensors_update();
 		//AHRS_calc();
 		//Detector_detect();
@@ -71,12 +71,12 @@ void task_kpptr_telemetry(void *pvParameter){
 void app_main(void)
 {
     nvs_flash_init();
-    WiFi_init();
+    //WiFi_init();
+    UART_console_init();
 
-
-    xTaskCreatePinnedToCore(&task_kpptr_main,      "task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_logging,   "task_kpptr_logging",   1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
-    xTaskCreatePinnedToCore(&task_kpptr_telemetry, "task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
+//    xTaskCreatePinnedToCore(&task_kpptr_main,      "task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_0);
+//    xTaskCreatePinnedToCore(&task_kpptr_logging,   "task_kpptr_logging",   1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
+//    xTaskCreatePinnedToCore(&task_kpptr_telemetry, "task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 1, NULL, ESP_CORE_1);
 
 
     while (true) {
