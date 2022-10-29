@@ -21,7 +21,7 @@ typedef struct{
 typedef struct{
     char filename[12];
     uint32_t start_pos;
-    size_t size; //in kB
+    size_t size; //in Bytes
 } file_stat_t;
 
 file_stat_t files[256];
@@ -53,6 +53,3 @@ size_t Storage_getFreeMem_Littlefs(void);
 
 Storage_data_t Storage_listParams(void);
 esp_err_t Storage_listFiles(void);
-
-
-

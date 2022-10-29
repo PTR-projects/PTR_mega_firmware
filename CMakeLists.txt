@@ -4,3 +4,5 @@ cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(KP-PTR_firmware)
+
+littlefs_create_partition_image(storage storage_fs)
