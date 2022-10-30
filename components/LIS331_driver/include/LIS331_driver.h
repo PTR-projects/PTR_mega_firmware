@@ -54,8 +54,6 @@ typedef struct {
 #define SPI_DEV SPI_SLAVE_LIS331
 #define SPI_CS_PIN 36
 
-static spi_device_handle_t spi_dev_handle_LIS331;
-
 #define LIS331_WHO_AM_I                 0x0F
 
 #define LIS331_CTRL_REG1                0x20
@@ -178,6 +176,8 @@ typedef enum LIS331_hp_cutoff
 esp_err_t 	LIS331_init(LIS331_type_t type); 	//Base init
 uint8_t 	LIS331_WhoAmI(void); 				//read device ID default respond 32
 
+esp_err_t LIS331_readMeas(void);
+esp_err_t LIS331_getMeas(LIS331_meas_t * meas);
 esp_err_t LIS331_getMeasurementXYZ(float* X, float* Y, float* Z); //Get and calculate readings
 
 esp_err_t		 	LIS331_x_axis_set(bool val); 		//Enable/Disable X Axis measurments

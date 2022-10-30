@@ -90,7 +90,7 @@ void task_kpptr_utils(void *pvParameter){
 
 	LED_init(interval_ms);
 	BUZZER_init();
-	printf("Task Utils - ready!\n");
+	ESP_LOGI(TAG, "Task Utils - ready!\n");
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -107,7 +107,7 @@ void task_kpptr_analog(void *pvParameter){
 	Analog_meas_t Analog_meas;
 
 	Analog_init(100);
-	printf("Task Analog - ready!\n");
+	ESP_LOGI(TAG, "Task Analog - ready!\n");
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){

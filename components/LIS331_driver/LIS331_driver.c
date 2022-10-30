@@ -14,17 +14,11 @@
 #include "esp_log.h"
 #include "esp_err.h"
 
-
-
-
-
-
-
 #define INIT_TIME       5 		//ms
 
-
+static const char *TAG = "LIS331";
 static LIS331_t LIS331_d;
-
+static spi_device_handle_t spi_dev_handle_LIS331;
 
 
 esp_err_t LIS331_spi_init(void)
@@ -168,7 +162,7 @@ uint8_t LIS331_WhoAmI(void)
 esp_err_t LIS331_init(LIS331_type_t type)
 {
 	LIS331_spi_init();
-	printf("Inicjalizacja SPI ok");
+	ESP_LOGI(TAG, "LIS331 SPI init OK");
 	uint8_t range = 0;
 	if((type == LIS331_IC_2G) || (type == LIS331HH_IC_6G) || (type == LIS331_IC_100G))
 		range = 0;
@@ -275,31 +269,40 @@ LIS331_data_rate_t LIS331_data_rate_get(void)
 
 esp_err_t LIS331_xyz_acc_raw_get(void)
 {
-	printf("Raw read start\n");
+	ESP_LOGV(TAG, "Raw read start\n");
 
   LIS331_read(LIS331_OUT_X_L, LIS331_d.raw, 6);
   LIS331_d.accX_raw = LIS331_d.accX_raw >> 4;
   LIS331_d.accY_raw = LIS331_d.accY_raw >> 4;
   LIS331_d.accZ_raw = LIS331_d.accZ_raw >> 4;
-  printf("Raw read ok\n");
+  ESP_LOGV(TAG, "Raw read ok\n");
   return ESP_OK;
 }
 
-esp_err_t LIS331_xyz_acc_calc(void)
+esp_err_t LIS331_readMeas(void)
 {
 	LIS331_xyz_acc_raw_get();
 	float range = 2 * LIS331_d.sensor_range;
 	if(range == 0.0f)
 		return ESP_ERR_INVALID_ARG;
+
 	LIS331_d.meas.accX = (LIS331_d.accX_raw)*(range/4096.0f) - LIS331_d.accXoffset;
 	LIS331_d.meas.accY = (LIS331_d.accY_raw)*(range/4096.0f) - LIS331_d.accYoffset;
 	LIS331_d.meas.accZ = (LIS331_d.accZ_raw)*(range/4096.0f) - LIS331_d.accZoffset;
+
 	return ESP_OK;
 }
 
+esp_err_t LIS331_getMeas(LIS331_meas_t * meas){
+	*meas = LIS331_d.meas;
+
+	return ESP_OK;	//ESP_FAIL
+}
+
+
 esp_err_t LIS331_getMeasurementXYZ(float* X, float* Y, float* Z)
 {
-	LIS331_xyz_acc_calc();
+	LIS331_readMeas();
 	*X = LIS331_d.meas.accX;
 	*Y = LIS331_d.meas.accY;
 	*Z = LIS331_d.meas.accZ;

@@ -2,6 +2,7 @@
 #include "BOARD.h"
 #include "Data_aggregator.h"
 
+static const char *TAG = "Data ag.";
 static uint16_t packet_counter = 0;
 
 void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
