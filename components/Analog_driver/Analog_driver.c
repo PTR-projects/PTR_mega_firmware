@@ -13,9 +13,12 @@
 static const char* TAG = "Analog";
 
 esp_adc_cal_characteristics_t  * adc_chars;
+uint32_t ign_det_thr = 100;
 
-esp_err_t Analog_init(void)
+esp_err_t Analog_init(uint32_t ign_det_thr_val)
 {
+	ign_det_thr = ign_det_thr_val;
+
 	//Check if TP is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
 		ESP_LOGI(TAG, "eFuse Two Point: Supported\n");
@@ -59,7 +62,7 @@ esp_err_t Analog_init(void)
 uint32_t Analog_getIGN1(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_6);
     uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    ESP_LOGV(TAG, "Raw 1: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    ESP_LOGV(TAG, "Raw 1: %d\tVoltage: %dmV", adc_reading, voltage);
 
     return voltage;
 }
@@ -67,7 +70,7 @@ uint32_t Analog_getIGN1(){
 uint32_t Analog_getIGN2(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_5);
     uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    ESP_LOGV(TAG, "Raw 2: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    ESP_LOGV(TAG, "Raw 2: %d\tVoltage: %dmV", adc_reading, voltage);
 
     return voltage;
 }
@@ -75,7 +78,7 @@ uint32_t Analog_getIGN2(){
 uint32_t Analog_getIGN3(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_4);
     uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    ESP_LOGV(TAG, "Raw 3: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    ESP_LOGV(TAG, "Raw 3: %d\tVoltage: %dmV", adc_reading, voltage);
 
     return voltage;
 }
@@ -83,15 +86,15 @@ uint32_t Analog_getIGN3(){
 uint32_t Analog_getIGN4(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_3);
     uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    ESP_LOGV(TAG, "Raw 4: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    ESP_LOGV(TAG, "Raw 4: %d\tVoltage: %dmV", adc_reading, voltage);
 
     return voltage;
 }
 
 uint32_t Analog_getVBAT(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars) * 11 * 1.025f;
-    ESP_LOGV(TAG, "Raw bat: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars) * 11 * 1.01f;
+    ESP_LOGV(TAG, "Raw bat: %d\tVoltage: %dmV", adc_reading, voltage);
 
     return voltage;
 }
@@ -100,8 +103,27 @@ float Analog_getTempMCU(){
 	float result = 0;
 	temp_sensor_read_celsius(&result);
 
-	ESP_LOGV(TAG, "Temp: %.2f Celsius\n", result);
+	ESP_LOGV(TAG, "Temp: %.2f Celsius", result);
 	ESP_LOGE("TAG", "Internal temp. sensor not accurate!");
 
 	return 0.0f;
+}
+
+void Analog_update(Analog_meas_t * meas){
+	meas->vbat_mV = Analog_getVBAT();
+
+	//TODO support variable threshold and fuse check
+	if(meas->vbat_mV > 2000){
+		meas->IGN1_det = (Analog_getIGN1() < ign_det_thr);
+		meas->IGN2_det = (Analog_getIGN2() < ign_det_thr);
+		meas->IGN3_det = (Analog_getIGN3() < ign_det_thr);
+		meas->IGN4_det = (Analog_getIGN4() < ign_det_thr);
+	} else {
+		meas->IGN1_det = 0;
+		meas->IGN2_det = 0;
+		meas->IGN3_det = 0;
+		meas->IGN4_det = 0;
+	}
+
+	//meas->temp = Analog_getTempMCU();
 }

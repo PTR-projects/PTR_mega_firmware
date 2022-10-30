@@ -4,7 +4,8 @@
 
 static uint16_t packet_counter = 0;
 
-void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
+void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
+		FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog){
 
 	package->sys_time = time_us;
 
@@ -31,6 +32,14 @@ void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensor
 	package->sensors.longitude = gps->longitude;
 	package->sensors.altitude_gnss = gps->altitude;
 	package->sensors.gnss_fix = (int8_t)(gps->fix);
+
+	package->ign.ign1_cont = analog->IGN1_det;
+	package->ign.ign2_cont = analog->IGN2_det;
+	package->ign.ign3_cont = analog->IGN3_det;
+	package->ign.ign4_cont = analog->IGN4_det;
+
+	package->vbat_mV = analog->vbat_mV;
+
 
 	//package->flightstate = (uint8_t)(flightstate->state);
 }
