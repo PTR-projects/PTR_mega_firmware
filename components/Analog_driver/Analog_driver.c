@@ -12,12 +12,20 @@
 
 static const char* TAG = "Analog";
 
-esp_adc_cal_characteristics_t  * adc_chars;
-uint32_t ign_det_thr = 100;
+static esp_adc_cal_characteristics_t  * adc_chars;
+static uint32_t ign_det_thr = 100;
 
-esp_err_t Analog_init(uint32_t ign_det_thr_val)
+static float    filter_coeff = 0.1f;
+static uint32_t voltage_ign1 = 0;
+static uint32_t voltage_ign2 = 0;
+static uint32_t voltage_ign3 = 0;
+static uint32_t voltage_ign4 = 0;
+static uint32_t voltage_vbat = 0;
+
+esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 {
 	ign_det_thr = ign_det_thr_val;
+	filter_coeff = filter;
 
 	//Check if TP is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
@@ -56,47 +64,64 @@ esp_err_t Analog_init(uint32_t ign_det_thr_val)
 	temp_sensor_set_config(temp_sensor);
 	temp_sensor_start();
 
+	// Init meas filters
+	voltage_ign1 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_6), adc_chars);
+	voltage_ign2 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_5), adc_chars);
+	voltage_ign3 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_4), adc_chars);
+	voltage_ign4 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_3), adc_chars);
+	voltage_vbat = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7), adc_chars) * 11;
+
 	return ESP_OK;
 }
 
 uint32_t Analog_getIGN1(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_6);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 1: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign1 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign1;
+
+    return voltage_ign1;
 }
 
 uint32_t Analog_getIGN2(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_5);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 2: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign2 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign2;
+
+    return voltage_ign2;
 }
 
 uint32_t Analog_getIGN3(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_4);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 3: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign3 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign3;
+
+    return voltage_ign3;
 }
 
 uint32_t Analog_getIGN4(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_3);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 4: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign4 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign4;
+
+    return voltage_ign4;
 }
 
 uint32_t Analog_getVBAT(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars) * 11 * 1.01f;
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars) * 11;
     ESP_LOGV(TAG, "Raw bat: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_vbat = filter_coeff * voltage + (1-filter_coeff) * voltage_vbat;
+
+    return voltage_vbat;
 }
 
 float Analog_getTempMCU(){

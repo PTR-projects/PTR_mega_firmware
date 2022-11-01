@@ -106,7 +106,7 @@ void task_kpptr_analog(void *pvParameter){
 
 	Analog_meas_t Analog_meas;
 
-	Analog_init(100);
+	Analog_init(100, 0.1f);
 	ESP_LOGI(TAG, "Task Analog - ready!\n");
 
 	xLastWakeTime = xTaskGetTickCount ();
