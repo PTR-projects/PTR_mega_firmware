@@ -10,13 +10,22 @@
 
 #define GPS_MAX_SATELLITES_IN_USE (12)
 #define GPS_MAX_SATELLITES_IN_VIEW (16)
-
 #define NMEA_MAX_STATEMENT_ITEM_LENGTH 16
 #define NMEA_EVENT_LOOP_QUEUE_SIZE 16
 #define TIME_ZONE (+1)   //Warsaw Time
 #define YEAR_BASE (2000) //date in GPS starts from 2000
 
 #define NMEA_PARSER_RUNTIME_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
+
+#define NMEA_TX_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
+
+typedef enum {
+    GPS_MODE_NORMAL = 0,
+	GPS_MODE_FITNESS = 1,
+	GPS_MODE_AVIATION = 2,
+	GPS_MODE_BALLON = 3,
+	GPS_MODE_STATIONARY = 4
+} gps_nav_mode_t;
 
 /**
  * @brief Declare of NMEA Parser Event base
@@ -182,7 +191,7 @@ typedef struct {
 #define NMEA_PARSER_CONFIG_DEFAULT()              \
     {                                             \
         .uart = {                                 \
-            .uart_port = UART_NUM_1,              \
+            .uart_port = GNSS_UART,              \
             .rx_pin = GNSS_TX_PIN, \
             .baud_rate = 9600,                    \
             .data_bits = UART_DATA_8_BITS,        \
@@ -245,3 +254,9 @@ esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_ha
 void GPS_init();
 uint8_t GNSS_message_size(void);
 uint32_t GPS_getData(gps_t * data, uint16_t ms); // Send GPS DATA to
+void GPS_test(void);
+void GPS_baud_rate_set(uint32_t baud);
+void GPS_baud_rate_set_extra(uint32_t baud);
+void GPS_fix_interval_set(uint16_t time);
+void GPS_nav_mode_set(gps_nav_mode_t mode);
+void GPS_nmea_output_set(uint8_t GLL ,uint8_t RMC ,uint8_t VTG ,uint8_t GGA ,uint8_t GSA ,uint8_t GSV);
