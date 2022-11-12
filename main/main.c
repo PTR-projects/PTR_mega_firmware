@@ -126,6 +126,7 @@ void app_main(void)
     nvs_flash_init();
     WiFi_init();
     SPI_init(1000000);
+    Data_init();
 
     //----- Create queues ----------
     queue_AnalogStorage = xQueueCreate( 1, sizeof( Analog_meas_t ) );

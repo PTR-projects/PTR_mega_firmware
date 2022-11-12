@@ -104,5 +104,6 @@ typedef struct __attribute__((__packed__)){
 	uint8_t sats_fix;	//6b - sats + 2b fix
 } DataPackageRF_t;
 
+esp_err_t Data_init();
 void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog);
 void Data_aggregateRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign);

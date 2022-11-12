@@ -1,9 +1,93 @@
 #include <stdio.h>
+#include <string.h>
+#include "esp_log.h"
+#include "esp_err.h"
 #include "BOARD.h"
 #include "Data_aggregator.h"
+#define DA_MAIN_QUEUE_SIZE 100
 
+//--------------- Main Data Buffer ----------------
+static DataPackage_t DataPackage_rb[DA_MAIN_QUEUE_SIZE];
+
+//--------------- QUEUE variables ------------------
+QueueHandle_t  queue_StorageFree;
+QueueHandle_t  queue_StorageUsed;
+
+static StaticQueue_t  queue_StorageFree_struct;
+static StaticQueue_t  queue_StorageUsed_struct;
+
+static uint8_t queue_StorageFree_buf[ DA_MAIN_QUEUE_SIZE * sizeof(&DataPackage_rb) ];
+static uint8_t queue_StorageUsed_buf[ DA_MAIN_QUEUE_SIZE * sizeof(&DataPackage_rb) ];
+
+//--------------- Misc variables ----------------------
 static const char *TAG = "Data ag.";
 static uint16_t packet_counter = 0;
+
+esp_err_t Data_init(){
+	memset(DataPackage_rb, 0, sizeof(DataPackage_rb));
+
+	//----- Create queues ----------
+	queue_StorageFree = xQueueCreateStatic( DA_MAIN_QUEUE_SIZE,
+							sizeof(&DataPackage_rb),
+							queue_StorageFree_buf,
+							&queue_StorageFree_struct);
+	queue_StorageUsed = xQueueCreateStatic( DA_MAIN_QUEUE_SIZE,
+							sizeof(&DataPackage_rb),
+							queue_StorageUsed_buf,
+							&queue_StorageUsed_struct);
+
+	//----- Check queues -----------
+	if(queue_StorageFree == 0){
+		ESP_LOGE(TAG, "Failed to create queue -> queue_StorageFree");
+		return ESP_FAIL;
+	}
+	if(queue_StorageUsed == 0){
+		ESP_LOGE(TAG, "Failed to create queue -> queue_StorageUsed");
+		return ESP_FAIL;
+	}
+
+	//----- Init queue -------------
+	for(uint8_t i=0; i<DA_MAIN_QUEUE_SIZE; i++){
+		DataPackage_t * DataPackage_ptr = &(DataPackage_rb[i]);
+		if(xQueueSendToBack(queue_StorageFree, ( void * ) DataPackage_ptr, 100))
+			return ESP_FAIL;
+	}
+
+	return ESP_OK;
+}
+
+//-------------------------- Unload from Main RB ---------------------------
+esp_err_t Data_getUsedPointerFromMainRB(DataPackage_t * ptr){
+	if(xQueueReceive(queue_StorageUsed, ptr, 0))
+		return ESP_FAIL;
+
+	return ESP_OK;
+}
+
+esp_err_t Data_returnUsedPointerToMainRB(DataPackage_t * ptr){
+	if(xQueueSendToBack(queue_StorageFree, ( void * ) ptr, 0))
+			return ESP_FAIL;
+
+	return ESP_OK;
+}
+
+//--------------------------- Loading to Main RB --------------------------
+esp_err_t Data_getFreePointerToMainRB(DataPackage_t * ptr){
+	if(xQueueReceive(queue_StorageFree, ptr, 0)){
+		//no free item in Free Queue get oldest from Used Queue
+		if(xQueueReceive(queue_StorageUsed, ptr, 0))
+				return ESP_FAIL;
+	}
+
+	return ESP_OK;
+}
+
+esp_err_t Data_addToMainRB(DataPackage_t * ptr){
+	if(xQueueSendToBack(queue_StorageUsed, ( void * ) ptr, 0))
+		return ESP_FAIL;
+
+	return ESP_OK;
+}
 
 void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
 		FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog){
