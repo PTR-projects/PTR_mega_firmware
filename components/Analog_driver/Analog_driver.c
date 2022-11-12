@@ -21,6 +21,7 @@ static uint32_t voltage_ign2 = 0;
 static uint32_t voltage_ign3 = 0;
 static uint32_t voltage_ign4 = 0;
 static uint32_t voltage_vbat = 0;
+static float	mcu_temp	 = 0.0f;
 
 esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 {
@@ -70,6 +71,7 @@ esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 	voltage_ign3 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_4), adc_chars);
 	voltage_ign4 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_3), adc_chars);
 	voltage_vbat = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7), adc_chars) * 11;
+	temp_sensor_read_celsius(&mcu_temp);
 
 	return ESP_OK;
 }
@@ -125,13 +127,12 @@ uint32_t Analog_getVBAT(){
 }
 
 float Analog_getTempMCU(){
-	float result = 0;
+	float result = 0.0f;
 	temp_sensor_read_celsius(&result);
+	mcu_temp = filter_coeff * result + (1-filter_coeff) * mcu_temp;
+	ESP_LOGV(TAG, "MCU temp: %.2f", mcu_temp);
 
-	ESP_LOGV(TAG, "Temp: %.2f Celsius", result);
-	ESP_LOGE("TAG", "Internal temp. sensor not accurate!");
-
-	return 0.0f;
+	return mcu_temp;
 }
 
 void Analog_update(Analog_meas_t * meas){
@@ -150,5 +151,5 @@ void Analog_update(Analog_meas_t * meas){
 		meas->IGN4_det = 0;
 	}
 
-	//meas->temp = Analog_getTempMCU();
+	meas->temp = Analog_getTempMCU();
 }
