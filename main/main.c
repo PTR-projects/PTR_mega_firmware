@@ -38,8 +38,8 @@ QueueHandle_t queue_AnalogStorage;
 void task_kpptr_main(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	TickType_t prevTickCountRF = 0;
-	DataPackage_t   DataPackage_d;
-	DataPackageRF_t DataPackageRF_d;
+	DataPackage_t *  DataPackage_ptr = NULL;
+	DataPackageRF_t  DataPackageRF_d;
 	gps_t gps_d;
 	Analog_meas_t Analog_meas;
 
@@ -69,9 +69,9 @@ void task_kpptr_main(void *pvParameter){
 
 		xQueueReceive(queue_AnalogStorage, &Analog_meas, 0);
 
-		Data_aggregate(&DataPackage_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
-
-		//send data to Flash
+		Data_getFreePointerToMainRB(&DataPackage_ptr);
+		Data_aggregate(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
+		Data_addToMainRB(&DataPackage_ptr);
 
 		//send data to RF
 		if(((prevTickCountRF + pdMS_TO_TICKS( 300 )) <= xLastWakeTime)){
@@ -82,6 +82,17 @@ void task_kpptr_main(void *pvParameter){
 		}
 	}
 	vTaskDelete(NULL);
+}
+
+void task_kpptr_storage(void *pvParameter){
+	DataPackage_t * DataPackage_ptr;
+	while(1){
+		if(0){	//(flightstate >= Launch) && (flightstate < Landed_delay)
+			Data_getUsedPointerFromMainRB(&DataPackage_ptr);
+			//save to flash
+			Data_returnUsedPointerToMainRB(&DataPackage_ptr);
+		}
+	}
 }
 
 void task_kpptr_utils(void *pvParameter){
@@ -137,6 +148,7 @@ void app_main(void)
 
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",    024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 

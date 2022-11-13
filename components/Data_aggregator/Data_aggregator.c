@@ -57,14 +57,14 @@ esp_err_t Data_init(){
 }
 
 //-------------------------- Unload from Main RB ---------------------------
-esp_err_t Data_getUsedPointerFromMainRB(DataPackage_t * ptr){
+esp_err_t Data_getUsedPointerFromMainRB(DataPackage_t ** ptr){
 	if(xQueueReceive(queue_StorageUsed, ptr, 0))
 		return ESP_FAIL;
 
 	return ESP_OK;
 }
 
-esp_err_t Data_returnUsedPointerToMainRB(DataPackage_t * ptr){
+esp_err_t Data_returnUsedPointerToMainRB(DataPackage_t ** ptr){
 	if(xQueueSendToBack(queue_StorageFree, ( void * ) ptr, 0))
 			return ESP_FAIL;
 
@@ -72,7 +72,7 @@ esp_err_t Data_returnUsedPointerToMainRB(DataPackage_t * ptr){
 }
 
 //--------------------------- Loading to Main RB --------------------------
-esp_err_t Data_getFreePointerToMainRB(DataPackage_t * ptr){
+esp_err_t Data_getFreePointerToMainRB(DataPackage_t ** ptr){
 	if(xQueueReceive(queue_StorageFree, ptr, 0)){
 		//no free item in Free Queue get oldest from Used Queue
 		if(xQueueReceive(queue_StorageUsed, ptr, 0))
@@ -82,7 +82,7 @@ esp_err_t Data_getFreePointerToMainRB(DataPackage_t * ptr){
 	return ESP_OK;
 }
 
-esp_err_t Data_addToMainRB(DataPackage_t * ptr){
+esp_err_t Data_addToMainRB(DataPackage_t ** ptr){
 	if(xQueueSendToBack(queue_StorageUsed, ( void * ) ptr, 0))
 		return ESP_FAIL;
 
