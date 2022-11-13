@@ -52,7 +52,7 @@ void task_kpptr_main(void *pvParameter){
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 100 ));
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 300 ));
 
 		struct timeval tv_now;
 		gettimeofday(&tv_now, NULL);
@@ -69,9 +69,16 @@ void task_kpptr_main(void *pvParameter){
 
 		xQueueReceive(queue_AnalogStorage, &Analog_meas, 0);
 
-		Data_getFreePointerToMainRB(&DataPackage_ptr);
-		Data_aggregate(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
-		Data_addToMainRB(&DataPackage_ptr);
+		if(Data_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
+			if(DataPackage_ptr != NULL){
+				//Data_aggregate(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
+				Data_addToMainRB(&DataPackage_ptr);
+			} else {
+				ESP_LOGE(TAG, "Main RB pointer = NULL!");
+			}
+		} else {
+			ESP_LOGE(TAG, "Main RB error!");
+		}
 
 		//send data to RF
 		if(((prevTickCountRF + pdMS_TO_TICKS( 300 )) <= xLastWakeTime)){
@@ -86,11 +93,17 @@ void task_kpptr_main(void *pvParameter){
 
 void task_kpptr_storage(void *pvParameter){
 	DataPackage_t * DataPackage_ptr;
+
+	ESP_LOGI(TAG, "Task Storage - ready!\n");
 	while(1){
-		if(0){	//(flightstate >= Launch) && (flightstate < Landed_delay)
-			Data_getUsedPointerFromMainRB(&DataPackage_ptr);
-			//save to flash
-			Data_returnUsedPointerToMainRB(&DataPackage_ptr);
+		if(1){	//(flightstate >= Launch) && (flightstate < Landed_delay)
+			if(Data_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
+				ESP_LOGI(TAG, "New data in storage");
+				//save to flash
+				Data_returnUsedPointerToMainRB(&DataPackage_ptr);
+			} else {
+				ESP_LOGI(TAG, "Storage timeout");
+			}
 		}
 	}
 }
@@ -148,7 +161,7 @@ void app_main(void)
 
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",    024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 

@@ -106,6 +106,7 @@ typedef struct __attribute__((__packed__)){
 
 esp_err_t Data_init();
 esp_err_t Data_getUsedPointerFromMainRB(DataPackage_t ** ptr);
+esp_err_t Data_getUsedPointerFromMainRB_wait(DataPackage_t ** ptr);
 esp_err_t Data_returnUsedPointerToMainRB(DataPackage_t ** ptr);
 esp_err_t Data_getFreePointerToMainRB(DataPackage_t ** ptr);
 esp_err_t Data_addToMainRB(DataPackage_t ** ptr);
