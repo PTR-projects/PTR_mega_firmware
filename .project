@@ -1064,6 +1064,16 @@
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/ulp/ulp_macro.c</location>
 		</link>
 		<link>
+			<name>esp_idf_components/ulp/ulp_riscv.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v4.4.3/components/ulp/ulp_riscv.c</location>
+		</link>
+		<link>
+			<name>esp_idf_components/ulp/ulp_riscv_adc.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v4.4.3/components/ulp/ulp_riscv_adc.c</location>
+		</link>
+		<link>
 			<name>esp_idf_components/unity/unity_port_esp32.c</name>
 			<type>1</type>
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/unity/unity_port_esp32.c</location>
