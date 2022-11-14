@@ -104,5 +104,11 @@ typedef struct __attribute__((__packed__)){
 	uint8_t sats_fix;	//6b - sats + 2b fix
 } DataPackageRF_t;
 
-void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog);
-void Data_aggregateRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign);
+esp_err_t DM_init();
+esp_err_t DM_getUsedPointerFromMainRB(DataPackage_t ** ptr);
+esp_err_t DM_getUsedPointerFromMainRB_wait(DataPackage_t ** ptr);
+esp_err_t DM_returnUsedPointerToMainRB(DataPackage_t ** ptr);
+esp_err_t DM_getFreePointerToMainRB(DataPackage_t ** ptr);
+esp_err_t DM_addToMainRB(DataPackage_t ** ptr);
+void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog);
+void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign);

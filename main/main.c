@@ -19,9 +19,8 @@
 #include "Sensors.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
-#include "Data_aggregator.h"
-
 #include "WiFi_driver.h"
+#include "DataManager.h"
 
 
 //----------- Our defines --------------
@@ -38,8 +37,8 @@ QueueHandle_t queue_AnalogStorage;
 void task_kpptr_main(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	TickType_t prevTickCountRF = 0;
-	DataPackage_t   DataPackage_d;
-	DataPackageRF_t DataPackageRF_d;
+	DataPackage_t *  DataPackage_ptr = NULL;
+	DataPackageRF_t  DataPackageRF_d;
 	gps_t gps_d;
 	Analog_meas_t Analog_meas;
 
@@ -52,7 +51,7 @@ void task_kpptr_main(void *pvParameter){
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 100 ));
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 300 ));
 
 		struct timeval tv_now;
 		gettimeofday(&tv_now, NULL);
@@ -69,19 +68,45 @@ void task_kpptr_main(void *pvParameter){
 
 		xQueueReceive(queue_AnalogStorage, &Analog_meas, 0);
 
-		Data_aggregate(&DataPackage_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
-
-		//send data to Flash
+		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
+			if(DataPackage_ptr != NULL){
+				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
+				ESP_LOGI(TAG, "Added T=%lli", time_us);
+				DM_addToMainRB(&DataPackage_ptr);
+			} else {
+				ESP_LOGE(TAG, "Main RB pointer = NULL!");
+			}
+		} else {
+			ESP_LOGE(TAG, "Main RB error!");
+		}
 
 		//send data to RF
 		if(((prevTickCountRF + pdMS_TO_TICKS( 300 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			Data_aggregateRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL);
+			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL);
 			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), 0, 0);
 			LED_blinkWS(2, COLOUR_PURPLE, 20, 100, 1, 1);
 		}
 	}
 	vTaskDelete(NULL);
+}
+
+void task_kpptr_storage(void *pvParameter){
+	DataPackage_t * DataPackage_ptr;
+
+	vTaskDelay(pdMS_TO_TICKS( 2000 ));
+	ESP_LOGI(TAG, "Task Storage - ready!\n");
+	while(1){
+		if(1){	//(flightstate >= Launch) && (flightstate < Landed_delay)
+			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
+				ESP_LOGI(TAG, "Saved T=%lli", DataPackage_ptr->sys_time);
+				//save to flash
+				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
+			} else {
+				//ESP_LOGI(TAG, "Storage timeout");
+			}
+		}
+	}
 }
 
 void task_kpptr_utils(void *pvParameter){
@@ -126,6 +151,7 @@ void app_main(void)
     nvs_flash_init();
     WiFi_init();
     SPI_init(1000000);
+    DM_init();
 
     //----- Create queues ----------
     queue_AnalogStorage = xQueueCreate( 1, sizeof( Analog_meas_t ) );
@@ -136,6 +162,7 @@ void app_main(void)
 
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 
