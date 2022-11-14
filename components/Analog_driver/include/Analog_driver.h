@@ -9,7 +9,7 @@ typedef struct{
 	float temp;
 } Analog_meas_t;
 
-esp_err_t Analog_init(uint32_t ign_det_thr_val);
+esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter);
 uint32_t Analog_getIGN1();
 uint32_t Analog_getIGN2();
 uint32_t Analog_getIGN3();

@@ -1029,6 +1029,11 @@
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/tcp_transport/transport.c</location>
 		</link>
 		<link>
+			<name>esp_idf_components/tcp_transport/transport_internal.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v4.4.3/components/tcp_transport/transport_internal.c</location>
+		</link>
+		<link>
 			<name>esp_idf_components/tcp_transport/transport_ssl.c</name>
 			<type>1</type>
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/tcp_transport/transport_ssl.c</location>
@@ -1057,6 +1062,16 @@
 			<name>esp_idf_components/ulp/ulp_macro.c</name>
 			<type>1</type>
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/ulp/ulp_macro.c</location>
+		</link>
+		<link>
+			<name>esp_idf_components/ulp/ulp_riscv.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v4.4.3/components/ulp/ulp_riscv.c</location>
+		</link>
+		<link>
+			<name>esp_idf_components/ulp/ulp_riscv_adc.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v4.4.3/components/ulp/ulp_riscv_adc.c</location>
 		</link>
 		<link>
 			<name>esp_idf_components/unity/unity_port_esp32.c</name>
@@ -1567,6 +1582,11 @@
 			<name>esp_idf_components/esp_rom/patches/esp_rom_crc.c</name>
 			<type>1</type>
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/esp_rom/patches/esp_rom_crc.c</location>
+		</link>
+		<link>
+			<name>esp_idf_components/esp_rom/patches/esp_rom_efuse.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v4.4.3/components/esp_rom/patches/esp_rom_efuse.c</location>
 		</link>
 		<link>
 			<name>esp_idf_components/esp_rom/patches/esp_rom_longjmp.S</name>
@@ -3412,6 +3432,11 @@
 			<name>esp_idf_components/unity/unity/src/unity.c</name>
 			<type>1</type>
 			<location>D:/Espressif/frameworks/esp-idf-v4.4/components/unity/unity/src/unity.c</location>
+		</link>
+		<link>
+			<name>esp_idf_components/wpa_supplicant/esp_supplicant/src/esp_common.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v4.4.3/components/wpa_supplicant/esp_supplicant/src/esp_common.c</location>
 		</link>
 		<link>
 			<name>esp_idf_components/wpa_supplicant/esp_supplicant/src/esp_dpp.c</name>

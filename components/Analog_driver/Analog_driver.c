@@ -8,16 +8,36 @@
 #include "esp_adc_cal.h"
 #include "Analog_driver.h"
 
+//--------- ULP -----------
+//#include "driver/rtc_io.h"
+//#include "esp32s3/ulp.h"
+//#include "esp32s3/ulp_riscv.h"
+//#include "esp32s3/ulp_riscv_adc.h"
+//#include "main_ulp_adc.h"
+//extern const uint8_t ulp_main_bin_start[] asm("_binary_main_ulp_adc_bin_start");
+//extern const uint8_t ulp_main_bin_end[]   asm("_binary_main_ulp_adc_bin_end");
+//static void init_ulp_program(void);
+
+
 #define GET_UNIT(x)        ((x>>3) & 0x1)
 
 static const char* TAG = "Analog";
 
-esp_adc_cal_characteristics_t  * adc_chars;
-uint32_t ign_det_thr = 100;
+static esp_adc_cal_characteristics_t  * adc_chars;
+static uint32_t ign_det_thr = 100;
 
-esp_err_t Analog_init(uint32_t ign_det_thr_val)
+static float    filter_coeff = 0.1f;
+static uint32_t voltage_ign1 = 0;
+static uint32_t voltage_ign2 = 0;
+static uint32_t voltage_ign3 = 0;
+static uint32_t voltage_ign4 = 0;
+static uint32_t voltage_vbat = 0;
+static float	mcu_temp	 = 0.0f;
+
+esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 {
 	ign_det_thr = ign_det_thr_val;
+	filter_coeff = filter;
 
 	//Check if TP is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
@@ -56,57 +76,74 @@ esp_err_t Analog_init(uint32_t ign_det_thr_val)
 	temp_sensor_set_config(temp_sensor);
 	temp_sensor_start();
 
+	// Init meas filters
+	voltage_ign1 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_6), adc_chars);
+	voltage_ign2 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_5), adc_chars);
+	voltage_ign3 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_4), adc_chars);
+	voltage_ign4 = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_3), adc_chars);
+	voltage_vbat = esp_adc_cal_raw_to_voltage(adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7), adc_chars) * 11;
+	temp_sensor_read_celsius(&mcu_temp);
+
 	return ESP_OK;
 }
 
 uint32_t Analog_getIGN1(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_6);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 1: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign1 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign1;
+
+    return voltage_ign1;
 }
 
 uint32_t Analog_getIGN2(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_5);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 2: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign2 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign2;
+
+    return voltage_ign2;
 }
 
 uint32_t Analog_getIGN3(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_4);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 3: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign3 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign3;
+
+    return voltage_ign3;
 }
 
 uint32_t Analog_getIGN4(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_3);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     ESP_LOGV(TAG, "Raw 4: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_ign4 = filter_coeff * voltage + (1-filter_coeff) * voltage_ign4;
+
+    return voltage_ign4;
 }
 
 uint32_t Analog_getVBAT(){
     uint32_t adc_reading = adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7);
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars) * 11 * 1.01f;
+    uint32_t voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars) * 11;
     ESP_LOGV(TAG, "Raw bat: %d\tVoltage: %dmV", adc_reading, voltage);
 
-    return voltage;
+    voltage_vbat = filter_coeff * voltage + (1-filter_coeff) * voltage_vbat;
+
+    return voltage_vbat;
 }
 
 float Analog_getTempMCU(){
-	float result = 0;
+	float result = 0.0f;
 	temp_sensor_read_celsius(&result);
+	mcu_temp = filter_coeff * result + (1-filter_coeff) * mcu_temp;
+	ESP_LOGV(TAG, "MCU temp: %.2f", mcu_temp);
 
-	ESP_LOGV(TAG, "Temp: %.2f Celsius", result);
-	ESP_LOGE("TAG", "Internal temp. sensor not accurate!");
-
-	return 0.0f;
+	return mcu_temp;
 }
 
 void Analog_update(Analog_meas_t * meas){
@@ -125,5 +162,28 @@ void Analog_update(Analog_meas_t * meas){
 		meas->IGN4_det = 0;
 	}
 
-	//meas->temp = Analog_getTempMCU();
+	meas->temp = Analog_getTempMCU();
 }
+
+//---------------------------------- ULP ---------------------------------
+//static void init_ulp_program(void)
+//{
+//	ulp_riscv_adc_cfg_t cfg = {
+//		.channel = ADC1_CHANNEL_7,
+//		.width   = ADC_WIDTH_BIT_12,
+//		.atten   = ADC_ATTEN_DB_6,
+//	};
+//	ESP_ERROR_CHECK(ulp_riscv_adc_init(&cfg));
+//
+//    esp_err_t err = ulp_riscv_load_binary(ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start));
+//    ESP_ERROR_CHECK(err);
+//
+//    /* The first argument is the period index, which is not used by the ULP-RISC-V timer
+//     * The second argument is the period in microseconds, which gives a wakeup time period of: 20ms
+//     */
+//    ulp_set_wakeup_period(0, 20000);
+//
+//    /* Start the program */
+//    err = ulp_riscv_run();
+//    ESP_ERROR_CHECK(err);
+//}
