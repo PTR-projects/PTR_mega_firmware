@@ -19,9 +19,8 @@
 #include "Sensors.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
-#include "Data_aggregator.h"
-
 #include "WiFi_driver.h"
+#include "DataManager.h"
 
 
 //----------- Our defines --------------
@@ -69,10 +68,10 @@ void task_kpptr_main(void *pvParameter){
 
 		xQueueReceive(queue_AnalogStorage, &Analog_meas, 0);
 
-		if(Data_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
+		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
 				//Data_aggregate(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
-				Data_addToMainRB(&DataPackage_ptr);
+				DM_addToMainRB(&DataPackage_ptr);
 			} else {
 				ESP_LOGE(TAG, "Main RB pointer = NULL!");
 			}
@@ -83,7 +82,7 @@ void task_kpptr_main(void *pvParameter){
 		//send data to RF
 		if(((prevTickCountRF + pdMS_TO_TICKS( 300 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			Data_aggregateRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL);
+			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL);
 			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), 0, 0);
 			LED_blinkWS(2, COLOUR_PURPLE, 20, 100, 1, 1);
 		}
@@ -97,10 +96,10 @@ void task_kpptr_storage(void *pvParameter){
 	ESP_LOGI(TAG, "Task Storage - ready!\n");
 	while(1){
 		if(1){	//(flightstate >= Launch) && (flightstate < Landed_delay)
-			if(Data_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
+			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
 				ESP_LOGI(TAG, "New data in storage");
 				//save to flash
-				Data_returnUsedPointerToMainRB(&DataPackage_ptr);
+				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			} else {
 				ESP_LOGI(TAG, "Storage timeout");
 			}
@@ -150,7 +149,7 @@ void app_main(void)
     nvs_flash_init();
     WiFi_init();
     SPI_init(1000000);
-    Data_init();
+    DM_init();
 
     //----- Create queues ----------
     queue_AnalogStorage = xQueueCreate( 1, sizeof( Analog_meas_t ) );

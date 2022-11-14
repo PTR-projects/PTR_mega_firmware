@@ -3,7 +3,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "BOARD.h"
-#include "Data_aggregator.h"
+#include "DataManager.h"
 #define DA_MAIN_QUEUE_SIZE 100
 
 //--------------- Main Data Buffer ----------------
@@ -23,7 +23,7 @@ static uint8_t queue_StorageUsed_buf[ DA_MAIN_QUEUE_SIZE * sizeof(&DataPackage_r
 static const char *TAG = "Data ag.";
 static uint16_t packet_counter = 0;
 
-esp_err_t Data_init(){
+esp_err_t DM_init(){
 	memset(DataPackage_rb, 0, sizeof(DataPackage_rb));
 
 	//----- Create queues ----------
@@ -60,21 +60,21 @@ esp_err_t Data_init(){
 }
 
 //-------------------------- Unload from Main RB ---------------------------
-esp_err_t Data_getUsedPointerFromMainRB(DataPackage_t ** ptr){
+esp_err_t DM_getUsedPointerFromMainRB(DataPackage_t ** ptr){
 	if(xQueueReceive(queue_StorageUsed, ptr, 0) != pdTRUE)
 		return ESP_FAIL;
 
 	return ESP_OK;
 }
 
-esp_err_t Data_getUsedPointerFromMainRB_wait(DataPackage_t ** ptr){
+esp_err_t DM_getUsedPointerFromMainRB_wait(DataPackage_t ** ptr){
 	if(xQueueReceive(queue_StorageUsed, ptr, pdMS_TO_TICKS( 100 )) != pdTRUE)
 		return ESP_FAIL;
 
 	return ESP_OK;
 }
 
-esp_err_t Data_returnUsedPointerToMainRB(DataPackage_t ** ptr){
+esp_err_t DM_returnUsedPointerToMainRB(DataPackage_t ** ptr){
 	if(xQueueSend(queue_StorageFree, ptr, 0) != pdTRUE)
 			return ESP_FAIL;
 
@@ -82,7 +82,7 @@ esp_err_t Data_returnUsedPointerToMainRB(DataPackage_t ** ptr){
 }
 
 //--------------------------- Loading to Main RB --------------------------
-esp_err_t Data_getFreePointerToMainRB(DataPackage_t ** ptr){
+esp_err_t DM_getFreePointerToMainRB(DataPackage_t ** ptr){
 	if(xQueueReceive(queue_StorageFree, ptr, 0) != pdTRUE){
 		//no free item in Free Queue get oldest from Used Queue
 		if(xQueueReceive(queue_StorageUsed, ptr, 0) != pdTRUE)
@@ -92,14 +92,14 @@ esp_err_t Data_getFreePointerToMainRB(DataPackage_t ** ptr){
 	return ESP_OK;
 }
 
-esp_err_t Data_addToMainRB(DataPackage_t ** ptr){
+esp_err_t DM_addToMainRB(DataPackage_t ** ptr){
 	if(xQueueSend(queue_StorageUsed, ptr, 0) != pdTRUE)
 		return ESP_FAIL;
 
 	return ESP_OK;
 }
 
-void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
+void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
 		FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog){
 
 	package->sys_time = time_us;
@@ -139,7 +139,7 @@ void Data_aggregate(DataPackage_t * package, int64_t time_us, Sensors_t * sensor
 	//package->flightstate = (uint8_t)(flightstate->state);
 }
 
-void Data_aggregateRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
+void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
 	package->id           = 0xAAAA;
 	package->packet_no    = packet_counter++;
 	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
