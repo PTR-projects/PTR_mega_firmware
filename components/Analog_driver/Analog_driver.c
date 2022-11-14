@@ -9,14 +9,14 @@
 #include "Analog_driver.h"
 
 //--------- ULP -----------
-#include "driver/rtc_io.h"
-#include "esp32s3/ulp.h"
-#include "esp32s3/ulp_riscv.h"
-#include "esp32s3/ulp_riscv_adc.h"
-#include "main_ulp_adc.h"
-extern const uint8_t ulp_main_bin_start[] asm("_binary_main_ulp_adc_bin_start");
-extern const uint8_t ulp_main_bin_end[]   asm("_binary_main_ulp_adc_bin_end");
-static void init_ulp_program(void);
+//#include "driver/rtc_io.h"
+//#include "esp32s3/ulp.h"
+//#include "esp32s3/ulp_riscv.h"
+//#include "esp32s3/ulp_riscv_adc.h"
+//#include "main_ulp_adc.h"
+//extern const uint8_t ulp_main_bin_start[] asm("_binary_main_ulp_adc_bin_start");
+//extern const uint8_t ulp_main_bin_end[]   asm("_binary_main_ulp_adc_bin_end");
+//static void init_ulp_program(void);
 
 
 #define GET_UNIT(x)        ((x>>3) & 0x1)
@@ -166,24 +166,24 @@ void Analog_update(Analog_meas_t * meas){
 }
 
 //---------------------------------- ULP ---------------------------------
-static void init_ulp_program(void)
-{
-	ulp_riscv_adc_cfg_t cfg = {
-		.channel = ADC1_CHANNEL_7,
-		.width   = ADC_WIDTH_BIT_12,
-		.atten   = ADC_ATTEN_DB_6,
-	};
-	ESP_ERROR_CHECK(ulp_riscv_adc_init(&cfg));
-
-    esp_err_t err = ulp_riscv_load_binary(ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start));
-    ESP_ERROR_CHECK(err);
-
-    /* The first argument is the period index, which is not used by the ULP-RISC-V timer
-     * The second argument is the period in microseconds, which gives a wakeup time period of: 20ms
-     */
-    ulp_set_wakeup_period(0, 20000);
-
-    /* Start the program */
-    err = ulp_riscv_run();
-    ESP_ERROR_CHECK(err);
-}
+//static void init_ulp_program(void)
+//{
+//	ulp_riscv_adc_cfg_t cfg = {
+//		.channel = ADC1_CHANNEL_7,
+//		.width   = ADC_WIDTH_BIT_12,
+//		.atten   = ADC_ATTEN_DB_6,
+//	};
+//	ESP_ERROR_CHECK(ulp_riscv_adc_init(&cfg));
+//
+//    esp_err_t err = ulp_riscv_load_binary(ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start));
+//    ESP_ERROR_CHECK(err);
+//
+//    /* The first argument is the period index, which is not used by the ULP-RISC-V timer
+//     * The second argument is the period in microseconds, which gives a wakeup time period of: 20ms
+//     */
+//    ulp_set_wakeup_period(0, 20000);
+//
+//    /* Start the program */
+//    err = ulp_riscv_run();
+//    ESP_ERROR_CHECK(err);
+//}
