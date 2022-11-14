@@ -70,7 +70,8 @@ void task_kpptr_main(void *pvParameter){
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
-				//Data_aggregate(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
+				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
+				ESP_LOGI(TAG, "Added T=%lli", time_us);
 				DM_addToMainRB(&DataPackage_ptr);
 			} else {
 				ESP_LOGE(TAG, "Main RB pointer = NULL!");
@@ -93,15 +94,16 @@ void task_kpptr_main(void *pvParameter){
 void task_kpptr_storage(void *pvParameter){
 	DataPackage_t * DataPackage_ptr;
 
+	vTaskDelay(pdMS_TO_TICKS( 2000 ));
 	ESP_LOGI(TAG, "Task Storage - ready!\n");
 	while(1){
 		if(1){	//(flightstate >= Launch) && (flightstate < Landed_delay)
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
-				ESP_LOGI(TAG, "New data in storage");
+				ESP_LOGI(TAG, "Saved T=%lli", DataPackage_ptr->sys_time);
 				//save to flash
 				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			} else {
-				ESP_LOGI(TAG, "Storage timeout");
+				//ESP_LOGI(TAG, "Storage timeout");
 			}
 		}
 	}
