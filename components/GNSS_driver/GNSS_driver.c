@@ -543,16 +543,16 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
 					/*esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UPDATE,
 									  &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
 				   */
-					ESP_LOGI(TAG, "New data parsed! Add to queue");
+					ESP_LOGV(TAG, "New data parsed! Add to queue");
 					if(xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage) < (4+sizeof(gps_t))){
-						ESP_LOGI(TAG, "Oldest packet removed");
+						ESP_LOGV(TAG, "Oldest packet removed");
 						gps_t tmp_gps;
 						xMessageBufferReceive( xMessageBuffer_GNSS2Storage, (void*) &tmp_gps, sizeof( gps_t ), 0);
 					}
 					xMessageBufferSend(xMessageBuffer_GNSS2Storage, (void *)&(esp_gps->parent), sizeof(gps_t), 0);
 //					ESP_LOGI(TAG, "free space %i B, %i packets", xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage),
 //																 xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage)/(4+sizeof(gps_t)));
-					ESP_LOGI(TAG, "%f, %f, %i", esp_gps->parent.latitude, esp_gps->parent.longitude, esp_gps->parent.fix);
+					ESP_LOGV(TAG, "%f, %f, %i", esp_gps->parent.latitude, esp_gps->parent.longitude, esp_gps->parent.fix);
 				}
             } else {
                 ESP_LOGD(TAG, "CRC Error for statement:%s", esp_gps->buffer);
