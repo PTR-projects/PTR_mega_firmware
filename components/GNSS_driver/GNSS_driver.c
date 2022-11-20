@@ -35,14 +35,14 @@ void GPS_init(void)
     /* NMEA parser configuration */
     nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
     /* init NMEA parser library */
-
+    vTaskDelay(pdMS_TO_TICKS( 2000 ));
     nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
 
     //--------- Init GNSS receiver ----------------
-	GPS_baud_rate_set_extra(115200);
-	GPS_nmea_output_set(0, 0, 0, 1, 0, 0);
-	GPS_nav_mode_set(GPS_MODE_AVIATION);
-	GPS_fix_interval_set(200);
+	GPS_baud_rate_set_extra(115200);		vTaskDelay(pdMS_TO_TICKS( 100 ));
+	GPS_nmea_output_set(0, 0, 0, 1, 0, 0);	vTaskDelay(pdMS_TO_TICKS( 100 ));
+	GPS_nav_mode_set(GPS_MODE_AVIATION);	vTaskDelay(pdMS_TO_TICKS( 100 ));
+	GPS_fix_interval_set(200);				vTaskDelay(pdMS_TO_TICKS( 100 ));
 
     /* register event handler for NMEA parser library */
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
