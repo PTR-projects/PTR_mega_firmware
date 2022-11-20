@@ -14,6 +14,7 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 static MessageBufferHandle_t xMessageBuffer_GNSS2Storage;
 static uint8_t xMessageBuffer_GNSS2Storage_buffer[1 + (4 + sizeof(gps_t)) * 10];
 static StaticMessageBuffer_t  xMessageBuffer_GNSS2Storage_struct;
+static char txMessageBuffer[64];
 
 ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
@@ -22,6 +23,7 @@ ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
 void GPS_init(void)
 {
+	//--------- Init ESP task & queue -------------
 	xMessageBuffer_GNSS2Storage = xMessageBufferCreateStatic(
 	                                    sizeof(xMessageBuffer_GNSS2Storage_buffer),
 	                                    xMessageBuffer_GNSS2Storage_buffer,
@@ -35,6 +37,12 @@ void GPS_init(void)
     /* init NMEA parser library */
 
     nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+
+    //--------- Init GNSS receiver ----------------
+	GPS_baud_rate_set_extra(115200);
+	GPS_nmea_output_set(0, 0, 0, 1, 0, 0);
+	GPS_nav_mode_set(GPS_MODE_AVIATION);
+	GPS_fix_interval_set(200);
 
     /* register event handler for NMEA parser library */
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
@@ -400,8 +408,8 @@ static esp_err_t parse_item(esp_gps_t *esp_gps)
         }
 #endif
         else {
-          //  esp_gps->cur_statement = STATEMENT_UNKNOWN;
-        }
+            esp_gps->cur_statement = STATEMENT_UNKNOWN;
+        	}
         goto out;
     }
     /* Parse each item, depend on the type of the statement */
@@ -594,6 +602,7 @@ static void esp_handle_uart_pattern(esp_gps_t *esp_gps)
         int read_len = uart_read_bytes(esp_gps->uart_port, esp_gps->buffer, pos + 1, 100 / portTICK_PERIOD_MS);
         /* make sure the line is a standard string */
         esp_gps->buffer[read_len] = '\0';
+        //ESP_LOGE(TAG, "%s\n", esp_gps->buffer);
         /* Send new line to handle */
         if (gps_decode(esp_gps, read_len + 1) != ESP_OK) {
         	ESP_LOGE(TAG, "GPS decode line failed");
@@ -615,7 +624,7 @@ static void nmea_parser_task_entry(void *arg)
     uart_event_t event;
     while (1) {
         if (xQueueReceive(esp_gps->event_queue, &event, pdMS_TO_TICKS(200))) {
-            switch (event.type) {
+        	switch (event.type) {
             case UART_DATA:
                 break;
             case UART_FIFO_OVF:
@@ -700,7 +709,7 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
        // .source_clk = UART_SCLK_DEFAULT,
     };
-    if (uart_driver_install(esp_gps->uart_port, CONFIG_NMEA_PARSER_RING_BUFFER_SIZE, 0,
+    if (uart_driver_install(esp_gps->uart_port, CONFIG_NMEA_PARSER_RING_BUFFER_SIZE, NMEA_TX_BUFFER_SIZE,
                             config->uart.event_queue_size, &esp_gps->event_queue, 0) != ESP_OK) {
     	ESP_LOGE(TAG, "install uart driver failed");
         goto err_uart_install;
@@ -709,7 +718,7 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     	ESP_LOGE(TAG, "config uart parameter failed");
         goto err_uart_config;
     }
-    if (uart_set_pin(esp_gps->uart_port, UART_PIN_NO_CHANGE, config->uart.rx_pin,
+    if (uart_set_pin(esp_gps->uart_port, GNSS_RX_PIN, config->uart.rx_pin,
                      UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) != ESP_OK) {
     	ESP_LOGE(TAG, "config uart gpio failed");
         goto err_uart_config;
@@ -824,3 +833,108 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         break;
     }
 }
+
+
+
+uint16_t crc_calc(char *message)
+{
+	uint8_t crc = message[0];
+
+	 for(int i=1; i < strlen(message) ; i++){
+		 crc ^= message[i];
+	}
+	 return crc;
+}
+
+
+
+void GPS_send_cmd(char *message){
+	sprintf(txMessageBuffer, "$%s*%02X\r\n", message, crc_calc(message));
+	uart_write_bytes(GNSS_UART, txMessageBuffer, strlen(txMessageBuffer));
+}
+
+void GPS_test(void){
+	ESP_LOGE(TAG, "test");
+	GPS_send_cmd("PMTK605");
+}
+
+void GPS_baud_rate_set(uint32_t baud){ // default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+	char message[16];
+	if (baud != 4800 && baud != 9600 && baud != 14400 && baud != 19200 && baud != 38400 && baud != 57600 && baud != 115200){
+		ESP_LOGE(TAG, "WRONG BAUDRATE");
+		return;
+	}
+	sprintf(message, "PMTK251,%i", baud);
+	GPS_send_cmd(message);
+	ESP_LOGE(TAG, "GPS baudrate set to %d", baud);
+}
+
+
+void GPS_baud_rate_set_extra(uint32_t baud){ // default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+	char message[16];
+	if (baud != 4800 && baud != 9600 && baud != 14400 && baud != 19200 && baud != 38400 && baud != 57600 && baud != 115200){
+		ESP_LOGE(TAG, "WRONG BAUDRATE");
+		return;
+	}
+	sprintf(message, "PMTK251,%i", baud);
+	GPS_send_cmd(message);
+	uart_wait_tx_done(GNSS_UART, portMAX_DELAY);
+	uart_set_baudrate(GNSS_UART, baud);
+	ESP_LOGE(TAG, "GPS and UARTPORT %d baudrate set to %d", GNSS_UART, baud);
+}
+
+
+
+
+void GPS_fix_interval_set(uint16_t time){ //time in millis 100-10000
+	char message[16];
+	if(time < 100){
+		ESP_LOGE(TAG, "To low fix interval (time in millis 100-10000)");
+		return;
+	}
+	if(time > 10000){
+		ESP_LOGE(TAG, "To high fix interval (time in millis 100-10000)");
+		return;
+	}
+	sprintf(message, "PMTK220,%i", time);
+	GPS_send_cmd(message);
+}
+
+void GPS_nav_mode_set(gps_nav_mode_t mode){
+	char message[16];
+	sprintf(message, "PMTK886,%i", mode);
+	GPS_send_cmd(message);
+
+}
+
+void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV){
+	char message[64];
+	if(GLL > 5){
+		GLL = 5;
+		ESP_LOGE(TAG, "NMEA OUTPUT GLL freq parameter too high set 5 instead");
+	}
+	if(RMC > 5){
+		RMC = 5;
+		ESP_LOGE(TAG, "NMEA OUTPUT RMC freq parameter too high set 5 instead");
+		}
+	if(VTG > 5){
+		VTG = 5;
+		ESP_LOGE(TAG, "NMEA OUTPUT VTG freq parameter too high set 5 instead");
+		}
+	if(GGA > 5){
+		GGA = 5;
+		ESP_LOGE(TAG, "NMEA OUTPUT GGA freq parameter too high set 5 instead");
+		}
+	if(GSA > 5){
+		GSA = 5;
+		ESP_LOGE(TAG, "NMEA OUTPUT GSA freq parameter too high set 5 instead");
+		}
+	if(GSV > 5){
+		GSV = 5;
+		ESP_LOGE(TAG, "NMEA OUTPUT GSV freq parameter too high set 5 instead");
+		}
+	sprintf(message, "PMTK314,%i,%i,%i,%i,%i,%i,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", GLL , RMC , VTG , GGA , GSA , GSV);
+	GPS_send_cmd(message);
+	ESP_LOGE(TAG, "NMEA OUTPUT SET TO:\nGLL %d\nRMC %d\nVTG %d\nGGA %d\nGSA %d\nGSV %d\n",  GLL , RMC , VTG , GGA , GSA , GSV);
+}
+
