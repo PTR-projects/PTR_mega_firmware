@@ -142,7 +142,7 @@ void app_main(void)
 
 
     while (true) {
-    	GPS_test();
+    	//GPS_test();
         vTaskDelay(pdMS_TO_TICKS( 1000 ));
     }
 }

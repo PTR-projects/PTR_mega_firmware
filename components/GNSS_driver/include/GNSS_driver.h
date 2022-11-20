@@ -259,4 +259,4 @@ void GPS_baud_rate_set(uint32_t baud);
 void GPS_baud_rate_set_extra(uint32_t baud);
 void GPS_fix_interval_set(uint16_t time);
 void GPS_nav_mode_set(gps_nav_mode_t mode);
-void GPS_nmea_output_set(uint8_t GLL ,uint8_t RMC ,uint8_t VTG ,uint8_t GGA ,uint8_t GSA ,uint8_t GSV);
+void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV);

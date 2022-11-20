@@ -23,6 +23,7 @@ ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
 void GPS_init(void)
 {
+	//--------- Init ESP task & queue -------------
 	xMessageBuffer_GNSS2Storage = xMessageBufferCreateStatic(
 	                                    sizeof(xMessageBuffer_GNSS2Storage_buffer),
 	                                    xMessageBuffer_GNSS2Storage_buffer,
@@ -36,6 +37,12 @@ void GPS_init(void)
     /* init NMEA parser library */
 
     nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+
+    //--------- Init GNSS receiver ----------------
+	GPS_baud_rate_set_extra(115200);
+	GPS_nmea_output_set(0, 0, 0, 1, 0, 0);
+	GPS_nav_mode_set(GPS_MODE_AVIATION);
+	GPS_fix_interval_set(200);
 
     /* register event handler for NMEA parser library */
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
@@ -900,7 +907,7 @@ void GPS_nav_mode_set(gps_nav_mode_t mode){
 
 }
 
-void GPS_nmea_output_set(uint8_t GLL ,uint8_t RMC ,uint8_t VTG ,uint8_t GGA ,uint8_t GSA ,uint8_t GSV){
+void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV){
 	char message[64];
 	if(GLL > 5){
 		GLL = 5;
