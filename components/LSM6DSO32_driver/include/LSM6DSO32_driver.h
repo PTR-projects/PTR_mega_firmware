@@ -1,4 +1,5 @@
 #pragma once
+
 #include "esp_err.h"
 #include <stdbool.h>
 #include <driver/spi_master.h>
@@ -23,8 +24,9 @@
 #define DEFAULT_GYRO_RES 5
 #define DEFAULT_ACL_RES 5
 
-static spi_device_handle_t spi_dev_handle_LSM6;
+#define SPI_BUS SPI2HOST
 
+static spi_device_handle_t spi_dev_handle_LSM6;
 
 typedef struct{
 	float temp;
@@ -56,11 +58,8 @@ const uint8_t aclOdr[12];
 const uint8_t aclScale[4];
 const uint8_t gyroScale[5];
 
-esp_err_t SPI_write(uint8_t* dataArr, uint8_t len, uint8_t EN_PIN);
-esp_err_t SPI_read(uint8_t* dataArr, uint8_t len, uint8_t EN_PIN);
-esp_err_t LSM_begin(uint8_t EN_PIN);
-esp_err_t LSM_gyroSettings(uint8_t resolution, uint8_t ODR, uint8_t LPF, uint8_t EN_PIN);
-esp_err_t LSM_getRawData(uint8_t* rawData, uint8_t EN_PIN);
-esp_err_t LSM_getData(uint8_t* sensorData, uint8_t EN_PIN);
-esp_err_t softReset(uint8_t EN_PIN);
-
+esp_err_t LSM6_begin(uint8_t EN_PIN);
+esp_err_t LSM6_gyroSettings(uint8_t resolution, uint8_t ODR, uint8_t LPF, uint8_t EN_PIN);
+esp_err_t LSM6_getRawData(uint8_t* rawData, uint8_t EN_PIN);
+esp_err_t LSM6_getData(uint8_t* sensorData, uint8_t EN_PIN);
+esp_err_t LSM6_softReset(uint8_t EN_PIN);

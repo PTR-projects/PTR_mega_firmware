@@ -9,6 +9,8 @@ const uint8_t gyroOdr[11] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 const uint8_t aclScale[4] = {0, 2, 3, 1};
 const uint8_t gyroScale[5] = {4, 0, 1, 2 ,3}
 
+double * outputDataRate = NULL;
+uint8_t CTRL2_Gval = 0, CTRL6_Cval = 0;
 esp_err_t SPI_write(uint8_t* dataArr, uint8_t len, uint8_t LSM6_addr, uint8_t EN_PIN) {
     spi_transaction_t metaSpi;
     
@@ -66,13 +68,24 @@ esp_err_t LSM6_spi_init(uint8_t EN_PIN) {
     return ESP_OK;
 }
 
-esp_err_t LSM6_gyroSettings(uint8_t settings, uint8_t resolution, uint8_t ODR, uint8_t LPF, uint8_t EN_PIN) {
-    
-    defaultSettingsGyro = (ODR << 4) | (resolution << 1);
+esp_err_t LSM6_setGyroReadout(uint8_t gyroResolution_DPS, uint8_t gyroLPF) {
+	esp_err_t status = ESP_OK;
+	CTRL2_Gval &= 0b000001110;
+	if(gyroResolution>3) {
+		CTRL2_Gval |= 2;
+	} else {CTRL2_Gval |= gyroResolution_DPS<<2;}
+	CTRL6_Cval &= 0b11111000;
+	CTRL6_Cval |= gyroLPF;
+	
+    status = SPI_write(&CTRL2_Gval, CTRL2_G, 1, EN_PIN);
+	if(status == ESP_OK) status = SPI_write(&CTRL2_Gval, CTRL2_G, 1, EN_PIN); 
+	return status;
 
-    SPI_write(&LPF, CTRL6_C, 1, EN_PIN);
-    SPI_write(&settings, CTRL7_G, 1, EN_PIN);
-    SPI_write(&defaultSettingsGyro, CTRL2_G, 1, EN_PIN);
+}
+esp_err_t LSM6_setGyroODR(uint16_t gyroDataRate_Hz) {
+	CTRL2_Gval &= 0b000001110;
+	CTRL2_Gval |= gyroDataRate_Hz << 4; 
+    return SPI_write(&CTRL2_Gval, CTRL2_G, 1, EN_PIN);	
 }
 
 esp_err_t LSM6_aclSettings(uint8_t settings, uint8_t resolution, uint8_t ODR, uint8_t LPF, uint8_t EN_PIN) {
@@ -83,8 +96,6 @@ esp_err_t LSM6_aclSettings(uint8_t settings, uint8_t resolution, uint8_t ODR, ui
     SPI_write(&defaultSettingsAcl, CTRL1_XL, 1, EN_PIN);
 
 }
-
-esp_err_t LSM6_setDataRate(uint8_t aclRate, uint8_t gyroRate, uint8_t EN_PIN);
 
 esp_err_t LSM6_getRawData(uint8_t* rawData, uint8_t EN_PIN) {
 
