@@ -24,6 +24,28 @@
 #define DEFAULT_GYRO_RES 5
 #define DEFAULT_ACL_RES 5
 
+#define LSM6_ODR_12_5HZ 1
+#define LSM6_ODR_26HZ 2
+#define LSM6_ODR_52HZ 3
+#define LSM6_ODR_104HZ 4
+#define LSM6_ODR_208HZ 5
+#define LSM6_ODR_416HZ 6 
+#define LSM6_ODR_833HZ 7
+#define LSM6_ODR_1600HZ 8
+#define LSM6_ODR_3330HZ 9
+#define LSM6_ODR_6660HZ 10
+
+#define LSM6_RESOLUTION_125DPS 0
+#define LSM6_RESOLUTION_250DPS 1
+#define LSM6_RESOLUTION_500DPS 2
+#define LSM6_RESOLUTION_1000DPS 3 
+#define LSM6_RESOLUTION_2000DPS 4
+
+
+
+
+
+
 #define SPI_BUS SPI2HOST
 
 static spi_device_handle_t spi_dev_handle_LSM6;
@@ -59,7 +81,8 @@ const uint8_t aclScale[4];
 const uint8_t gyroScale[5];
 
 esp_err_t LSM6_begin(uint8_t EN_PIN);
-esp_err_t LSM6_gyroSettings(uint8_t resolution, uint8_t ODR, uint8_t LPF, uint8_t EN_PIN);
-esp_err_t LSM6_getRawData(uint8_t* rawData, uint8_t EN_PIN);
+esp_err_t LSM6_setGyroODR(uint8_t gyroDataRate_Hz);
+esp_err_t LSM6_setGyroReadout(uint8_t gyroResolution_DPS, uint8_t gyroLPF);
+esp_err_t LSM6_getRawData(uint8_t* rawData);
 esp_err_t LSM6_getData(uint8_t* sensorData, uint8_t EN_PIN);
 esp_err_t LSM6_softReset(uint8_t EN_PIN);
