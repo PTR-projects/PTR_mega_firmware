@@ -24,7 +24,7 @@ void quaternionInitFromVector(quaternions_t * result, quaternions_t * v){
 }
 
 float quaternionNormSqared(quaternions_t * q){
-    return sq(q->q0) + sq(q->q1) + sq(q->q2) + sq(q->q3);
+    return POW2(q->q0) + POW2(q->q1) + POW2(q->q2) + POW2(q->q3);
 }
 
 void quaternionMultiply(quaternions_t * result, quaternions_t * a, quaternions_t * b){

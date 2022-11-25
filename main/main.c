@@ -46,11 +46,13 @@ void task_kpptr_main(void *pvParameter){
 	struct timeval tv_tic;
 	struct timeval tv_toc;
 	struct timeval tv_comp;
+	gettimeofday(&tv_now, NULL);
+	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
 
 	Sensors_init();
 	GPS_init();
 	//Detector_init();
-	//AHRS_init();
+	AHRS_init(time_us);
 	ESP_LOGI(TAG, "Task Main - ready!\n");
 
 	xLastWakeTime = xTaskGetTickCount ();
@@ -65,7 +67,7 @@ void task_kpptr_main(void *pvParameter){
 		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
 
 		Sensors_update();
-		//AHRS_calc();
+		AHRS_compute(time_us, Sensors_get());
 		//Detector_detect();
 
 
@@ -78,7 +80,7 @@ void task_kpptr_main(void *pvParameter){
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
-				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL, &Analog_meas);
+				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL, &Analog_meas);
 //				ESP_LOGV(TAG, "Added T=%lli", time_us);
 				DM_addToMainRB(&DataPackage_ptr);
 			} else {
@@ -91,7 +93,7 @@ void task_kpptr_main(void *pvParameter){
 		//send data to RF
 		if(((prevTickCountRF + pdMS_TO_TICKS( 300 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, NULL, NULL, NULL);
+			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
 		}
 

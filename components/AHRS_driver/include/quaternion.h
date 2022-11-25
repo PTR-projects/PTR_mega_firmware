@@ -7,6 +7,7 @@
 
 #ifndef COMPONENTS_AHRS_DRIVER_INCLUDE_QUATERNION_H_
 #define COMPONENTS_AHRS_DRIVER_INCLUDE_QUATERNION_H_
+#include "common.h"
 
 // https://github.com/betaflight/betaflight/blob/master/src/main/common/maths.h
 #define QUATERNION_INITIALIZE  {.w=1, .x=0, .y=0,.z=0}
