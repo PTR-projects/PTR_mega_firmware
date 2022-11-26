@@ -21,7 +21,7 @@ static void AHRS_UpdateEulerAngles(orientation_t * orient);
 static void AHRS_TransformAccToENU();
 
 static AHRS_t AHRS_d;
-static float reference_pressure = 101300.0f;
+static float reference_pressure = 100930.0f;
 
 // !!!! This library is NOT thread-safe !!!!
 
@@ -44,11 +44,20 @@ esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors){
 	AHRS_d.dt = (time_us - AHRS_d.prev_time_us) / 1000000.0f;	//us to s
 	AHRS_d.prev_time_us = time_us;
 
+	//Store raw accelerations in AHRS_d <<---- to be changed with more complex function (sensors fusion)
+	AHRS_d.acc_rf.x = 9.81f*sensors->LSM6DSO32.accX;
+	AHRS_d.acc_rf.y = 9.81f*sensors->LSM6DSO32.accY;
+	AHRS_d.acc_rf.z = 9.81f*sensors->LSM6DSO32.accZ;
+
 	AHRS_CalcAltitudeP(sensors->MS5607.press);
 	AHRS_CalcOrientation(sensors);
 	AHRS_TransformAccToENU();
 	AHRS_CalcVelocityPosition();
 
+	AHRS_d.acc_axis_lowpass = 0.05f*AHRS_d.acc_rf.x + 0.95f*AHRS_d.acc_axis_lowpass;
+
+	//printf("$,%f,%.1f,%.3f,%.3f,%.3f\n", AHRS_d.dt, sensors->LSM6DSO32.gyroY, AHRS_d.orientation.euler.tilt, AHRS_d.orientation.euler.dir, AHRS_d.orientation.euler.rot);
+	//printf("$,%f,%.3f,%.3f\n", AHRS_d.dt, AHRS_d.acc_up, AHRS_d.altitude);
 	return ESP_OK;
 }
 
@@ -58,6 +67,7 @@ void AHRS_UpdateReferencePressure(float press){
 }
 
 //------------------ AHRS private functions -------------------
+// Arecorder Kalman for pressure and altitude
 static void AHRS_CalcAltitudeP(float press){
 	/** \desc Raw pressure data read from pressure sensor [Pa]. */
 	float kalman_raw = press;
@@ -89,7 +99,7 @@ static void AHRS_CalcAltitudeP(float press){
 		kalman_initdone = 1;
 	}
 
-	 if((press < 1000) && (press > 120000)){
+	 if((press > 1000) && (press < 120000)){
 		 //------- Prediction ------------
 		 kalman_priori = kalman_post + kalman_derivativePost;		// Predict next data
 		 kalman_errorCovPriori = kalman_errorCovPost + kalman_Q1;
@@ -115,10 +125,11 @@ static void AHRS_CalcAltitudeP(float press){
 	AHRS_d.velocityP = 0.9f*AHRS_d.velocityP + 0.1f*(((alti_new) - AHRS_d.altitudeP) / AHRS_d.dt);
 	AHRS_d.altitudeP = alti_new;
 
+	//printf("$,%.1f,%.1f,%.1f,%.1f,%.3f,\n", kalman_raw, kalman_post, reference_pressure, alti_new, AHRS_d.velocityP);
 }
 
 static void AHRS_CalcVelocityPosition(){
-	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up,
+	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up-9.81f,
 			&(AHRS_d.altitude), &AHRS_d.ascent_rate);
 }
 
@@ -127,7 +138,7 @@ static void AHRS_CalcOrientation(Sensors_t * sensors){
 	bool useMag = false;
 
 	// TODO ------------------------------------------------------------------ Check flightstate to enable/disable acc or mag
-	useMag = true;
+	useMag = false;
 	useAcc = true;
 
 //	float dcmKpGain = imuCalcKpGain(AHRS_d.prev_time_us/1000, useAcc,	// TODO -------------- dynamic Kp gain
