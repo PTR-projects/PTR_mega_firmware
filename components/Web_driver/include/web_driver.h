@@ -15,6 +15,7 @@ struct file_server_data {
     /* Scratch buffer for temporary storage during file transfer */
     char scratch[SCRATCH_BUFSIZE];
 };
+
 typedef struct{
 	bool IGN_status[5];
 } Rocket_status_t;

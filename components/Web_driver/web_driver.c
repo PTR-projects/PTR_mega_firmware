@@ -1,12 +1,3 @@
-
-
-/*  WiFi softAP Example
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
-
 #include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
@@ -47,30 +38,53 @@ static const char *TAG = "Web_driver";
 #define SCRATCH_BUFSIZE  8192
 
 #define IS_FILE_EXT(filename, ext) \
-						(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
+		(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 
 
 esp_err_t Web_wifi_init 					(void);
-httpd_handle_t Web_http_init 				(const char *base_path);
+esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop							(httpd_handle_t server);
 esp_err_t Web_wifi_stop						(void);
 
 
+esp_vfs_spiffs_conf_t conf = {
+     .base_path = "/www",
+     .partition_label = "www",
+     .max_files = 5,
+     .format_if_mount_failed = true
+};
+
+
+/*!
+ * @brief Initialize web component by calling init functions for wifi and http server.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_ERR_NOT_FOUND` if partition is not present
+ * @return `ESP_FAIL` otherwise.
+ */
 esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
-	httpd_handle_t srv = NULL;
-	const char* base_path = "/storage";
+
+	const char* base_path = "/www";
+	ret = esp_vfs_spiffs_register(&conf);
+
+	 if(ret != ESP_OK){
+		 ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
+	 }
 
 	ret = Web_wifi_init();
-
-	srv = Web_http_init(base_path);
+	if(ret == ESP_OK){
+		ret = Web_http_init(base_path);
+	}
 
 	return ret;
-
 }
 
-
+/*!
+ * @brief Initialize wifi, create soft access point.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
 esp_err_t Web_wifi_init(void){
 	esp_err_t ret = nvs_flash_init();
 
@@ -111,8 +125,7 @@ esp_err_t Web_wifi_init(void){
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d",
-    		WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
+    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
 
     tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
@@ -127,9 +140,13 @@ esp_err_t Web_wifi_init(void){
 
 
 
-
-
-/* Set HTTP response content type according to file extension */
+/*!
+ * @brief Set HTTP response content type according to file extension.
+ * @return `text/html` .html
+ * @return `application/pdf` .pdf
+ * @return `image/jpeg` .jpeg
+ * @return `image/x-icon` .ico
+ */
 static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filename)
 {
     if (IS_FILE_EXT(filename, ".pdf")) {
@@ -146,8 +163,18 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
     return httpd_resp_set_type(req, "text/plain");
 }
 
-/* Copies the full path into destination buffer and returns
- * pointer to path (skipping the preceding base path) */
+
+/*!
+ * @brief Copies the full path into destination buffer and returns pointer to path (skipping the preceding base path).
+ * @param dest
+ * String with destination path
+ * @param base_path
+ * String with base path
+ * @param uri
+ * HTTP request uri
+ * @param destsize
+ * Szie of dest string
+ */
 static const char* get_path_from_uri(char *dest, const char *base_path, const char *uri, size_t destsize)
 {
     const size_t base_pathlen = strlen(base_path);
@@ -168,34 +195,42 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
     }
 
     /* Construct full path (base + path) */
-    strcpy(dest, base_path);
-    strlcpy(dest + base_pathlen, uri, pathlen + 1);
+    //strcpy(dest, base_path);
+    strcpy(dest, "");
+    //strlcpy(dest + base_pathlen, uri, pathlen + 1);
+    strlcpy(dest + 0, uri, pathlen + 1);
 
     /* Return pointer to path, skipping the base */
-    return dest + base_pathlen;
+    return dest + 0;
 }
 
 
-
+/*!
+ * @brief Handler responsible for serving all files to the client.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
 static esp_err_t download_get_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
     FILE *fd = NULL;
     struct stat file_stat;
 
-    const char *filename = get_path_from_uri(filepath, ((struct file_server_data *)req->user_ctx)->base_path,
-                                             req->uri, sizeof(filepath));
-    if (!filename) {
+    const char *filename = get_path_from_uri(filepath, ((struct file_server_data *)req->user_ctx)->base_path,req->uri, sizeof(filepath));
+
+    if(!filename){
         ESP_LOGE(TAG, "Filename is too long");
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Filename too long");
         return ESP_FAIL;
     }
 
-    /* If name has trailing '/', respond with directory contents */
 
+    /* If name has trailing '/', respond with directory contents */
     ESP_LOGI(TAG, "Filename %s",filename);
-    if (stat(filepath, &file_stat) == -1) {
+    if(stat(filepath, &file_stat) == -1){
         /* If file not present on SPIFFS check if URI
          * corresponds to one of the hardcoded paths */
 
@@ -206,7 +241,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     }
 
     fd = fopen(filepath, "r");
-    if (!fd) {
+    if(!fd){
         ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read existing file");
@@ -219,7 +254,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     /* Retrieve the pointer to scratch buffer for temporary storage */
     char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
     size_t chunksize;
-    do {
+    do{
         /* Read file in chunks into the scratch buffer */
         chunksize = fread(chunk, 1, SCRATCH_BUFSIZE, fd);
 
@@ -237,7 +272,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
         }
 
         /* Keep looping till the whole file is sent */
-    } while (chunksize != 0);
+    }while (chunksize != 0);
 
     /* Close file after sending complete */
     fclose(fd);
@@ -248,6 +283,13 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/*!
+ * @brief Handler responsible for deleting files.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
 static esp_err_t delete_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
@@ -257,20 +299,20 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     /* Note sizeof() counts NULL termination hence the -1 */
     const char *filename = get_path_from_uri(filepath, ((struct file_server_data *)req->user_ctx)->base_path,
                                              req->uri  + sizeof("/delete") - 1, sizeof(filepath));
-    if (!filename) {
+    if(!filename){
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Filename too long");
         return ESP_FAIL;
     }
 
     /* Filename cannot have a trailing '/' */
-    if (filename[strlen(filename) - 1] == '/') {
+    if(filename[strlen(filename) - 1] == '/'){
         ESP_LOGE(TAG, "Invalid filename : %s", filename);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Invalid filename");
         return ESP_FAIL;
     }
 
-    if (stat(filepath, &file_stat) == -1) {
+    if(stat(filepath, &file_stat) == -1){
         ESP_LOGE(TAG, "File does not exist : %s", filename);
         /* Respond with 400 Bad Request */
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File does not exist");
@@ -289,6 +331,14 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+
+/*!
+ * @brief Handler responsible for uploading files.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
 static esp_err_t upload_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
@@ -349,12 +399,12 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
      * the size of the file being uploaded */
     int remaining = req->content_len;
 
-    while (remaining > 0) {
+    while(remaining > 0){
+    	ESP_LOGI(TAG, "Remaining size : %d", remaining);
 
-        ESP_LOGI(TAG, "Remaining size : %d", remaining);
         /* Receive the file part by part into a buffer */
-        if ((received = httpd_req_recv(req, buf, MIN(remaining, SCRATCH_BUFSIZE))) <= 0) {
-            if (received == HTTPD_SOCK_ERR_TIMEOUT) {
+        if((received = httpd_req_recv(req, buf, MIN(remaining, SCRATCH_BUFSIZE))) <= 0){
+        	if(received == HTTPD_SOCK_ERR_TIMEOUT){
                 /* Retry if timeout occurred */
                 continue;
             }
@@ -371,7 +421,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         }
 
         /* Write buffer content to file on storage */
-        if (received && (received != fwrite(buf, 1, received, fd))) {
+        if(received && (received != fwrite(buf, 1, received, fd))){
             /* Couldn't write everything to file!
              * Storage may be full? */
             fclose(fd);
@@ -400,7 +450,15 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-httpd_handle_t Web_http_init(const char *base_path){
+
+/*!
+ * @brief Initialize HTTP server, create soft access point.
+ * @param base_path
+ * Base path used for data access.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t Web_http_init(const char *base_path){
 
 	httpd_handle_t server = NULL;
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -424,7 +482,7 @@ httpd_handle_t Web_http_init(const char *base_path){
 	ESP_LOGI(TAG, "Starting HTTP Server");
 	if(httpd_start(&server, &config) != ESP_OK){
 		ESP_LOGE(TAG, "Failed to start HTTP server!");
-		return 1;
+		return ESP_FAIL;
 	}
 
 	httpd_uri_t file_download = {
@@ -456,9 +514,14 @@ httpd_handle_t Web_http_init(const char *base_path){
 
 
 
-	return 0;
+	return ESP_OK;
 }
 
+/*!
+ * @brief Turn off HTTP server
+ * @param server
+ * server which should be turned off
+ */
 void Web_http_stop(httpd_handle_t server){
     if (server) {
         httpd_stop(server);
@@ -469,7 +532,11 @@ void Web_http_stop(httpd_handle_t server){
     }
 }
 
-
+/*!
+ * @brief Turn off WIFI soft access point
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
 esp_err_t Web_wifi_stop(void){
 	esp_err_t ret = ESP_FAIL;
 
@@ -478,6 +545,11 @@ esp_err_t Web_wifi_stop(void){
 	return ret;
 }
 
+/*!
+ * @brief Turn off web component by calling deactivation functions for wifi and HTTP server.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
 esp_err_t Web_off(void){
 	//Web_http_off();
 	return ESP_OK;
