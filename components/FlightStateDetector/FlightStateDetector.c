@@ -207,7 +207,7 @@ static void FlightState_FREEFLIGHT			(uint64_t time_ms, FlightState_t * currentS
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && ((ahrs->max_altitude - ahrs->pos_ef.z) > 10.0f) ) {
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && ((ahrs->max_altitude - ahrs->altitude) > 10.0f) ) {
 		currentState->state = FLIGHTSTATE_FREEFALL;
 		currentState->state_ready = false;
 	}
@@ -255,8 +255,8 @@ static void FlightState_DRAGCHUTE_FALL (uint64_t time_ms, FlightState_t * curren
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100) && (ahrs->pos_ef.z < 200.0f))
-		|| (TIME_ELAPSED(stateChangeTime, time_ms, 2000) && (ahrs->vel_ef.z < -60.0f)) ) {
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100) && (ahrs->altitude < 200.0f))
+		|| (TIME_ELAPSED(stateChangeTime, time_ms, 2000) && (ahrs->ascent_rate < -60.0f)) ) {
 		currentState->state = FLIGHTSTATE_MAINSHUTE_FALL;
 		currentState->state_ready = false;
 	}
