@@ -5,7 +5,6 @@
 #include "Sensors.h"
 #include "quaternion.h"
 #include "common.h"
-#include "FlightStateDetector.h"
 #include "KF_AltitudeAscent.h"
 #include "AHRS_driver.h"
 
