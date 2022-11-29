@@ -49,3 +49,4 @@ esp_err_t AHRS_init(int64_t time_us);
 AHRS_t * AHRS_getData();
 esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors);
 void AHRS_UpdateReferencePressure(float press);
+void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag);

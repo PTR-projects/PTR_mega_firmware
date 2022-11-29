@@ -5,6 +5,7 @@
 #include "Sensors.h"
 #include "quaternion.h"
 #include "common.h"
+#include "FlightStateDetector.h"
 #include "KF_AltitudeAscent.h"
 #include "AHRS_driver.h"
 
@@ -22,6 +23,8 @@ static void AHRS_TransformAccToENU();
 
 static AHRS_t AHRS_d;
 static float reference_pressure = 100930.0f;
+static uint8_t orientation_useAcc = 1;
+static uint8_t orientation_useMag = 0;
 
 // !!!! This library is NOT thread-safe !!!!
 
@@ -64,6 +67,11 @@ esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors){
 void AHRS_UpdateReferencePressure(float press){
 	AHRS_d.max_altitude = 0.0f;
 	reference_pressure  = 0.05f*press + 0.95f*(reference_pressure);
+}
+
+void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag){
+	orientation_useAcc = enableAcc;
+	orientation_useMag = enableMag;
 }
 
 //------------------ AHRS private functions -------------------
@@ -130,16 +138,12 @@ static void AHRS_CalcAltitudeP(float press){
 
 static void AHRS_CalcVelocityPosition(){
 	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up-9.81f,
-			&(AHRS_d.altitude), &AHRS_d.ascent_rate);
+												&(AHRS_d.altitude), &AHRS_d.ascent_rate);
 }
 
 static void AHRS_CalcOrientation(Sensors_t * sensors){
-	bool useAcc = false;
-	bool useMag = false;
-
-	// TODO ------------------------------------------------------------------ Check flightstate to enable/disable acc or mag
-	useMag = false;
-	useAcc = true;
+	bool useMag = orientation_useMag;
+	bool useAcc = orientation_useAcc;
 
 //	float dcmKpGain = imuCalcKpGain(AHRS_d.prev_time_us/1000, useAcc,	// TODO -------------- dynamic Kp gain
 //			sensors->LSM6DSO32.gyroX, sensors->LSM6DSO32.gyroY, sensors->LSM6DSO32.gyroZ);
@@ -173,7 +177,7 @@ static void AHRS_InitOrientation(orientation_t * orient){
 	orient->rMat[2][2] = 1.0f;
 
 	orient->euler.tilt = 0.0f;
-	orient->euler.dir   = 0.0f;
+	orient->euler.dir  = 0.0f;
 	orient->euler.rot  = 0.0f;
 }
 
