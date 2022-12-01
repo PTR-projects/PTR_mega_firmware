@@ -262,9 +262,16 @@ esp_err_t Storage_writePacket_Spiffs(void * buf, uint16_t len){
     	ESP_LOGE(TAG, "Failed to open file for writing");
         return ESP_ERR_NOT_FOUND;
     }
-
-    fwrite(buf, len, 1, f);
-    fclose(f);
+	
+    if(fwrite(buf, len, 1, f) != 1){
+		ESP_LOGE(TAG,"File write failed");
+		return ESP_FAIL;
+	}
+    
+	if(fclose(f) != 0){
+		ESP_LOGE(TAG,"File write failed");
+		return ESP_FAIL;
+	}
 
 
 	return ESP_OK;
@@ -287,8 +294,15 @@ esp_err_t Storage_writePacket_Littlefs(void * buf, uint16_t len){
         return ESP_ERR_NOT_FOUND;
     }
 
-    fwrite(buf, len, 1, f);
-    fclose(f);
+    if(fwrite(buf, len, 1, f) != 1){
+		ESP_LOGE(TAG,"File write failed");
+		return ESP_FAIL;
+	}
+    
+	if(fclose(f) != 0){
+		ESP_LOGE(TAG,"File write failed");
+		return ESP_FAIL;
+	}
 
 
 	return ESP_OK;
