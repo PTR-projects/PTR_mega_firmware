@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <title>KPPTR</title>
+        <script>
+            function clicked(e)
+            {
+                if(!confirm('Are you sure?')) {
+                    e.preventDefault();
+                }
+            }
+            </script>
+            
+    </head>
+    <body style=text-align:center;>
+        <br><br><br><br><br><br><br>
+        <form method="get" action="/storage/meas.bin" class="inline">
+            <input type="hidden" name="extra_submit_param" value="extra_submit_value">
+            <button type="submit" name="submit_param" value="submit_value" class="link-button" style="position:center;color:green; cursor:pointer; font-size:100px; text-decoration:none;">
+              Download meas.bin
+            </button>
+        </form>
+        <br><br><br><br><br><br><br><br><br>
+        <form method="post" action="/delete/storage/meas.bin" class="inline">
+            <input type="hidden" name="extra_submit_param" value="extra_submit_value">
+            <button type="submit" onclick="return confirm('Are you sure to delete all files?');" name="submit_param" value="submit_value" class="link-button" style="position:center;color:red; cursor:pointer; font-size:100px; text-decoration:none;">
+              Delete meas.bin
+            </button>
+        </form> 
+        <br><br><br><br><br><br><br><br><br>
+        <form method="post" action="/upload/www/index.html" class="inline">
+            <input type="file" name="extra_submit_param" value="extra_submit_value" style="position:center;color:blue; cursor:pointer; font-size:30px; text-decoration:none;"><br>
+            <button type="submit" name="submit_param" value="submit_value" class="link-button" style="position:center;color:blue; cursor:pointer; font-size:100px; text-decoration:none;">
+              Update index.html
+            </button>
+        </form> 
+        
+    </body>
+</html>
+
