@@ -15,13 +15,13 @@
 #include "LORA_driver.h"
 #include "GNSS_driver.h"
 #include "Analog_driver.h"
-
+#include "Storage_driver.h"
 #include "Sensors.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
-#include "WiFi_driver.h"
+#include "web_driver.h"
 #include "DataManager.h"
-
+#include "SysMgr.h"
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
@@ -90,8 +90,8 @@ void task_kpptr_main(void *pvParameter){
 			ESP_LOGE(TAG, "Main RB error!");
 		}
 
-		//send data to RF
-		if(((prevTickCountRF + pdMS_TO_TICKS( 300 )) <= xLastWakeTime)){
+		//send data to RF every 500ms
+		if(((prevTickCountRF + pdMS_TO_TICKS( 500 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
@@ -123,22 +123,38 @@ void task_kpptr_telemetry(void *pvParameter){
 	LORA_init();
 	while(1){
 		if(xQueueReceive(queue_MainToTelemetry, &DataPackageRF_d, 100)){
-			//LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), 0, 0);
+			//LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), LORA_TX_NO_WAIT);
 			LED_blinkWS(2, COLOUR_PURPLE, 20, 100, 1, 1);
 		}
 	}
 }
 
 void task_kpptr_storage(void *pvParameter){
+	if(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
+		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
+		//SysMgr_checkout(checkout_storage, check_fail);
+		while(1) {}
+	}
+
+
 	DataPackage_t * DataPackage_ptr;
+	uint32_t write_error_cnt = 0;
 
 	vTaskDelay(pdMS_TO_TICKS( 2000 ));
 	ESP_LOGI(TAG, "Task Storage - ready!\n");
+	//SysMgr_checkout(checkout_storage, check_ready);
+
 	while(1){
 		if(1){	//(flightstate >= Launch) && (flightstate < Landed_delay)
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
-				ESP_LOGV(TAG, "Saved T=%lli", DataPackage_ptr->sys_time);
-				//save to flash
+				if(write_error_cnt < 1000){
+					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
+						ESP_LOGE(TAG, "Storage task - packet write fail");
+						write_error_cnt++;
+					} else {
+						write_error_cnt = 0;	// Reset error counter if write successful
+					}
+				}
 				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			} else {
 				//ESP_LOGI(TAG, "Storage timeout");
@@ -182,12 +198,38 @@ void task_kpptr_analog(void *pvParameter){
 	vTaskDelete(NULL);
 }
 
+void task_kpptr_sysmgr(void *pvParameter){
+
+	ESP_LOGI(TAG, "SysMgr ready");
+	SysMgr_checkout(checkout_sysmgr, check_ready);
+
+	while(1){
+		SysMgr_update();	//Process new messages
+
+		switch(SysMgr_getCheckoutStatus()){
+		case check_ready:
+			break;
+
+		case check_void:
+			break;
+
+		case check_fail:
+			break;
+
+		default:
+			break;
+		}
+
+		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
+	}
+}
 
 
 void app_main(void)
 {
     nvs_flash_init();
-    WiFi_init();
+    SysMgr_init();
+    Web_init();
     SPI_init(2000000);
     DM_init();
 
@@ -199,6 +241,7 @@ void app_main(void)
     if(queue_AnalogToMain == 0)
     	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
 
+    xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 12, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
