@@ -10,7 +10,7 @@
 
 static const char *TAG = "LORA driver";
 
-void LORA_modeLORA();
+void LORA_modeLORA(uint32_t frequency, int8_t txpower);
 
 void LORA_init()
 {
@@ -18,7 +18,7 @@ void LORA_init()
 	vTaskDelay(pdMS_TO_TICKS( 20 ));
 
 	ESP_LOGI(TAG, "SX1262 init...   ");
-	LORA_modeLORA();
+	LORA_modeLORA(433000000UL, 0);	//433MHz, 0dBm
 	ESP_LOGI(TAG, "SX1262 ready\n");
 }
 
@@ -62,10 +62,11 @@ void LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1,
 								 SX126X_IRQ_NONE, SX126X_IRQ_NONE);
 }
 
-void LORA_modeLORA(){
+void LORA_modeLORA(uint32_t frequency, int8_t txpower){
 	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
-	LORA_setupLoRaTX(433000000UL, 0, SX126X_LORA_SF8, SX126X_LORA_BW_125, SX126X_LORA_CR_4_5,
+	LORA_setupLoRaTX(frequency, 0, SX126X_LORA_SF8, SX126X_LORA_BW_125, SX126X_LORA_CR_4_5,
 				0x02, 0x02);
+	sx126x_set_tx_params(0, txpower, SX126X_RAMP_10_US);
 }
 
 void LORA_modeFSK(){
@@ -79,14 +80,13 @@ uint16_t SX126X_readIrqStatus(){
 	return res;
 }
 
-bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout, int8_t txpower) {
+bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout) {
 	if ((size == 0) || (size > 256)) {
 		return false;
 	}
 
-	//LORA_modeLORA();
-
 	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
+
 	sx126x_set_buffer_base_address(0, 0, 0);
 
 	sx126x_write_buffer(0, 0, txbuffer,	size);
@@ -100,7 +100,6 @@ bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout, i
 
 	sx126x_set_lora_pkt_params(0, &sx126x_pkt_params_lora_d);
 
-	sx126x_set_tx_params(0, txpower, SX126X_RAMP_10_US);
 	sx126x_set_tx(0, txtimeout);	//this starts the TX
 
 	if(txtimeout){
