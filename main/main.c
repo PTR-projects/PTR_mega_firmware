@@ -209,6 +209,8 @@ void app_main(void)
 
 
     while (true) {
+    	uint8_t buffer[8] = {1,2,3,4,5,6,7,8};
+    	LORA_sendPacketLoRa(buffer, 8, 100,1);
     	//GPS_test();
         vTaskDelay(pdMS_TO_TICKS( 1000 ));
     }

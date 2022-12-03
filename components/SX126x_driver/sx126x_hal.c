@@ -19,15 +19,6 @@
 static const char *TAG = "sx126x driver";
 static spi_device_handle_t spi_dev_handle_SX126X;
 
-void SX126X_initIO(){
-	gpio_reset_pin(RF_BUSY_PIN);
-	gpio_reset_pin(RF_RST_PIN);
-
-	gpio_set_direction(RF_BUSY_PIN, GPIO_MODE_INPUT);
-	gpio_set_direction(RF_RST_PIN,  GPIO_MODE_OUTPUT);
-
-	sx126x_hal_reset(0);
-}
 
 esp_err_t SX126X_spi_init(void)
 {
@@ -93,6 +84,20 @@ sx126x_hal_status_t sx126x_hal_read(const void* context, const uint8_t *command,
 
 	return 0;
 }
+
+void SX126X_initIO(){
+	gpio_reset_pin(RF_BUSY_PIN);
+	gpio_reset_pin(RF_RST_PIN);
+
+	gpio_set_direction(RF_BUSY_PIN, GPIO_MODE_INPUT);
+	gpio_set_direction(RF_RST_PIN,  GPIO_MODE_OUTPUT);
+	SX126X_spi_init();
+
+
+	sx126x_hal_reset(0);
+
+}
+
 
 sx126x_hal_status_t sx126x_hal_write(const void* context, const uint8_t *command, const uint16_t command_length,
 									  const uint8_t *data, const uint16_t data_length) {
