@@ -84,7 +84,7 @@ bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout, i
 		return false;
 	}
 
-	//LORA_modeLORA();
+	LORA_modeLORA();
 
 	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
 	sx126x_set_buffer_base_address(0, 0, 0);

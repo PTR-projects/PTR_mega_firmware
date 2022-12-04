@@ -65,7 +65,7 @@ esp_err_t LIS331_read(uint8_t addr, uint8_t * data_in, uint16_t length){
 	esp_err_t ret = ESP_OK;
 	spi_transaction_t trans;
 	memset(&trans, 0x00, sizeof(trans));
-	trans.length = (8 + (8 * length));
+	trans.length = (8 * length);
 	trans.rxlength = 8 * length;
 	trans.cmd = CMD_READ;
 	trans.addr = addr;
@@ -87,7 +87,7 @@ uint8_t LIS331_read_single(uint8_t addr){
 	uint8_t buf[1] = {0};
 	spi_transaction_t trans;
 	memset(&trans, 0x00, sizeof(trans));
-	trans.length = 16;
+	trans.length = 8;
 	trans.rxlength = 8;
 	trans.cmd = CMD_READ;
 	trans.addr = addr;
