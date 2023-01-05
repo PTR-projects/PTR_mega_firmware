@@ -73,6 +73,11 @@ void LORA_modeFSK(){
 
 }
 
+/**
+* @brief Reads the IRQ status of the SX126X.
+* @return The IRQ status of the SX126X.
+* This function reads and returns the IRQ status of the SX126X.
+*/
 uint16_t SX126X_readIrqStatus(){
 	uint16_t res = 0;
 	sx126x_get_irq_status(0, (sx126x_irq_mask_t*) &res );

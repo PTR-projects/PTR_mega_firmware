@@ -80,17 +80,44 @@ esp_err_t MS5607_getMeas(MS5607_meas_t * meas){
 	return ESP_OK;
 }
 
+/**
+ * @brief Reads data from the MS5607 sensor over SPI
+ *
+ * This function reads `len` bytes of data from the specified `address` on the
+ * MS5607 sensor and stores the data in the `buf` buffer.
+ *
+ * @param[in] address The address to read from on the MS5607 sensor
+ * @param[out] buf Pointer to the buffer where the read data will be stored
+ * @param[in] len The number of bytes to read from the sensor
+ */
 static void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
     uint8_t txBuff[4] = {0U};
     txBuff[0] = address;
     SPI_RW(SPI_SLAVE_MS5607, txBuff, buf, len+1);
 }
 
+/**
+ * @brief Writes data to the MS5607 sensor over SPI
+ *
+ * This function writes the specified `address` to the MS5607 sensor over SPI.
+ *
+ * @param[in] address The address to write to on the MS5607 sensor
+ */
 static void MS5607_write(uint8_t address) {
     uint8_t txBuff[1] = {address};
     SPI_RW(SPI_SLAVE_MS5607, txBuff, NULL, 1);
 }
 
+/**
+ * @brief Resets the MS5607 sensor
+ *
+ * This function sends a reset command to the MS5607 sensor over SPI. It should
+ * be called before initialization of the sensor.
+ *
+ * @return
+ * - ESP_OK if the reset was successful
+ * - ESP_FAIL if there was an error resetting the sensor
+ */
 static esp_err_t MS5607_resetDevice() {
 
 	MS5607_write(MS5607_RESET);
@@ -98,9 +125,22 @@ static esp_err_t MS5607_resetDevice() {
 	return ESP_OK;
 }
 
+/**
+ * @brief Reads the calibration data from the MS5607 sensor
+ *
+ * This function reads the calibration data from the MS5607 sensor and stores
+ * it in the `MS5607_cal_t` structure. This data is used in the conversion
+ * from raw readings to temperature and pressure readings.
+ *
+ * @return
+ * - ESP_OK if the calibration data was successfully read
+ * - ESP_FAIL if there was an error reading the calibration data
+ */
 static esp_err_t MS5607_readCalibration() {
+	// Reset the sensor
 	MS5607_resetDevice();
 
+	// Read the calibration data
 	uint8_t buf[3] = {0};
 	MS5607_read(MS5607_PROM_READ, buf, 2);
 
@@ -139,16 +179,50 @@ static esp_err_t MS5607_readCalibration() {
 	 */
 }
 
+/**
+ * @brief Sends a command to the MS5607 sensor to start a pressure conversion
+ *
+ * This function sends a command to the MS5607 sensor over SPI to start a
+ * pressure conversion. The result of the conversion can be read using
+ * `MS5607_readPress()`.
+ *
+ * @return
+ * - ESP_OK if the command was successfully sent
+ * - ESP_FAIL if there was an error sending the command
+ */
 static esp_err_t MS5607_reqPress() {
 	MS5607_write(MS5607_CONVERT_D1_256);
 	return ESP_OK;
 }
 
+/**
+ * @brief Sends a command to the MS5607 sensor to start a temperature conversion
+ *
+ * This function sends a command to the MS5607 sensor over SPI to start a
+ * temperature conversion. The result of the conversion can be read using
+ * `MS5607_readTemp()`.
+ *
+ * @return
+ * - ESP_OK if the command was successfully sent
+ * - ESP_FAIL if there was an error sending the command
+ */
 static esp_err_t MS5607_reqTemp() {
 	MS5607_write(MS5607_CONVERT_D2_256);
 	return ESP_OK;
 }
 
+/**
+ * @brief Reads the result of a pressure conversion from the MS5607 sensor
+ *
+ * This function reads the result of a pressure conversion from the MS5607
+ * sensor. `MS5607_reqPress()` must be called before this function in order
+ * to start the conversion.
+ *
+ * @return
+ * - ESP_OK if the result was successfully read
+ * - ESP_FAIL if there was an error reading the result or if a conversion
+ *   was not started before calling this function
+ */
 static esp_err_t MS5607_readPress() {
 	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
@@ -163,6 +237,18 @@ static esp_err_t MS5607_readPress() {
 	return ESP_OK;
 }
 
+/**
+ * @brief Reads the result of a temperature conversion from the MS5607 sensor
+ *
+ * This function reads the result of a temperature conversion from the MS5607
+ * sensor. `MS5607_reqTemp()` must be called before this function in order
+ * to start the conversion.
+ *
+ * @return
+ * - ESP_OK if the result was successfully read
+ * - ESP_FAIL if there was an error reading the result or if a conversion
+ *   was not started before calling this function
+ */
 static esp_err_t MS5607_readTemp() {
 	uint8_t buf[4] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
@@ -177,6 +263,19 @@ static esp_err_t MS5607_readTemp() {
 	return ESP_OK;
 }
 
+/**
+ * @brief Calculates the pressure from the raw data read from the MS5607 sensor
+ *
+ * This function calculates the pressure from the raw data read from the MS5607
+ * sensor using the calibration data and stores the result in the `MS5607_d`
+ * structure. `MS5607_readPress()` and `MS5607_readTemp()` must be called
+ * before this function in order to read the raw data from the sensor.
+ *
+ * @return
+ * - ESP_OK if the calculation was successful
+ * - ESP_FAIL if there was an error in the calculation or if the raw data
+ *   has not been read from the sensor
+ */
 static esp_err_t  MS5607_calcPress() {
 	int64_t dT = MS5607_d.dT;
 	int64_t C1 = MS5607_cal_d.C1;
@@ -193,6 +292,19 @@ static esp_err_t  MS5607_calcPress() {
 	return ESP_OK;
 }
 
+/**
+ * @brief Calculates the temperature from the raw data read from the MS5607 sensor
+ *
+ * This function calculates the temperature from the raw data read from the MS5607
+ * sensor using the calibration data and stores the result in the `MS5607_d`
+ * structure. `MS5607_readTemp()` must be called before this function in order
+ * to read the raw data from the sensor.
+ *
+ * @return
+ * - ESP_OK if the calculation was successful
+ * - ESP_FAIL if there was an error in the calculation or if the raw data
+ *   has not been read from the sensor
+ */
 static esp_err_t  MS5607_calcTemp() {
 	uint64_t C5 = MS5607_cal_d.C5;
 	int64_t  C6 = MS5607_cal_d.C6;

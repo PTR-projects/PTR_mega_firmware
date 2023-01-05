@@ -23,13 +23,16 @@
 #define M_PIf       3.14159265358979323846f	// Use floating point M_PI instead explicitly.
 #define M_EULERf    2.71828182845904523536f
 
+/**
+ * @brief Union representing a 3D vector in two different forms: x, y, and z; or v[3].
+ */
 typedef union{
 	struct{
-		float x;
-		float y;
-		float z;
+		float x;	/*!< X axis */
+		float y;	/*!< Y axis */
+		float z;	/*!< Z axis */
 	};
-	float v[3];
+	float v[3];		/*!< Array */
 } vectorf_t;
 
 

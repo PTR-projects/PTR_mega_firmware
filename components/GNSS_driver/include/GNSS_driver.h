@@ -45,7 +45,6 @@ typedef enum {
 
 /**
  * @brief GPS fix mode
- *
  */
 typedef enum {
     GPS_MODE_INVALID = 1, /*!< Not fixed */
@@ -54,8 +53,7 @@ typedef enum {
 } gps_fix_mode_t;
 
 /**
- * @brief GPS satellite information
- *
+ * @brief Structure representing data for a GPS satellite.
  */
 typedef struct {
     uint8_t num;       /*!< Satellite number */
