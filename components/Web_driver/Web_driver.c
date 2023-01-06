@@ -20,6 +20,7 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "web_driver.h"
+#include "web_driver_json.h"
 
 static const char *TAG = "Web_driver";
 
@@ -46,6 +47,8 @@ esp_err_t Web_wifi_init 					(void);
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop							(httpd_handle_t server);
 esp_err_t Web_wifi_stop						(void);
+
+
 
 
 esp_vfs_spiffs_conf_t conf = {
@@ -361,15 +364,13 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Invalid filename");
         return ESP_FAIL;
     }
-    
     /*
     if (stat(filepath, &file_stat) == 0) {
         ESP_LOGE(TAG, "File already exists : %s", filepath);
-        // Respond with 400 Bad Request 
+        Respond with 400 Bad Request
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File already exists");
         return ESP_FAIL;
-    }
-    */
+    }*/
 
     /* File cannot be larger than a limit */
     if (req->content_len > MAX_FILE_SIZE) {
@@ -452,6 +453,44 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/*!
+ * @brief Handler responsible for serving json with status data.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t json_get_handler(httpd_req_t *req)
+{
+	Web_driver_status_t state;
+	state.state = 1;
+	state.timestamp = 10233;
+	state.drougeAlt = 500;
+	state.mainAlt = 200;
+	state.pressure = 101300000;
+	state.angle = 11;
+	state.altitude = 214.5;
+	state.batteryVoltage = 6.7;
+	state.latitude.value = 123.1;
+	state.latitude.direction = "N";
+	state.longitude.value = 13.2;
+	state.longitude.direction = "W";
+
+	char *string = Web_driver_json_create(state);
+/*
+	return httpd_resp_set_type(req, "application/json");
+
+
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+*/
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+
 
 /*!
  * @brief Initialize HTTP server, create soft access point.
@@ -486,6 +525,14 @@ esp_err_t Web_http_init(const char *base_path){
 		ESP_LOGE(TAG, "Failed to start HTTP server!");
 		return ESP_FAIL;
 	}
+
+	httpd_uri_t json_get = {
+		    .uri      = "/status",
+		    .method   = HTTP_GET,
+		    .handler  = json_get_handler,
+		    .user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &json_get);
 
 	httpd_uri_t file_download = {
 			.uri       = "/*",  // Match all URIs of type /path/to/file
