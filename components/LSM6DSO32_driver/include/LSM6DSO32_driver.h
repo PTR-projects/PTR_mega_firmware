@@ -6,6 +6,7 @@
 
 
 #define CTRL1_XL 0x10
+#define CTRL8_XL 0x17
 #define CTRL2_G  0x11
 #define CTRL3_C  0x12
 #define CTRL7_G 0x16
@@ -46,7 +47,10 @@
 
 
 
-#define SPI_BUS SPI2HOST
+#define SPI_BUS SPI2_HOST
+#define CMD_READ 0x03
+#define CMD_WRITE 0x01
+
 
 static spi_device_handle_t spi_dev_handle_LSM6;
 
@@ -81,8 +85,8 @@ const uint8_t aclScale[4];
 const uint8_t gyroScale[5];
 
 esp_err_t LSM6_begin(uint8_t EN_PIN);
-esp_err_t LSM6_setGyroODR(uint8_t gyroDataRate_Hz);
+esp_err_t LSM6_setGyroODR(uint16_t gyroDataRate_Hz);
 esp_err_t LSM6_setGyroReadout(uint8_t gyroResolution_DPS, uint8_t gyroLPF);
 esp_err_t LSM6_getRawData(uint8_t* rawData);
-esp_err_t LSM6_getData(uint8_t* sensorData, uint8_t EN_PIN);
-esp_err_t LSM6_softReset(uint8_t EN_PIN);
+esp_err_t LSM6_getData(uint8_t* sensorData);
+esp_err_t LSM6_softReset();
