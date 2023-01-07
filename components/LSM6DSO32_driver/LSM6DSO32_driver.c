@@ -82,6 +82,7 @@ esp_err_t LSM6_setGyroReadout(uint8_t gyroResolution_DPS, uint8_t gyroLPF) {
 	return status;
 
 }
+
 esp_err_t LSM6_setGyroODR(uint16_t gyroDataRate_Hz) {
 	CTRL2_Gval &= 0b000001110;
 	CTRL2_Gval |= gyroDataRate_Hz << 4; 
@@ -103,6 +104,7 @@ esp_err_t LSM6_getRawData(uint8_t* rawData) {
 
     SPI_read(rawData, 12);
 }
+
 esp_err_t LSM6_getData(uint8_t* sensorData, uint8_t EN_PIN) {
    
 
