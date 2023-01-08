@@ -9,6 +9,9 @@ const uint8_t gyroOdr[11] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 const uint8_t aclScale[4] = {0, 2, 3, 1};
 const uint8_t gyroScale[5] = {4, 0, 1, 2 ,3}
 */
+
+volatile uint8_t rawData[14];
+
 double * outputDataRate = NULL;
 uint8_t CTRL2_Gval = 0, CTRL6_Cval = 0;
 esp_err_t SPI_write(uint8_t* dataArr, uint8_t LSM6_addr, uint8_t len) {

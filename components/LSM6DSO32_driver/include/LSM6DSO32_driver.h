@@ -76,13 +76,7 @@ static inline uint8_t settings3c = 0b01000010;
 static inline uint8_t settingsFIFO = 0;
 static inline uint8_t defaultSettingsAcl = 0b00000000;
 static inline uint8_t defaultSettingsGyro = 0b00000000;
-volatile uint8_t rawData[14];
 
-const uint8_t gyroOdr[11];
-const uint8_t aclOdr[12];
-
-const uint8_t aclScale[4];
-const uint8_t gyroScale[5];
 
 esp_err_t LSM6_begin(uint8_t EN_PIN);
 esp_err_t LSM6_setGyroODR(uint16_t gyroDataRate_Hz);
