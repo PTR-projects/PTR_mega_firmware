@@ -70,12 +70,12 @@ typedef struct{
 
 } LSM6DSO32_t;
 
-int32_t gyroRes = DEFAULT_GYRO_RES;
-int32_t aclRes = DEFAULT_ACL_RES;
-uint8_t settings3c = 0b01000010;
-uint8_t settingsFIFO = 0;
-uint8_t defaultSettingsAcl = 0b00000000;
-uint8_t defaultSettingsGyro = 0b00000000;
+static inline int32_t gyroRes = DEFAULT_GYRO_RES;
+static inline int32_t aclRes = DEFAULT_ACL_RES;
+static inline uint8_t settings3c = 0b01000010;
+static inline uint8_t settingsFIFO = 0;
+static inline uint8_t defaultSettingsAcl = 0b00000000;
+static inline uint8_t defaultSettingsGyro = 0b00000000;
 volatile uint8_t rawData[14];
 
 const uint8_t gyroOdr[11];
