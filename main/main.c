@@ -53,7 +53,7 @@ void task_kpptr_main(void *pvParameter){
 	GPS_init();
 	//Detector_init();
 	AHRS_init(time_us);
-	ESP_LOGI(TAG, "Task Main - ready!\n");
+	ESP_LOGI(TAG, "Task Main - ready!");
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
@@ -130,19 +130,18 @@ void task_kpptr_telemetry(void *pvParameter){
 }
 
 void task_kpptr_storage(void *pvParameter){
-	if(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
+	while(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
 		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
-		//SysMgr_checkout(checkout_storage, check_fail);
-		while(1) {}
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		SysMgr_checkout(checkout_storage, check_fail);
 	}
-
 
 	DataPackage_t * DataPackage_ptr;
 	uint32_t write_error_cnt = 0;
 
 	vTaskDelay(pdMS_TO_TICKS( 2000 ));
-	ESP_LOGI(TAG, "Task Storage - ready!\n");
-	//SysMgr_checkout(checkout_storage, check_ready);
+	ESP_LOGI(TAG, "Task Storage - ready!");
+	SysMgr_checkout(checkout_storage, check_ready);
 
 	while(1){
 		if(1){	//(flightstate >= Launch) && (flightstate < Landed_delay)
@@ -169,7 +168,7 @@ void task_kpptr_utils(void *pvParameter){
 
 	LED_init(interval_ms);
 	BUZZER_init();
-	ESP_LOGI(TAG, "Task Utils - ready!\n");
+	ESP_LOGI(TAG, "Task Utils - ready!");
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -186,7 +185,7 @@ void task_kpptr_analog(void *pvParameter){
 	Analog_meas_t Analog_meas;
 
 	Analog_init(100, 0.1f);
-	ESP_LOGI(TAG, "Task Analog - ready!\n");
+	ESP_LOGI(TAG, "Task Analog - ready!");
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -252,7 +251,6 @@ void app_main(void)
 
 
     while (true) {
-    	//GPS_test();
         vTaskDelay(pdMS_TO_TICKS( 1000 ));
     }
 }

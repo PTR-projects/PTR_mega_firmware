@@ -4,6 +4,8 @@
 #include "LED_driver.h"
 #include "SysMgr.h"
 
+static const char *TAG = "SysMgr";
+
 QueueHandle_t queue_SysMgrCheckout;
 sysmgr_checkout_status_t sysmgr_checkout_status_d;
 
@@ -32,7 +34,9 @@ esp_err_t SysMgr_checkout(sysmgr_checkout_component_t component, sysmgr_checkout
 
 	tmp.component = component;
 	tmp.state 	  = state;
-	xQueueOverwrite(queue_SysMgrCheckout, (void *)&tmp);
+	if(xQueueSend(queue_SysMgrCheckout, (void *)&tmp, 0) != pdTRUE){
+		ESP_LOGE(TAG, "SysMgr Queue to full to write new Msg!");
+	}
 
 	return ESP_OK;
 }

@@ -2,7 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_err.h"
-#include "Spi_driver.h"
+#include "SPI_driver.h"
 
 #include "MS5607_driver.h"
 

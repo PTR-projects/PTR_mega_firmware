@@ -866,7 +866,7 @@ void GPS_baud_rate_set(uint32_t baud){ // default:9600, 4800, 9600, 14400, 19200
 	}
 	sprintf(message, "PMTK251,%i", baud);
 	GPS_send_cmd(message);
-	ESP_LOGE(TAG, "GPS baudrate set to %d", baud);
+	ESP_LOGI(TAG, "GPS baudrate set to %d", baud);
 }
 
 
@@ -880,7 +880,7 @@ void GPS_baud_rate_set_extra(uint32_t baud){ // default:9600, 4800, 9600, 14400,
 	GPS_send_cmd(message);
 	uart_wait_tx_done(GNSS_UART, portMAX_DELAY);
 	uart_set_baudrate(GNSS_UART, baud);
-	ESP_LOGE(TAG, "GPS and UARTPORT %d baudrate set to %d", GNSS_UART, baud);
+	ESP_LOGI(TAG, "GPS and UARTPORT %d baudrate set to %d", GNSS_UART, baud);
 }
 
 
@@ -904,7 +904,6 @@ void GPS_nav_mode_set(gps_nav_mode_t mode){
 	char message[16];
 	sprintf(message, "PMTK886,%i", mode);
 	GPS_send_cmd(message);
-
 }
 
 void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV){
@@ -935,6 +934,6 @@ void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uin
 		}
 	sprintf(message, "PMTK314,%i,%i,%i,%i,%i,%i,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", GLL , RMC , VTG , GGA , GSA , GSV);
 	GPS_send_cmd(message);
-	ESP_LOGE(TAG, "NMEA OUTPUT SET TO:\nGLL %d\nRMC %d\nVTG %d\nGGA %d\nGSA %d\nGSV %d\n",  GLL , RMC , VTG , GGA , GSA , GSV);
+	ESP_LOGI(TAG, "NMEA OUTPUT SET TO:\nGLL %d\nRMC %d\nVTG %d\nGGA %d\nGSA %d\nGSV %d",  GLL , RMC , VTG , GGA , GSA , GSV);
 }
 

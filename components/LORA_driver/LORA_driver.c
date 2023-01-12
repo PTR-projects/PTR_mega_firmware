@@ -17,9 +17,9 @@ void LORA_init()
 	SX126X_initIO();
 	vTaskDelay(pdMS_TO_TICKS( 20 ));
 
-	ESP_LOGI(TAG, "SX1262 init...   ");
+	ESP_LOGI(TAG, "SX1262 init...");
 	LORA_modeLORA(433000000UL, 0);	//433MHz, 0dBm
-	ESP_LOGI(TAG, "SX1262 ready\n");
+	ESP_LOGI(TAG, "SX1262 ready");
 }
 
 void LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1,

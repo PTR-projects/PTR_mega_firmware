@@ -79,11 +79,17 @@ esp_err_t Storage_init(Storage_filesystem_t filesys , uint32_t key){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Storage_init_Spiffs(){
+	esp_err_t ret = ESP_OK;
 
-    esp_err_t ret = esp_vfs_spiffs_register(&conf_spiffs);
-    if(ret != ESP_OK){
-    	return ESP_FAIL;
-    }
+	if(!esp_spiffs_mounted("storage")){
+		ret = esp_vfs_spiffs_register(&conf_spiffs);
+		if(ret != ESP_OK){
+			return ESP_FAIL;
+		}
+		ESP_LOGV(TAG, "SPIFFS mounted");
+	} else {
+		ESP_LOGI(TAG, "SPIFFS already mounted. Skip.");
+	}
 
     ret = Storage_initFile();
 
@@ -103,11 +109,17 @@ esp_err_t Storage_init_Spiffs(){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Storage_init_Littlefs(){
+	esp_err_t ret = ESP_OK;
 
-	esp_err_t ret = esp_vfs_littlefs_register(&conf_littlefs);
-    if(ret != ESP_OK){
-        return ESP_FAIL;
-    }
+	if(!esp_littlefs_mounted("storage")){
+		ret = esp_vfs_littlefs_register(&conf_littlefs);
+		if(ret != ESP_OK){
+			return ESP_FAIL;
+		}
+		ESP_LOGV(TAG, "LittleFS mounted");
+	} else {
+		ESP_LOGI(TAG, "LittleFS already mounted. Skip.");
+	}
 
     ret = Storage_initFile();
 

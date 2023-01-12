@@ -41,22 +41,22 @@ esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 
 	//Check if TP is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
-		ESP_LOGI(TAG, "eFuse Two Point: Supported\n");
+		ESP_LOGI(TAG, "eFuse Two Point: Supported");
 	} else {
-		ESP_LOGI(TAG, "eFuse Two Point: NOT supported\n");
+		ESP_LOGI(TAG, "eFuse Two Point: NOT supported");
 	}
 	//Check Vref is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_VREF) == ESP_OK) {
-		ESP_LOGI(TAG, "eFuse Vref: Supported\n");
+		ESP_LOGI(TAG, "eFuse Vref: Supported");
 	} else {
-		ESP_LOGI(TAG, "eFuse Vref: NOT supported\n");
+		ESP_LOGI(TAG, "eFuse Vref: NOT supported");
 	}
 
 	//Check TP+Vref is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP_FIT) == ESP_OK) {
-		ESP_LOGI(TAG, "eFuse Two Point+Vref: Supported\n");
+		ESP_LOGI(TAG, "eFuse Two Point+Vref: Supported");
 	} else {
-		ESP_LOGI(TAG, "eFuse Point+Vref: NOT supported\n");
+		ESP_LOGI(TAG, "eFuse Point+Vref: NOT supported");
 	}
 
 	adc1_config_width(ADC_WIDTH_BIT_12);
