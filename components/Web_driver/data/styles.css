@@ -1,0 +1,144 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+	margin-top: 30px; /* Add a top margin to avoid content overlay */
+	-webkit-user-select: none; /* Safari */
+	-ms-user-select: none; /* IE 10 and IE 11 */
+	user-select: none; /* Standard syntax */
+}
+
+body {
+	display: flex;
+	justify-content: start;
+	justify-items: stretch;
+
+	font-family: Helvetica, Arial, sans-serif;
+}
+
+.el { 
+	user-select: none; 
+}
+.table-main, th {
+	/*border: 0px solid;*/
+	/*table-layout: auto;*/
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.table-main td,
+.table-main th {
+	padding: 8px;
+}
+
+.table-main td {
+	height: 50px;
+	/*border: 1px solid;*/
+}
+
+.tab-main tr:nth-child(even) {
+	background-color: #f2f2f2;
+}
+
+.table-igniters {
+	/*border: 1px solid;*/
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.table-igniters td,
+.table-igniters th {
+	padding: 8px;
+	/*border: 1px solid;*/
+}
+
+.table-igniters tr td:last-child,
+.table-igniters tr td:nth-child(2),
+.table-igniters tr td:nth-child(1){
+	width: 1%;
+}
+
+.table-igniters tr:nth-child(3n) td {
+	background-color: #f2f2f2;
+	height: 10px;
+}
+
+.table-igniters td {
+	height: 50px;
+	white-space: nowrap;
+	/*border: 1px solid;*/
+}
+
+.button-ign-fire{
+	width: 70px;
+	height: 45px;
+}
+
+.button-ign-fire:active{
+	background-color: red;
+}
+
+.button-ign-unlock{
+	width: 70px;
+	height: 45px;
+}
+
+.tab-main,
+.tab-igniters,
+.tab-storage,
+.tab-settings,
+.tab-live{
+	width: 100%;
+}
+
+.button-log-download{
+	display: block;
+	width:100%;	
+	padding: 14px 28px;
+	text-align: center;
+	font-size:30px; 
+	color:green; 
+	cursor:pointer; 
+	text-decoration:none;
+}
+
+.button-log-remove{
+	display: block;
+	width:100%;	
+	padding: 14px 28px;
+	text-align: center;
+	font-size:30px; 
+	color:red; 
+	cursor:pointer; 
+	text-decoration:none;
+}
+
+/* The navigation bar */
+.navbar {
+  overflow: hidden;
+  background-color: #333;
+  position: fixed; /* Set the navbar to fixed position */
+  top: 0; /* Position the navbar at the top of the page */
+  left: 0;
+  width: 100%; /* Full width */
+  cursor: default;
+}
+
+/* Links inside the navbar */
+.navbar a {
+  float: center;
+  display: block;
+  color: #f2f2f2;
+  text-align: center;
+  padding: 16px 2px;
+  text-decoration: none;
+}
+
+.navbar table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.navbar td+td {
+	border-left: 1px solid #ddd;
+}

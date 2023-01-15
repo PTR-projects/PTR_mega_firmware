@@ -1,39 +1,239 @@
-<html>
-    <head>
-        <title>KPPTR</title>
-        <script>
-            function clicked(e)
-            {
-                if(!confirm('Are you sure?')) {
-                    e.preventDefault();
-                }
-            }
-            </script>
-            
-    </head>
-    <body style=text-align:center;>
-        <br><br><br><br><br><br><br>
-        <form method="get" action="/storage/meas.bin" class="inline">
-            <input type="hidden" name="extra_submit_param" value="extra_submit_value">
-            <button type="submit" name="submit_param" value="submit_value" class="link-button" style="position:center;color:green; cursor:pointer; font-size:100px; text-decoration:none;">
-              Download meas.bin
-            </button>
-        </form>
-        <br><br><br><br><br><br><br><br><br>
-        <form method="post" action="/delete/storage/meas.bin" class="inline">
-            <input type="hidden" name="extra_submit_param" value="extra_submit_value">
-            <button type="submit" onclick="return confirm('Are you sure to delete all files?');" name="submit_param" value="submit_value" class="link-button" style="position:center;color:red; cursor:pointer; font-size:100px; text-decoration:none;">
-              Delete meas.bin
-            </button>
-        </form> 
-        <br><br><br><br><br><br><br><br><br>
-        <form method="post" action="/upload/www/index.html" class="inline">
-            <input type="file" name="extra_submit_param" value="extra_submit_value" style="position:center;color:blue; cursor:pointer; font-size:30px; text-decoration:none;"><br>
-            <button type="submit" name="submit_param" value="submit_value" class="link-button" style="position:center;color:blue; cursor:pointer; font-size:100px; text-decoration:none;">
-              Update index.html
-            </button>
-        </form> 
-        
-    </body>
-</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
+    
+    <link rel="stylesheet" href="styles.css">
+	<script src="scripts.js"></script>
+    <title>KPPTR interface</title>
+	
+</head>	
 
+<body onload="webInit()">	
+	<div class="navbar">
+		<table>
+			<tr>
+				<td id="menu_home_td" ><a id="menu_home" onclick="SelectSection_Home()">Home</a></td>
+				<td id="menu_storage_td"><a id="menu_storage" onclick="SelectSection_Storage()">Storage</a></td>
+				<td id="menu_ign_td"><a id="menu_ign" onclick="SelectSection_Ign()">IGN</a></td>
+				<td id="menu_settings_td"><a id="menu_settings" onclick="SelectSection_Settings()">Settings</a></td>
+				<td id="menu_live_td"><a id="menu_live" onclick="SelectSection_Live()">Live</a></td>
+			</tr>
+		</table>
+	</div>
+		
+	<div id="tab-main" class="tab-main">
+		<table class="table-main">
+			<tr>
+				<td colspan="1">
+					<label>Serial number</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-serial-number">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Software version</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-software-version">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>System state</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-system-state">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Timestamp</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-timestamp">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Storage driver</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-storage">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Web driver</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-web">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Pressure</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-pressure">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Altitude</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-altitude">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Angle</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-angle">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>GPS latitude</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-latitude">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>GPS longitude</label>
+				</td>
+				<td colspan="3">
+					<label id="label-status-longitude">????</label>
+				</td>
+			</tr>
+
+		</table>
+	</div>
+	
+	<div id="tab-storage" class="tab-storage">
+		<button type="button" id="button-log-download" class="button-log-download" onclick="storage_download_handler()">
+			Download log
+		</button>
+		<br><br><br><br><br><br><br><br><br><br><br>
+		<button type="button" id="button-log-remove" class="button-log-remove" onclick="storage_remove_handler()">
+			Remove log
+		</button>
+	</div>
+	
+	<div id="tab-igniters" class="tab-igniters">
+		<table class="table-igniters">
+			<tr>
+				<td colspan="1">
+					<label>Igniter 1</label>
+				</td>
+				<td colspan="3">
+					<label id="label-igniter1-cont-status">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>Ign 1 test</label>
+				</td>
+				<td>
+					<button class="button-ign-fire" id="button-ign1-fire" disabled="true" onclick="ign_ign1_fire_handler()">FIRE!</button>
+				</td>
+				<td>
+					<label id="label-igniter1-lock-status"> Status Locked </label>
+				</td>
+				<td>
+					<button class="button-ign-unlock" id="button-ign1-unlock" onclick="ign_ign1_unlock_handler()">UNLOCK</button>  
+				</td>
+			</tr>
+			<tr>
+				<td></td><td></td><td></td><td></td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Igniter 2</label>
+				</td>
+				<td colspan="3">
+					<label id="label-igniter2-cont-status">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>Ign 2 test</label>
+				</td>
+				<td>
+					<button class="button-ign-fire" id="button-ign2-fire" disabled="true" onclick="ign_ign2_fire_handler()">FIRE!</button>
+				</td>
+				<td>
+					<label id="label-igniter2-lock-status"> Status Locked </label>
+				</td>
+				<td>
+					<button class="button-ign-unlock" id="button-ign2-unlock" onclick="ign_ign2_unlock_handler()">UNLOCK</button>  
+				</td>
+			</tr>
+			<tr>
+				<td></td><td></td><td></td><td></td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Igniter 3</label>
+				</td>
+				<td colspan="3">
+					<label id="label-igniter3-cont-status">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>Ign 3 test</label>
+				</td>
+				<td>
+					<button class="button-ign-fire" id="button-ign3-fire" disabled="true" onclick="ign_ign3_fire_handler()">FIRE!</button>
+				</td>
+				<td>
+					<label id="label-igniter3-lock-status"> Status Locked </label>
+				</td>
+				<td>
+					<button class="button-ign-unlock" id="button-ign3-unlock" onclick="ign_ign3_unlock_handler()">UNLOCK</button>  
+				</td>
+			</tr>
+			<tr>
+				<td></td><td></td><td></td><td></td>
+			</tr>
+			<tr>
+				<td colspan="1">
+					<label>Igniter 4</label>
+				</td>
+				<td colspan="3">
+					<label id="label-igniter4-cont-status">????</label>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>Ign 4 test</label>
+				</td>
+				<td>
+					<button class="button-ign-fire" id="button-ign4-fire" disabled="true" onclick="ign_ign4_fire_handler()">FIRE!</button>
+				</td>
+				<td>
+					<label id="label-igniter4-lock-status"> Status Locked </label>
+				</td>
+				<td>
+					<button class="button-ign-unlock" id="button-ign4-unlock" onclick="ign_ign4_unlock_handler()">UNLOCK</button>  
+				</td>
+			</tr>
+		</table>
+	</div>
+	
+	<div id="tab-settings" class="tab-settings">
+	</div>
+	
+	<div id="tab-live" class="tab-live">
+	</div>
+	
+</body>
+</html>
