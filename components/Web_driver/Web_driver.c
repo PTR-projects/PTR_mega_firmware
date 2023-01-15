@@ -19,8 +19,8 @@
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
-#include "web_driver.h"
-#include "web_driver_json.h"
+#include "Web_driver.h"
+#include "Web_driver_json.h"
 
 static const char *TAG = "Web_driver";
 
@@ -156,6 +156,8 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
         return httpd_resp_set_type(req, "application/pdf");
     } else if (IS_FILE_EXT(filename, ".html")) {
         return httpd_resp_set_type(req, "text/html");
+    } else if (IS_FILE_EXT(filename, ".css")) {
+        return httpd_resp_set_type(req, "text/css");
     } else if (IS_FILE_EXT(filename, ".jpeg")) {
         return httpd_resp_set_type(req, "image/jpeg");
     } else if (IS_FILE_EXT(filename, ".ico")) {
@@ -180,6 +182,7 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
  */
 static const char* get_path_from_uri(char *dest, const char *base_path, const char *uri, size_t destsize)
 {
+
     const size_t base_pathlen = strlen(base_path);
     size_t pathlen = strlen(uri);
 
@@ -197,16 +200,26 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
         return NULL;
     }
 
-    /* Construct full path (base + path) */
-    //strcpy(dest, base_path);
+
+
     strcpy(dest, "");
-    //strlcpy(dest + base_pathlen, uri, pathlen + 1);
     strlcpy(dest + 0, uri, pathlen + 1);
+
+    ESP_LOGI(TAG, "Website path: %s", dest);
 
     /* Return pointer to path, skipping the base */
     return dest + 0;
 }
 
+
+
+static esp_err_t index_html_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "307 Temporary Redirect");
+    httpd_resp_set_hdr(req, "Location", "/www/index.html");
+    httpd_resp_send(req, NULL, 0);  // Response body can be empty
+    return ESP_OK;
+}
 
 /*!
  * @brief Handler responsible for serving all files to the client.
@@ -232,7 +245,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
 
 
     /* If name has trailing '/', respond with directory contents */
-    ESP_LOGI(TAG, "Filename %s",filename);
+    ESP_LOGI(TAG, "Filename: %s",filename);
     if(stat(filepath, &file_stat) == -1){
         /* If file not present on SPIFFS check if URI
          * corresponds to one of the hardcoded paths */
@@ -251,7 +264,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "Sending file : %s (%ld bytes)...", filename, file_stat.st_size);
+    ESP_LOGI(TAG, "Sending file: %s (%ld bytes)...", filename, file_stat.st_size);
     set_content_type_from_file(req, filename);
 
     /* Retrieve the pointer to scratch buffer for temporary storage */
@@ -328,7 +341,7 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
 
     /* Redirect onto root to see the updated file list */
     httpd_resp_set_status(req, "303 See Other");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/www/index.html");
 
     httpd_resp_sendstr(req, "File deleted successfully");
     return ESP_OK;
@@ -447,7 +460,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
 
     /* Redirect onto root to see the updated file list */
     httpd_resp_set_status(req, "303 See Other");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/www/index.html");
 
     httpd_resp_sendstr(req, "File uploaded successfully");
     return ESP_OK;
@@ -462,6 +475,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
  */
 esp_err_t json_get_handler(httpd_req_t *req)
 {
+	//temporary placeholder data
 	Web_driver_status_t state;
 	state.state = 1;
 	state.timestamp = 10233;
@@ -477,12 +491,10 @@ esp_err_t json_get_handler(httpd_req_t *req)
 	state.longitude.direction = "W";
 
 	char *string = Web_driver_json_create(state);
-/*
-	return httpd_resp_set_type(req, "application/json");
 
 
-    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
-*/
+    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -526,6 +538,15 @@ esp_err_t Web_http_init(const char *base_path){
 		return ESP_FAIL;
 	}
 
+
+	httpd_uri_t index_get = {
+			.uri      = "/",
+			.method   = HTTP_GET,
+			.handler  = index_html_get_handler,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &index_get);
+
 	httpd_uri_t json_get = {
 		    .uri      = "/status",
 		    .method   = HTTP_GET,
@@ -533,6 +554,22 @@ esp_err_t Web_http_init(const char *base_path){
 		    .user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &json_get);
+
+	httpd_uri_t file_delete = {
+				.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
+		        .method    = HTTP_GET,
+		        .handler   = delete_post_handler,
+		        .user_ctx  = server_data    // Pass server data as context
+		};
+	httpd_register_uri_handler(server, &file_delete);
+
+	httpd_uri_t file_upload = {
+				.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
+		        .method    = HTTP_POST,
+		        .handler   = upload_post_handler,
+		        .user_ctx  = server_data    // Pass server data as context
+		};
+	httpd_register_uri_handler(server, &file_upload);
 
 	httpd_uri_t file_download = {
 			.uri       = "/*",  // Match all URIs of type /path/to/file
@@ -542,21 +579,7 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &file_download);
 
-	httpd_uri_t file_delete = {
-			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
-	        .method    = HTTP_POST,
-	        .handler   = delete_post_handler,
-	        .user_ctx  = server_data    // Pass server data as context
-	};
-	httpd_register_uri_handler(server, &file_delete);
 
-	httpd_uri_t file_upload = {
-			.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
-	        .method    = HTTP_POST,
-	        .handler   = upload_post_handler,
-	        .user_ctx  = server_data    // Pass server data as context
-	};
-	httpd_register_uri_handler(server, &file_upload);
 
 
 	ESP_LOGI(TAG, "Started HTTP server successfully");

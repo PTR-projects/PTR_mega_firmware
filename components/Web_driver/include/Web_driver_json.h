@@ -26,12 +26,13 @@ typedef struct{
 	struct {
 		bool fired;
 		bool continuity;
-	} pyro[4];
+	} igniters[4];
+
 
 } Web_driver_status_t;
 
 typedef struct{
-	char *serialNumber;
+	long serialNumber;
 	char *softwareVersion;
 } Web_driver_config_t;
 
