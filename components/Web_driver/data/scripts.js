@@ -222,19 +222,19 @@ function TabsSelect(num){
 /*-------------------- Storage tab -------------------------------*/
 function storage_download_handler () {
 	console.log("Storage - Download pressed");
-	location.href = 'download/meas.bin';
+	location.href = '/storage/meas.bin';
 }
 
 function storage_remove_handler () {
 	console.log("Storage - Remove pressed");
 	if(confirm('Are you sure?')) { 
-		POST_simple("delete/meas.bin", '');		
+		POST_simple("/delete/storage/meas.bin", '');		
 	}
 }
 
 /*--------------------- Igniters tab ------------------------------*/
 function ign_ign1_unlock_handler () {
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	if(confirm('Are you sure? Igniter 1 will be unlocked!')) {
 		document.getElementById('button-ign1-unlock').disabled = true;   
 		document.getElementById('button-ign1-fire').disabled = false;                 
@@ -244,7 +244,7 @@ function ign_ign1_unlock_handler () {
 }
 
 function ign_ign2_unlock_handler () {
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	if(confirm('Are you sure? Igniter 2 will be unlocked!')) {
 		document.getElementById('button-ign2-unlock').disabled = true;   
 		document.getElementById('button-ign2-fire').disabled = false;                 
@@ -254,7 +254,7 @@ function ign_ign2_unlock_handler () {
 }
 
 function ign_ign3_unlock_handler ()  {
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	if(confirm('Are you sure? Igniter 3 will be unlocked!')) {
 		document.getElementById('button-ign3-unlock').disabled = true;   
 		document.getElementById('button-ign3-fire').disabled = false;                 
@@ -264,7 +264,7 @@ function ign_ign3_unlock_handler ()  {
 }
 
 function ign_ign4_unlock_handler ()  {
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	if(confirm('Are you sure? Igniter 4 will be unlocked!')) {
 		document.getElementById('button-ign4-unlock').disabled = true;   
 		document.getElementById('button-ign4-fire').disabled = false;                 
@@ -275,25 +275,25 @@ function ign_ign4_unlock_handler ()  {
 
 function ign_ign1_fire_handler() {
 	console.log("Igniters - Fire ign 1");
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	POST_simple("cmd", 'fire-ign-1=8342');
 }
 
 function ign_ign2_fire_handler() {
 	console.log("Igniters - Fire ign 2");
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	POST_simple("cmd", 'fire-ign-2=8464');
 }
 
 function ign_ign3_fire_handler() {
 	console.log("Igniters - Fire ign 3");
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	POST_simple("cmd", 'fire-ign-3=1523');
 }
 
 function ign_ign4_fire_handler() {
 	console.log("Igniters - Fire ign 4");
-	navigator.vibrate(200); // vibrate for 200ms
+	navigator.vibrate(200); 
 	POST_simple("cmd", 'fire-ign-4=6123');
 }
 
@@ -337,6 +337,6 @@ function getData() {
 function webInit(){
 	TabsInit();
 	/* Set an interval to retrieve new data every 10 second*/
-	/*setInterval(getData, 10000);*/
+	setInterval(getData, 10000);
 }
 
