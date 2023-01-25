@@ -1,3 +1,7 @@
+var getDataIntervalID;
+var getDataLiveIntervalID;
+
+
 function SelectSection_Home() {
 	window.scrollTo(0, 0);
 	TabsSelect(1);
@@ -12,6 +16,8 @@ function SelectSection_Home() {
 	ign_tab.style.display		= 'none';
 	settings_tab.style.display	= 'none';
 	liveview_tab.style.display	= 'none';
+
+	clearInterval(getDataLiveIntervalID);
 }
 
 function SelectSection_Storage() {
@@ -28,6 +34,8 @@ function SelectSection_Storage() {
 	ign_tab.style.display		= 'none';
 	settings_tab.style.display	= 'none';
 	liveview_tab.style.display	= 'none';
+
+	clearInterval(getDataLiveIntervalID);
 }
 
 function SelectSection_Ign() {
@@ -44,6 +52,8 @@ function SelectSection_Ign() {
 	ign_tab.style.display		= 'block';
 	settings_tab.style.display	= 'none';
 	liveview_tab.style.display	= 'none';
+
+	clearInterval(getDataLiveIntervalID);
 }
 
 function SelectSection_Settings() {
@@ -60,6 +70,8 @@ function SelectSection_Settings() {
 	ign_tab.style.display		= 'none';
 	settings_tab.style.display	= 'block';
 	liveview_tab.style.display	= 'none';
+
+	clearInterval(getDataLiveIntervalID);
 }
 
 function SelectSection_Live() {
@@ -76,6 +88,8 @@ function SelectSection_Live() {
 	ign_tab.style.display		= 'none';
 	settings_tab.style.display	= 'none';
 	liveview_tab.style.display	= 'block';
+
+	getDataLiveIntervalID = setInterval(getDataLive, 1000);
 }
 
 function TabsInit() {
@@ -93,6 +107,8 @@ function TabsInit() {
 	ign_tab.style.display		= 'none';
 	settings_tab.style.display	= 'none';
 	liveview_tab.style.display	= 'none';
+
+	clearInterval(getDataLiveIntervalID);
 }
 
 function TabsSelect(num){
@@ -321,9 +337,6 @@ function getData() {
 			document.getElementById("label-status-system-state").textContent 	= data.logic.state;
 			document.getElementById("label-status-timestamp").textContent 	= data.logic.timestamp;
 			document.getElementById("label-status-storage").textContent 	= data.sysMgr.Storage_driver;
-			document.getElementById("label-status-web").textContent 	= data.sysMgr.Web_driver;
-			document.getElementById("label-status-pressure").textContent 	= data.sensors.pressure;
-			document.getElementById("label-status-altitude").textContent 	= data.sensors.altitude;
 			document.getElementById("label-status-angle").textContent 	= data.sensors.angle;
 			document.getElementById("label-status-latitude").textContent 	= data.sensors.gps.latitude.direction + data.sensors.gps.latitude.value;
 			document.getElementById("label-status-longitude").textContent 	= data.sensors.gps.longitude.direction + data.sensors.gps.latitude.value;
@@ -338,5 +351,146 @@ function webInit(){
 	TabsInit();
 	/* Set an interval to retrieve new data every 10 second*/
 	setInterval(getData, 10000);
+	initDataLive();
 }
 
+function createLiveTable(json) {
+    if (typeof json === 'undefined') {
+        console.log("JSON does not exist!");
+        return;
+    }
+
+    var sensors_num = Object.entries(json).length;
+    if (sensors_num == 0) {
+        console.log("JSON length equal to zero!");
+        return;
+    }
+
+    var json_objects = Object.entries(json);
+
+    const body = document.getElementById('tab-live');
+    const tbl = document.createElement('table');
+    tbl.className = "table-live";
+
+    /*tbl.style.width = '100px';*/
+    /*tbl.style.border = '1px solid black';*/
+
+    for (let i = 0; i < sensors_num; i++) {
+        if (i > 0) {
+            const tr = tbl.insertRow();
+            const td = tr.insertCell();
+            /*td.style.border = '1px solid black';*/
+            const td2 = tr.insertCell();
+            /*td2.style.border = '1px solid black';*/
+			tr.style.backgroundColor = '#f2f2f2';
+        }
+        const tr = tbl.insertRow();
+        const td = tr.insertCell();
+        td.appendChild(document.createTextNode(json_objects[i][0]));
+        td.style.fontWeight = 'bold';
+
+        var object_entries = Object.entries(json_objects[i][1]);
+
+        for (let j = 0; j < object_entries.length; j++) {
+            let tr2 = tbl.insertRow();
+            const td2 = tr2.insertCell();
+            td2.appendChild(document.createTextNode(object_entries[j][0]));
+            /*td2.style.border = '1px solid black';*/
+
+            const td3 = tr2.insertCell();
+            var element_value = document.createElement('label');
+            element_value.id = json_objects[i][0].replace(/\s/g, '_') + '-' + object_entries[j][0].replace(/\s/g, '_') + '-value';
+            if (typeof object_entries[j][1] == 'number') {
+                element_value.innerHTML = Number.parseFloat(object_entries[j][1]).toPrecision(6);
+            } else if(typeof object_entries[j][1] == 'string'){
+				element_value.innerHTML = object_entries[j][1];
+			} else {
+                element_value.innerHTML = 'NaN';
+            }
+            td3.appendChild(element_value);
+            /*td3.style.border = '1px solid black';*/
+        }
+    }
+
+    body.appendChild(tbl);
+}
+
+function updateLiveTable(json) {
+    if (typeof json === 'undefined') {
+        console.log("JSON does not exist!");
+        return;
+    }
+
+    var sensors_num = Object.entries(json).length;
+    if (sensors_num == 0) {
+        console.log("JSON length equal to zero!");
+        return;
+    }
+
+    var json_objects = Object.entries(json);
+
+    for (let i = 0; i < sensors_num; i++) {
+        var object_entries = Object.entries(json_objects[i][1]);
+
+        for (let j = 0; j < object_entries.length; j++) {
+            var element_value_id = json_objects[i][0].replace(/\s/g, '_') + '-' + object_entries[j][0].replace(/\s/g, '_') + '-value';
+            var element_value = document.getElementById(element_value_id);
+
+            if ((typeof element_value === 'undefined') || (element_value == null)) {
+                break;
+            }
+
+            if (typeof object_entries[j][1] == 'number') {
+                element_value.innerHTML = Number.parseFloat(object_entries[j][1]).toPrecision(6);
+            } else if(typeof object_entries[j][1] == 'string'){
+				element_value.innerHTML = object_entries[j][1];
+			} else {
+                element_value.innerHTML = 'NaN';
+            }
+        }
+    }
+}
+
+function initDataLive() {
+	fetch("/live")
+		.then(response => {
+		  if (response.ok) {
+			/* The connection was successful*/
+			return response.json();
+		  } else {
+			/* The connection was not successful*/
+			throw new Error(`Error ${response.status}: ${response.statusText}`);
+		  }
+		})
+		.then(data => {
+			  /* Update the text label with the new data*/
+			  console.log("Refresh Status OK");
+			  createLiveTable(data);
+		})
+		.catch(error => {
+		  /* Handle any errors that occurred*/
+		  console.error(error);
+		});
+  }
+  
+  function getDataLive() {
+	fetch("/live")
+		.then(response => {
+		  if (response.ok) {
+			/* The connection was successful*/
+			return response.json();
+		  } else {
+			/* The connection was not successful*/
+			throw new Error(`Error ${response.status}: ${response.statusText}`);
+		  }
+		})
+		.then(data => {
+			  /* Update the text label with the new data*/
+			  console.log("Refresh Status OK");
+			  updateLiveTable(data);
+		})
+		.catch(error => {
+		  /* Handle any errors that occurred*/
+		  console.error(error);
+		});
+  }
