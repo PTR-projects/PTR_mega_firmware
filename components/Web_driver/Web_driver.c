@@ -33,7 +33,7 @@ static const char *TAG = "Web_driver";
 
 /* Max size of an individual file. Make sure this*/
 #define MAX_FILE_SIZE   (5000*1024) // 5000 KB
-#define MAX_FILE_SIZE_STR "200KB"
+#define MAX_FILE_SIZE_STR "5000KB"
 
 /* Scratch buffer size */
 #define SCRATCH_BUFSIZE  8192
@@ -41,6 +41,9 @@ static const char *TAG = "Web_driver";
 #define IS_FILE_EXT(filename, ext) \
 		(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
+
+Web_driver_status_t state;
+Web_driver_live_t live;
 
 
 esp_err_t Web_wifi_init 					(void);
@@ -163,7 +166,7 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
     } else if (IS_FILE_EXT(filename, ".ico")) {
         return httpd_resp_set_type(req, "image/x-icon");
     } else if (IS_FILE_EXT(filename, ".js")) {
-    	return httpd_resp_set_type(req, "textl/javascript");
+    	return httpd_resp_set_type(req, "text/javascript");
     }
     /* This is a limited set only */
     /* For any other type always set as plain text */
@@ -311,6 +314,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
 static esp_err_t delete_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
+    FILE *fd = NULL;
     struct stat file_stat;
 
     /* Skip leading "/delete" from URI to get filename */
@@ -340,6 +344,14 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Deleting file : %s", filename);
     /* Delete file */
     unlink(filepath);
+
+    fd = fopen(filepath, "w");
+    if (!fd) {
+    	ESP_LOGE(TAG, "Failed to create file : %s", filepath);
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to create file");
+        return ESP_FAIL;
+    }
 
     /* Redirect onto root to see the updated file list */
     httpd_resp_set_status(req, "303 See Other");
@@ -475,24 +487,21 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
  * @return `ESP_OK` if done
  * @return `ESP_FAIL` otherwise.
  */
-esp_err_t json_get_handler(httpd_req_t *req)
+esp_err_t jsonStatus_get_handler(httpd_req_t *req)
 {
 	//temporary placeholder data
-	Web_driver_status_t state;
+
+/*
 	state.state = 1;
 	state.timestamp = 10233;
 	state.drougeAlt = 500;
 	state.mainAlt = 200;
-	state.pressure = 101300000;
 	state.angle = 11;
-	state.altitude = 214.5;
 	state.batteryVoltage = 6.7;
-	state.latitude.value = 123.1;
-	state.latitude.direction = "N";
-	state.longitude.value = 13.2;
-	state.longitude.direction = "W";
+	state.serialNumber = 1234567;
+*/
 
-	char *string = Web_driver_json_create(state);
+	char *string = Web_driver_json_statusCreate(state);
 
 
     //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
@@ -504,6 +513,23 @@ esp_err_t json_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+
+esp_err_t jsonLive_get_handler(httpd_req_t *req)
+{
+
+	//live.gps.longitude.direction = "N";
+	//live.gps.latitude.direction = "W";
+	char *string = Web_driver_json_liveCreate(live);
+
+
+    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
 
 
 /*!
@@ -549,27 +575,35 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &index_get);
 
-	httpd_uri_t json_get = {
+	httpd_uri_t jsonStatus_get = {
 		    .uri      = "/status",
 		    .method   = HTTP_GET,
-		    .handler  = json_get_handler,
+		    .handler  = jsonStatus_get_handler,
 		    .user_ctx = server_data
 	};
-	httpd_register_uri_handler(server, &json_get);
+	httpd_register_uri_handler(server, &jsonStatus_get);
+
+	httpd_uri_t jsonLive_get = {
+			.uri      = "/live",
+			.method   = HTTP_GET,
+			.handler  = jsonLive_get_handler,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &jsonLive_get);
 
 	httpd_uri_t file_delete = {
-				.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
-		        .method    = HTTP_POST,
-		        .handler   = delete_post_handler,
-		        .user_ctx  = server_data    // Pass server data as context
+			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
+		    .method    = HTTP_POST,
+		    .handler   = delete_post_handler,
+		    .user_ctx  = server_data    // Pass server data as context
 		};
 	httpd_register_uri_handler(server, &file_delete);
 
 	httpd_uri_t file_upload = {
-				.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
-		        .method    = HTTP_POST,
-		        .handler   = upload_post_handler,
-		        .user_ctx  = server_data    // Pass server data as context
+			.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
+		    .method    = HTTP_POST,
+		    .handler   = upload_post_handler,
+		    .user_ctx  = server_data    // Pass server data as context
 		};
 	httpd_register_uri_handler(server, &file_upload);
 
@@ -629,6 +663,15 @@ esp_err_t Web_off(void){
 	return ESP_OK;
 }
 
+
+
+void Web_status_exchange(Web_driver_status_t EX_status){
+	state = EX_status;
+}
+
+void Web_live_exchange(Web_driver_live_t EX_live){
+	live = EX_live;
+}
 
 
 

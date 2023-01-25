@@ -1,6 +1,7 @@
 #include "Web_driver_json.h"
 
 #include <stdio.h>
+#include <string.h>
 #include "cJSON.h"
 
 #include "esp_err.h"
@@ -12,79 +13,38 @@
 
 static const char *TAG = "Web_driver_json";
 
-Web_driver_config_t Web_driver_config_d;
 
-
-esp_err_t Web_driver_json_init(Web_driver_config_t config){
-
-	 Web_driver_config_d.serialNumber = config.serialNumber;
-	 Web_driver_config_d.softwareVersion = config.softwareVersion;
-
-
-	return ESP_OK;
-}
-
-
-
-char* Web_driver_json_create(Web_driver_status_t status){
+char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 	char *string = NULL;
-	char temp[50];
 
 	cJSON *json = cJSON_CreateObject();
 
 	cJSON *configuration = cJSON_CreateObject();
-
-	cJSON_AddNumberToObject(configuration, "serialNumber", Web_driver_config_d.serialNumber);
-	cJSON_AddStringToObject(configuration, "softwareVersion", Web_driver_config_d.softwareVersion);
-
+	cJSON_AddNumberToObject(configuration, "serialNumber", status.serialNumber);
+	if(strcmp(status.softwareVersion, "\0") == 0){
+		cJSON_AddStringToObject(configuration, "softwareVersion", "N/A");
+	}
+	else{
+		cJSON_AddStringToObject(configuration, "softwareVersion", status.softwareVersion);
+	}
 	cJSON_AddItemToObject(json, "configuration", configuration);
 
-
 	cJSON *logic = cJSON_CreateObject();
-
-
 	cJSON_AddNumberToObject(logic, "state", status.state);
 	cJSON_AddNumberToObject(logic, "timestamp", status.timestamp);
 	cJSON_AddNumberToObject(logic, "batteryVoltage", status.batteryVoltage);
-
 	cJSON_AddItemToObject(json, "logic", logic);
 
 
 	cJSON *sysMgr = cJSON_CreateObject();
-
 	cJSON_AddStringToObject(sysMgr, "Storage_driver", "OK");
 	cJSON_AddStringToObject(sysMgr, "Web_driver", "OK");
 
 	cJSON_AddItemToObject(json, "sysMgr", sysMgr);
 
-
 	cJSON *sensors = cJSON_CreateObject();
-
-
-	cJSON_AddNumberToObject(sensors, "pressure", status.pressure);
-
-
-	cJSON_AddNumberToObject(sensors, "altitude", status.altitude);
-
-
 	cJSON_AddNumberToObject(sensors, "angle", status.angle);
-
-	cJSON *gps = cJSON_CreateObject();
-
-	cJSON *latitude = cJSON_CreateObject();
-	cJSON_AddNumberToObject(latitude, "value", status.latitude.value);
-	sprintf(temp, status.latitude.direction);
-	cJSON_AddStringToObject(latitude, "direction", temp);
-	cJSON_AddItemToObject(gps, "latitude", latitude);
-
-	cJSON *longitude = cJSON_CreateObject();
-	cJSON_AddNumberToObject(longitude, "value", status.longitude.value);
-	sprintf(temp, status.longitude.direction);
-	cJSON_AddStringToObject(longitude, "direction", temp);
-	cJSON_AddItemToObject(gps, "longitude", longitude);
-
-	cJSON_AddItemToObject(sensors, "gps", gps);
 
 	cJSON_AddItemToObject(json, "sensors", sensors);
 
@@ -102,7 +62,85 @@ char* Web_driver_json_create(Web_driver_status_t status){
 
 	cJSON_AddItemToObject(json, "igniters", igniters);
 
+	string = cJSON_Print(json);
 
+	if(string == NULL){
+		ESP_LOGE(TAG, "Cannot create JSON string");
+	}
+
+
+	cJSON_Delete(json);
+	ESP_LOGI(TAG, "%s", string);
+	return string;
+}
+
+
+char* Web_driver_json_liveCreate(Web_driver_live_t live){
+
+	char *string = NULL;
+	char temp[50];
+
+	cJSON *json = cJSON_CreateObject();
+
+
+	cJSON *MS5607 = cJSON_CreateObject();
+	cJSON_AddNumberToObject(MS5607, "pressure", live.MS5607.pressure);
+	cJSON_AddNumberToObject(MS5607, "altitude", live.MS5607.altitude);
+	cJSON_AddNumberToObject(MS5607, "temperature", live.MS5607.temperature);
+	cJSON_AddItemToObject(json, "MS5607", MS5607);
+
+
+	cJSON *LIS331 = cJSON_CreateObject();
+	cJSON_AddNumberToObject(LIS331, "ax", live.LIS331.ax);
+	cJSON_AddNumberToObject(LIS331, "ay", live.LIS331.ay);
+	cJSON_AddNumberToObject(LIS331, "az", live.LIS331.az);
+	cJSON_AddItemToObject(json, "LIS331", LIS331);
+
+
+	cJSON *LSM6DS32_0 = cJSON_CreateObject();
+	cJSON_AddNumberToObject(LSM6DS32_0, "ax", live.LSM6DS32_0.ax);
+	cJSON_AddNumberToObject(LSM6DS32_0, "ay", live.LSM6DS32_0.ay);
+	cJSON_AddNumberToObject(LSM6DS32_0, "az", live.LSM6DS32_0.az);
+	cJSON_AddNumberToObject(LSM6DS32_0, "gx", live.LSM6DS32_0.gx);
+	cJSON_AddNumberToObject(LSM6DS32_0, "gy", live.LSM6DS32_0.gy);
+	cJSON_AddNumberToObject(LSM6DS32_0, "gz", live.LSM6DS32_0.gz);
+	cJSON_AddNumberToObject(LSM6DS32_0, "temperature", live.LSM6DS32_0.temperature);
+	cJSON_AddItemToObject(json, "LSM6DS32_0", LSM6DS32_0);
+
+
+	cJSON *LSM6DS32_1 = cJSON_CreateObject();
+	cJSON_AddNumberToObject(LSM6DS32_1, "ax", live.LSM6DS32_1.ax);
+	cJSON_AddNumberToObject(LSM6DS32_1, "ay", live.LSM6DS32_1.ay);
+	cJSON_AddNumberToObject(LSM6DS32_1, "az", live.LSM6DS32_1.az);
+	cJSON_AddNumberToObject(LSM6DS32_1, "gx", live.LSM6DS32_1.gx);
+	cJSON_AddNumberToObject(LSM6DS32_1, "gy", live.LSM6DS32_1.gy);
+	cJSON_AddNumberToObject(LSM6DS32_1, "gz", live.LSM6DS32_1.gz);
+	cJSON_AddNumberToObject(LSM6DS32_1, "temperature", live.LSM6DS32_1.temperature);
+	cJSON_AddItemToObject(json, "LSM6DS32_1", LSM6DS32_1);
+
+
+	cJSON *MMC5983MA = cJSON_CreateObject();
+	cJSON_AddNumberToObject(MMC5983MA, "mx", live.MMC5983MA.mx);
+	cJSON_AddNumberToObject(MMC5983MA, "my", live.MMC5983MA.my);
+	cJSON_AddNumberToObject(MMC5983MA, "mz", live.MMC5983MA.mz);
+	cJSON_AddItemToObject(json, "MMC5983MA", MMC5983MA);
+
+
+	cJSON *gps = cJSON_CreateObject();
+	cJSON_AddNumberToObject(gps, "latitude", live.gps.latitude);
+	cJSON_AddNumberToObject(gps, "longitude",  live.gps.longitude);
+	cJSON_AddNumberToObject(gps, "fix", live.gps.fix);
+	cJSON_AddNumberToObject(gps, "statelites", live.gps.sats);
+	cJSON_AddItemToObject(json, "gps", gps);
+
+
+
+	cJSON *AHRS = cJSON_CreateObject();
+
+	cJSON_AddNumberToObject(AHRS, "anglex", live.anglex);
+	cJSON_AddNumberToObject(AHRS, "angley", live.angley);
+	cJSON_AddNumberToObject(AHRS, "anglez", live.anglez);
+	cJSON_AddItemToObject(json, "AHRS", AHRS);
 
 
 	string = cJSON_Print(json);
@@ -116,3 +154,4 @@ char* Web_driver_json_create(Web_driver_status_t status){
 	ESP_LOGI(TAG, "%s", string);
 	return string;
 }
+
