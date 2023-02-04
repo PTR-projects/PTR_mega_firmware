@@ -251,12 +251,12 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
  *  - Others: Fail
  */
 esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler);
-void GPS_init();
+esp_err_t GPS_init();
 uint8_t GNSS_message_size(void);
 uint32_t GPS_getData(gps_t * data, uint16_t ms); // Send GPS DATA to
 void GPS_test(void);
-void GPS_baud_rate_set(uint32_t baud);
-void GPS_baud_rate_set_extra(uint32_t baud);
+esp_err_t GPS_baud_rate_set(uint32_t baud);
+esp_err_t GPS_baud_rate_set_extra(uint32_t baud);
 void GPS_fix_interval_set(uint16_t time);
 void GPS_nav_mode_set(gps_nav_mode_t mode);
 void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV);

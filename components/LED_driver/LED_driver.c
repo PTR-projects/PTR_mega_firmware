@@ -6,6 +6,7 @@
 #include "esp_err.h"
 
 static esp_err_t ws2812_control_init(void);
+static esp_err_t ws2812_control_deinit(void);
 static esp_err_t led_blink_rate(uint8_t number, uint16_t on_time_tics, uint16_t off_time_tics); //Set blink rate for LED
 static esp_err_t led_mode(uint8_t number, led_mode_t mode); //Set blink mode for LED
 static esp_err_t strip_led_colour(uint8_t number, led_colour_t colour, uint8_t brightness); //Set colour of RGB LED Brightness 0-255
@@ -26,6 +27,8 @@ rmt_item32_t led_data_buffer[LED_BUFFER_ITEMS * STRIP_LED_COLOURS]; //Strip LED 
 static LED_t led_array[LED_ARRAY_SIZE]; //LED BUZZER STATUS ARRAY
 
 esp_err_t LED_init(uint32_t interval_ms){
+	ws2812_control_deinit();
+
 	gpio_config_t io_conf = {};
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
@@ -146,6 +149,12 @@ esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_pe
 		strip_led_colour(led_no, colour, brightness_percent);
 		strip_led_mode(led_no, LED_MODE_BLINK);
 		strip_led_blink_rate(led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+
+		if(t_off_ms == 0){
+			strip_led_colour(led_no, colour, brightness_percent);
+			strip_led_mode(led_no, LED_MODE_ON);
+			strip_led_blink_rate(led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+		}
 	}
 	else{
 		strip_led_colour(led_no, colour, brightness_percent);
@@ -173,10 +182,17 @@ static esp_err_t ws2812_control_init(void) {
 	config.tx_config.idle_level = 0;
 	config.tx_config.carrier_freq_hz = 10 * 1000 * 1000;
 	config.clk_div = 8;
-
+	ESP_LOGI(TAG, "Strip LED init start");
 	ESP_ERROR_CHECK(rmt_config(&config));
 	ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
 	ESP_LOGI(TAG, "Strip LED init");
+	return ESP_OK;
+}
+
+static esp_err_t ws2812_control_deinit(void) {
+	rmt_driver_uninstall(STRIP_LED_CHANNEL); // uninstall RMT driver, ignore errors
+
+	ESP_LOGI(TAG, "Strip LED deinit");
 	return ESP_OK;
 }
 

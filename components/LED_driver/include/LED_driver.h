@@ -24,6 +24,16 @@ typedef enum{
 	COLOUR_ORANGE = 0x55AB00
 } led_colour_t; //Colours in GRB NOT RGB
 
+typedef enum{
+	LED_READY 	= 0,
+	LED_ARM 	= 1,
+	LED_STAT 	= 2,
+	LED_RF 		= 3,
+	LED_IGN1 	= 4,
+	LED_IGN2 	= 5,
+	LED_IGN3 	= 6,
+	LED_IGN4 	= 7
+} led_enum_t;
 
 //Led configuration struct
 typedef struct{
@@ -36,6 +46,12 @@ typedef struct{
     uint16_t counter;
     uint8_t state;
 } LED_t;
+
+//Led configuration change command
+typedef struct{
+	led_enum_t LED_no;
+	LED_t config;
+} led_cmd_t;
 
 //Main User Interface
 
