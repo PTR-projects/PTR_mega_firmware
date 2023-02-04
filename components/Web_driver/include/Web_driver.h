@@ -4,6 +4,8 @@
 #include "esp_http_server.h"
 #include "esp_vfs.h"
 
+#include "Web_driver_json.h"
+
 
 /* Scratch buffer size */
 #define SCRATCH_BUFSIZE  8192
@@ -16,9 +18,8 @@ struct file_server_data {
     char scratch[SCRATCH_BUFSIZE];
 };
 
-typedef struct{
-	bool IGN_status[5];
-} Rocket_status_t;
-
 esp_err_t Web_init(void);
 esp_err_t Web_off(void);
+
+void Web_status_exchange(Web_driver_status_t EX_status);
+void Web_live_exchange(Web_driver_live_t EX_live);

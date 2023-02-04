@@ -19,7 +19,8 @@
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
-#include "web_driver.h"
+#include "Web_driver.h"
+#include "Web_driver_json.h"
 
 static const char *TAG = "Web_driver";
 
@@ -32,7 +33,7 @@ static const char *TAG = "Web_driver";
 
 /* Max size of an individual file. Make sure this*/
 #define MAX_FILE_SIZE   (5000*1024) // 5000 KB
-#define MAX_FILE_SIZE_STR "200KB"
+#define MAX_FILE_SIZE_STR "5000KB"
 
 /* Scratch buffer size */
 #define SCRATCH_BUFSIZE  8192
@@ -41,11 +42,16 @@ static const char *TAG = "Web_driver";
 		(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 
+Web_driver_status_t state;
+Web_driver_live_t live;
+
 
 esp_err_t Web_wifi_init 					(void);
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop							(httpd_handle_t server);
 esp_err_t Web_wifi_stop						(void);
+
+
 
 
 esp_vfs_spiffs_conf_t conf = {
@@ -153,10 +159,14 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
         return httpd_resp_set_type(req, "application/pdf");
     } else if (IS_FILE_EXT(filename, ".html")) {
         return httpd_resp_set_type(req, "text/html");
+    } else if (IS_FILE_EXT(filename, ".css")) {
+        return httpd_resp_set_type(req, "text/css");
     } else if (IS_FILE_EXT(filename, ".jpeg")) {
         return httpd_resp_set_type(req, "image/jpeg");
     } else if (IS_FILE_EXT(filename, ".ico")) {
         return httpd_resp_set_type(req, "image/x-icon");
+    } else if (IS_FILE_EXT(filename, ".js")) {
+    	return httpd_resp_set_type(req, "text/javascript");
     }
     /* This is a limited set only */
     /* For any other type always set as plain text */
@@ -177,6 +187,7 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
  */
 static const char* get_path_from_uri(char *dest, const char *base_path, const char *uri, size_t destsize)
 {
+
     const size_t base_pathlen = strlen(base_path);
     size_t pathlen = strlen(uri);
 
@@ -194,16 +205,26 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
         return NULL;
     }
 
-    /* Construct full path (base + path) */
-    //strcpy(dest, base_path);
+
+
     strcpy(dest, "");
-    //strlcpy(dest + base_pathlen, uri, pathlen + 1);
     strlcpy(dest + 0, uri, pathlen + 1);
+
+    ESP_LOGI(TAG, "Website path: %s", dest);
 
     /* Return pointer to path, skipping the base */
     return dest + 0;
 }
 
+
+
+static esp_err_t index_html_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "307 Temporary Redirect");
+    httpd_resp_set_hdr(req, "Location", "/www/index.html");
+    httpd_resp_send(req, NULL, 0);  // Response body can be empty
+    return ESP_OK;
+}
 
 /*!
  * @brief Handler responsible for serving all files to the client.
@@ -229,7 +250,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
 
 
     /* If name has trailing '/', respond with directory contents */
-    ESP_LOGI(TAG, "Filename %s",filename);
+    ESP_LOGI(TAG, "Filename: %s",filename);
     if(stat(filepath, &file_stat) == -1){
         /* If file not present on SPIFFS check if URI
          * corresponds to one of the hardcoded paths */
@@ -248,7 +269,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "Sending file : %s (%ld bytes)...", filename, file_stat.st_size);
+    ESP_LOGI(TAG, "Sending file: %s (%ld bytes)...", filename, file_stat.st_size);
     set_content_type_from_file(req, filename);
 
     /* Retrieve the pointer to scratch buffer for temporary storage */
@@ -293,6 +314,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
 static esp_err_t delete_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
+    FILE *fd = NULL;
     struct stat file_stat;
 
     /* Skip leading "/delete" from URI to get filename */
@@ -323,9 +345,17 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     /* Delete file */
     unlink(filepath);
 
+    fd = fopen(filepath, "w");
+    if (!fd) {
+    	ESP_LOGE(TAG, "Failed to create file : %s", filepath);
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to create file");
+        return ESP_FAIL;
+    }
+
     /* Redirect onto root to see the updated file list */
     httpd_resp_set_status(req, "303 See Other");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/www/index.html");
 
     httpd_resp_sendstr(req, "File deleted successfully");
     return ESP_OK;
@@ -361,15 +391,13 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Invalid filename");
         return ESP_FAIL;
     }
-    
     /*
     if (stat(filepath, &file_stat) == 0) {
         ESP_LOGE(TAG, "File already exists : %s", filepath);
-        // Respond with 400 Bad Request 
+        Respond with 400 Bad Request
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File already exists");
         return ESP_FAIL;
-    }
-    */
+    }*/
 
     /* File cannot be larger than a limit */
     if (req->content_len > MAX_FILE_SIZE) {
@@ -446,9 +474,60 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
 
     /* Redirect onto root to see the updated file list */
     httpd_resp_set_status(req, "303 See Other");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/www/index.html");
 
     httpd_resp_sendstr(req, "File uploaded successfully");
+    return ESP_OK;
+}
+
+/*!
+ * @brief Handler responsible for serving json with status data.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t jsonStatus_get_handler(httpd_req_t *req)
+{
+	//temporary placeholder data
+
+/*
+	state.state = 1;
+	state.timestamp = 10233;
+	state.drougeAlt = 500;
+	state.mainAlt = 200;
+	state.angle = 11;
+	state.batteryVoltage = 6.7;
+	state.serialNumber = 1234567;
+*/
+
+	char *string = Web_driver_json_statusCreate(state);
+
+
+    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+
+esp_err_t jsonLive_get_handler(httpd_req_t *req)
+{
+
+	//live.gps.longitude.direction = "N";
+	//live.gps.latitude.direction = "W";
+	char *string = Web_driver_json_liveCreate(live);
+
+
+    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -487,6 +566,47 @@ esp_err_t Web_http_init(const char *base_path){
 		return ESP_FAIL;
 	}
 
+
+	httpd_uri_t index_get = {
+			.uri      = "/",
+			.method   = HTTP_GET,
+			.handler  = index_html_get_handler,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &index_get);
+
+	httpd_uri_t jsonStatus_get = {
+		    .uri      = "/status",
+		    .method   = HTTP_GET,
+		    .handler  = jsonStatus_get_handler,
+		    .user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &jsonStatus_get);
+
+	httpd_uri_t jsonLive_get = {
+			.uri      = "/live",
+			.method   = HTTP_GET,
+			.handler  = jsonLive_get_handler,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &jsonLive_get);
+
+	httpd_uri_t file_delete = {
+			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
+		    .method    = HTTP_POST,
+		    .handler   = delete_post_handler,
+		    .user_ctx  = server_data    // Pass server data as context
+		};
+	httpd_register_uri_handler(server, &file_delete);
+
+	httpd_uri_t file_upload = {
+			.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
+		    .method    = HTTP_POST,
+		    .handler   = upload_post_handler,
+		    .user_ctx  = server_data    // Pass server data as context
+		};
+	httpd_register_uri_handler(server, &file_upload);
+
 	httpd_uri_t file_download = {
 			.uri       = "/*",  // Match all URIs of type /path/to/file
 	        .method    = HTTP_GET,
@@ -495,21 +615,7 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &file_download);
 
-	httpd_uri_t file_delete = {
-			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
-	        .method    = HTTP_POST,
-	        .handler   = delete_post_handler,
-	        .user_ctx  = server_data    // Pass server data as context
-	};
-	httpd_register_uri_handler(server, &file_delete);
 
-	httpd_uri_t file_upload = {
-			.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
-	        .method    = HTTP_POST,
-	        .handler   = upload_post_handler,
-	        .user_ctx  = server_data    // Pass server data as context
-	};
-	httpd_register_uri_handler(server, &file_upload);
 
 
 	ESP_LOGI(TAG, "Started HTTP server successfully");
@@ -557,6 +663,15 @@ esp_err_t Web_off(void){
 	return ESP_OK;
 }
 
+
+
+void Web_status_exchange(Web_driver_status_t EX_status){
+	state = EX_status;
+}
+
+void Web_live_exchange(Web_driver_live_t EX_live){
+	live = EX_live;
+}
 
 
 
