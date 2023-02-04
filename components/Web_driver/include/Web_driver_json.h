@@ -9,29 +9,35 @@
 
 typedef struct{
 	long serialNumber;
-	char *softwareVersion;
+	char softwareVersion[10];
 
 	int state;
 	int timestamp;
 	int drougeAlt;
 	int mainAlt;
 
+	int sysmgr_sysmgr_status;
+	int sysmgr_main_status;
+	int sysmgr_storage_status;
+	int sysmgr_lora_status;
+	int sysmgr_analog_status;
+	int sysmgr_utils_status;
+	int sysmgr_web_status;
 
 	float angle;
+	float latitude;
+	float longitude;
+	int fix;
 
 	float batteryVoltage;
-
 
 	struct {
 		bool fired;
 		bool continuity;
 	} igniters[4];
-
-
 } Web_driver_status_t;
 
 typedef struct{
-
 	struct {
 		float pressure;
 		float altitude;
@@ -69,8 +75,6 @@ typedef struct{
 		int fix;
 		int sats;
 	} gps;
-
-
 
 	float anglex;
 	float angley;

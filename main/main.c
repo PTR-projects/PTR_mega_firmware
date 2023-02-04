@@ -110,7 +110,7 @@ void task_kpptr_main(void *pvParameter){
 							 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
 		int64_t tic_toc_comp = ((int64_t)tv_comp.tv_sec * 1000000L + (int64_t)tv_comp.tv_usec)
 							 - ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec);
-		ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
+		//ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
 		//------------------------------------
 
 	}
@@ -137,14 +137,16 @@ void task_kpptr_storage(void *pvParameter){
 	}
 
 	DataPackage_t * DataPackage_ptr;
+	Web_driver_live_t 	live_web;
 	uint32_t write_error_cnt = 0;
+	uint32_t web_live_cnt = 0;
 
 	vTaskDelay(pdMS_TO_TICKS( 2000 ));
 	ESP_LOGI(TAG, "Task Storage - ready!");
 	SysMgr_checkout(checkout_storage, check_ready);
 
 	while(1){
-		if(1){	//(flightstate >= Launch) && (flightstate < Landed_delay)
+		if(0){	//(flightstate >= Launch) && (flightstate < Landed_delay)
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
 				if(write_error_cnt < 1000){
 					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
@@ -157,6 +159,46 @@ void task_kpptr_storage(void *pvParameter){
 				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			} else {
 				//ESP_LOGI(TAG, "Storage timeout");
+			}
+		} else {
+			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){
+				web_live_cnt++;
+				if(web_live_cnt > 10){
+					web_live_cnt = 0;
+					live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
+					live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
+					live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;
+					live_web.LSM6DS32_0.ax = DataPackage_ptr->sensors.accX;
+					live_web.LSM6DS32_0.ay = DataPackage_ptr->sensors.accY;
+					live_web.LSM6DS32_0.az = DataPackage_ptr->sensors.accZ;
+					live_web.LSM6DS32_0.gx = DataPackage_ptr->sensors.gyroX;
+					live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
+					live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
+					live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
+					live_web.LSM6DS32_1.ax = 10.0f;
+					live_web.LSM6DS32_1.ay = 0.0f;
+					live_web.LSM6DS32_1.az = 0.0f;
+					live_web.LSM6DS32_1.gx = 0.0f;
+					live_web.LSM6DS32_1.gy = 0.0f;
+					live_web.LSM6DS32_1.gz = 0.0f;
+					live_web.LSM6DS32_1.temperature = 0.0f;
+					live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
+					live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
+					live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
+					live_web.MS5607.altitude = 0.0f;
+					live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
+					live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
+					live_web.anglex = 0.0f;
+					live_web.angley = 0.0f;
+					live_web.anglez = 0.0f;
+					live_web.gps.fix = DataPackage_ptr->sensors.gnss_fix;
+					live_web.gps.latitude = DataPackage_ptr->sensors.latitude;
+					live_web.gps.longitude = DataPackage_ptr->sensors.longitude;
+					live_web.gps.sats = DataPackage_ptr->sensors.gnss_fix;
+					Web_live_exchange(live_web);
+				}
+
+				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			}
 		}
 	}
@@ -220,6 +262,35 @@ void task_kpptr_sysmgr(void *pvParameter){
 		}
 
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
+
+
+		Web_driver_status_t status_web;
+		status_web.angle = 0.0f;
+		status_web.batteryVoltage = 0.0f;
+		status_web.drougeAlt = 0;
+		status_web.igniters[0].continuity = false;
+		status_web.igniters[1].continuity = false;
+		status_web.igniters[2].continuity = false;
+		status_web.igniters[3].continuity = false;
+		status_web.igniters[0].fired = false;
+		status_web.igniters[1].fired = false;
+		status_web.igniters[2].fired = false;
+		status_web.igniters[3].fired = false;
+		status_web.mainAlt = 0;
+		status_web.serialNumber = 0;
+		status_web.state = 0;
+		status_web.timestamp = 0;
+		status_web.sysmgr_analog_status 	= SysMgr_getComponentState(checkout_analog);
+		status_web.sysmgr_lora_status 		= SysMgr_getComponentState(checkout_lora);
+		status_web.sysmgr_main_status 		= SysMgr_getComponentState(checkout_main);
+		status_web.sysmgr_storage_status 	= SysMgr_getComponentState(checkout_storage);
+		status_web.sysmgr_sysmgr_status 	= SysMgr_getComponentState(checkout_sysmgr);
+		status_web.sysmgr_utils_status 		= SysMgr_getComponentState(checkout_utils);
+		status_web.sysmgr_web_status 		= SysMgr_getComponentState(checkout_web);
+		strcpy(status_web.softwareVersion, "v0.1.0");
+
+		Web_status_exchange(status_web);
+
 	}
 }
 
@@ -247,8 +318,6 @@ void app_main(void)
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
-
-
 
     while (true) {
         vTaskDelay(pdMS_TO_TICKS( 1000 ));

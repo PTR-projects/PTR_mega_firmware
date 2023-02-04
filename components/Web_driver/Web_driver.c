@@ -42,8 +42,8 @@ static const char *TAG = "Web_driver";
 		(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 
-Web_driver_status_t state;
-Web_driver_live_t live;
+Web_driver_status_t state_package;
+Web_driver_live_t   live_package;
 
 
 esp_err_t Web_wifi_init 					(void);
@@ -82,6 +82,64 @@ esp_err_t Web_init(void){
 	if(ret == ESP_OK){
 		ret = Web_http_init(base_path);
 	}
+
+	state_package.latitude = 0.0f;
+	state_package.longitude = 0.0f;
+	state_package.fix = 0;
+	state_package.angle = 0.0f;
+	state_package.batteryVoltage = 0.0f;
+	state_package.drougeAlt = 0;
+	state_package.igniters[0].continuity = false;
+	state_package.igniters[1].continuity = false;
+	state_package.igniters[2].continuity = false;
+	state_package.igniters[3].continuity = false;
+	state_package.igniters[0].fired = false;
+	state_package.igniters[1].fired = false;
+	state_package.igniters[2].fired = false;
+	state_package.igniters[3].fired = false;
+	state_package.mainAlt = 0;
+	state_package.serialNumber = 0;
+	state_package.state = 0;
+	state_package.timestamp = 0;
+	state_package.sysmgr_analog_status = 0;
+	state_package.sysmgr_lora_status = 0;
+	state_package.sysmgr_main_status = 0;
+	state_package.sysmgr_storage_status = 0;
+	state_package.sysmgr_sysmgr_status = 0;
+	state_package.sysmgr_utils_status = 0;
+	state_package.sysmgr_web_status = 0;
+	strcpy(state_package.softwareVersion, "v0.1.0");
+
+	live_package.LIS331.ax = 0.0f;
+	live_package.LIS331.ay = 0.0f;
+	live_package.LIS331.az = 0.0f;
+	live_package.LSM6DS32_0.ax = 0.0f;
+	live_package.LSM6DS32_0.ay = 0.0f;
+	live_package.LSM6DS32_0.az = 0.0f;
+	live_package.LSM6DS32_0.gx = 0.0f;
+	live_package.LSM6DS32_0.gy = 0.0f;
+	live_package.LSM6DS32_0.gz = 0.0f;
+	live_package.LSM6DS32_0.temperature = 0.0f;
+	live_package.LSM6DS32_1.ax = 0.0f;
+	live_package.LSM6DS32_1.ay = 0.0f;
+	live_package.LSM6DS32_1.az = 0.0f;
+	live_package.LSM6DS32_1.gx = 0.0f;
+	live_package.LSM6DS32_1.gy = 0.0f;
+	live_package.LSM6DS32_1.gz = 0.0f;
+	live_package.LSM6DS32_1.temperature = 0.0f;
+	live_package.MMC5983MA.mx = 0.0f;
+	live_package.MMC5983MA.my = 0.0f;
+	live_package.MMC5983MA.mz = 0.0f;
+	live_package.MS5607.altitude = 0.0f;
+	live_package.MS5607.pressure = 0.0f;
+	live_package.MS5607.temperature = 0.0f;
+	live_package.anglex = 0.0f;
+	live_package.angley = 0.0f;
+	live_package.anglez = 0.0f;
+	live_package.gps.fix = 0.0f;
+	live_package.gps.latitude = 0.0f;
+	live_package.gps.longitude = 0.0f;
+	live_package.gps.sats = 0;
 
 	return ret;
 }
@@ -501,7 +559,7 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req)
 	state.serialNumber = 1234567;
 */
 
-	char *string = Web_driver_json_statusCreate(state);
+	char *string = Web_driver_json_statusCreate(state_package);
 
 
     //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
@@ -519,7 +577,7 @@ esp_err_t jsonLive_get_handler(httpd_req_t *req)
 
 	//live.gps.longitude.direction = "N";
 	//live.gps.latitude.direction = "W";
-	char *string = Web_driver_json_liveCreate(live);
+	char *string = Web_driver_json_liveCreate(live_package);
 
 
     //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
@@ -666,11 +724,11 @@ esp_err_t Web_off(void){
 
 
 void Web_status_exchange(Web_driver_status_t EX_status){
-	state = EX_status;
+	state_package = EX_status;
 }
 
 void Web_live_exchange(Web_driver_live_t EX_live){
-	live = EX_live;
+	live_package = EX_live;
 }
 
 

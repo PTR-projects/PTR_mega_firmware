@@ -6,7 +6,8 @@ typedef enum{
 	checkout_storage,
 	checkout_lora,
 	checkout_analog,
-	checkout_utils
+	checkout_utils,
+	checkout_web
 } sysmgr_checkout_component_t;
 
 typedef enum{
@@ -28,6 +29,7 @@ typedef union{
 		sysmgr_checkout_state_t lora;
 		sysmgr_checkout_state_t analog;
 		sysmgr_checkout_state_t utils;
+		sysmgr_checkout_state_t web;
 	};
 	sysmgr_checkout_state_t table[6];
 }sysmgr_checkout_status_t;
@@ -36,3 +38,4 @@ esp_err_t SysMgr_init();
 esp_err_t SysMgr_checkout(sysmgr_checkout_component_t component, sysmgr_checkout_state_t state);
 esp_err_t SysMgr_update();
 sysmgr_checkout_state_t SysMgr_getCheckoutStatus();
+sysmgr_checkout_state_t SysMgr_getComponentState(sysmgr_checkout_component_t components_to_check);

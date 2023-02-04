@@ -16,6 +16,7 @@ esp_err_t SysMgr_init(){
 	sysmgr_checkout_status_d.lora 	 = check_void;
 	sysmgr_checkout_status_d.analog  = check_void;
 	sysmgr_checkout_status_d.utils 	 = check_void;
+	sysmgr_checkout_status_d.web 	 = check_void;
 
 	queue_SysMgrCheckout = xQueueCreate( 100, sizeof( sysmgr_checkout_msg_t ) );
 
@@ -70,4 +71,8 @@ sysmgr_checkout_state_t SysMgr_getCheckoutStatus(){
 		return check_ready;
 
 	return check_fail;
+}
+
+sysmgr_checkout_state_t SysMgr_getComponentState(sysmgr_checkout_component_t components_to_check){
+	return sysmgr_checkout_status_d.table[components_to_check];
 }

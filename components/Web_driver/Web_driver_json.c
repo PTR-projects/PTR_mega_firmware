@@ -38,13 +38,21 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 
 	cJSON *sysMgr = cJSON_CreateObject();
-	cJSON_AddStringToObject(sysMgr, "Storage_driver", "OK");
-	cJSON_AddStringToObject(sysMgr, "Web_driver", "OK");
+	cJSON_AddStringToObject(sysMgr, "SysMgr_driver", 	(status.sysmgr_sysmgr_status 	== 0x01)?"OK":"FAIL");
+	cJSON_AddStringToObject(sysMgr, "Main_driver", 		(status.sysmgr_main_status 		== 0x01)?"OK":"FAIL");
+	cJSON_AddStringToObject(sysMgr, "Storage_driver", 	(status.sysmgr_storage_status 	== 0x01)?"OK":"FAIL");
+	cJSON_AddStringToObject(sysMgr, "Lora_driver", 		(status.sysmgr_lora_status 		== 0x01)?"OK":"FAIL");
+	cJSON_AddStringToObject(sysMgr, "Analog_driver", 	(status.sysmgr_analog_status 	== 0x01)?"OK":"FAIL");
+	cJSON_AddStringToObject(sysMgr, "Utils_driver", 	(status.sysmgr_utils_status 	== 0x01)?"OK":"FAIL");
+	cJSON_AddStringToObject(sysMgr, "Web_driver", 		(status.sysmgr_web_status 		== 0x01)?"OK":"FAIL");
 
 	cJSON_AddItemToObject(json, "sysMgr", sysMgr);
 
 	cJSON *sensors = cJSON_CreateObject();
 	cJSON_AddNumberToObject(sensors, "angle", status.angle);
+	cJSON_AddNumberToObject(sensors, "latitude", status.latitude);
+	cJSON_AddNumberToObject(sensors, "longitude", status.longitude);
+	cJSON_AddNumberToObject(sensors, "fix", status.fix);
 
 	cJSON_AddItemToObject(json, "sensors", sensors);
 
@@ -70,7 +78,7 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 
 	cJSON_Delete(json);
-	ESP_LOGI(TAG, "%s", string);
+	ESP_LOGV(TAG, "%s", string);
 	return string;
 }
 
@@ -151,7 +159,7 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 
 
 	cJSON_Delete(json);
-	ESP_LOGI(TAG, "%s", string);
+	ESP_LOGV(TAG, "%s", string);
 	return string;
 }
 
