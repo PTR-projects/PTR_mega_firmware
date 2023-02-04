@@ -15,6 +15,12 @@ typedef enum{
 	check_fail  = 0x04
 } sysmgr_checkout_state_t;
 
+typedef enum{
+	system_arming_error,
+	system_armed,
+	system_dissarmed
+} sysmgr_arming_state_t;
+
 typedef struct{
 	sysmgr_checkout_component_t component;
 	sysmgr_checkout_state_t		state;
@@ -36,3 +42,5 @@ esp_err_t SysMgr_init();
 esp_err_t SysMgr_checkout(sysmgr_checkout_component_t component, sysmgr_checkout_state_t state);
 esp_err_t SysMgr_update();
 sysmgr_checkout_state_t SysMgr_getCheckoutStatus();
+esp_err_t SysMgr_setArm(sysmgr_arming_state_t state);
+sysmgr_arming_state_t SysMgr_getArm();

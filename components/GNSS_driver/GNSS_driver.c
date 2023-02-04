@@ -21,7 +21,7 @@ ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
 
 
-void GPS_init(void)
+esp_err_t GPS_init(void)
 {
 	//--------- Init ESP task & queue -------------
 	xMessageBuffer_GNSS2Storage = xMessageBufferCreateStatic(
@@ -37,6 +37,8 @@ void GPS_init(void)
     /* init NMEA parser library */
     vTaskDelay(pdMS_TO_TICKS( 2000 ));
     nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+    if(nmea_hdl == NULL)
+    	return ESP_FAIL;
 
     //--------- Init GNSS receiver ----------------
 	GPS_baud_rate_set_extra(115200);		vTaskDelay(pdMS_TO_TICKS( 100 ));
@@ -45,9 +47,12 @@ void GPS_init(void)
 	GPS_fix_interval_set(200);				vTaskDelay(pdMS_TO_TICKS( 100 ));
 
     /* register event handler for NMEA parser library */
-    nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+    if(nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL) != ESP_OK)
+    	return ESP_FAIL;
 
     ESP_LOGI(TAG, "Init ready");
+
+    return ESP_OK;
 }
 
 
@@ -848,9 +853,13 @@ uint16_t crc_calc(char *message)
 
 
 
-void GPS_send_cmd(char *message){
+esp_err_t GPS_send_cmd(char *message){
 	sprintf(txMessageBuffer, "$%s*%02X\r\n", message, crc_calc(message));
-	uart_write_bytes(GNSS_UART, txMessageBuffer, strlen(txMessageBuffer));
+
+	if(uart_write_bytes(GNSS_UART, txMessageBuffer, strlen(txMessageBuffer)) == (-1))
+		return ESP_FAIL;
+
+	return ESP_OK;
 }
 
 void GPS_test(void){
@@ -858,29 +867,48 @@ void GPS_test(void){
 	GPS_send_cmd("PMTK605");
 }
 
-void GPS_baud_rate_set(uint32_t baud){ // default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+esp_err_t GPS_baud_rate_set(uint32_t baud){ // default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
 	char message[16];
 	if (baud != 4800 && baud != 9600 && baud != 14400 && baud != 19200 && baud != 38400 && baud != 57600 && baud != 115200){
 		ESP_LOGE(TAG, "WRONG BAUDRATE");
-		return;
+		return ESP_FAIL;
 	}
 	sprintf(message, "PMTK251,%i", baud);
-	GPS_send_cmd(message);
+
+	if(GPS_send_cmd(message) != ESP_OK){
+		return ESP_FAIL;
+	}
 	ESP_LOGI(TAG, "GPS baudrate set to %d", baud);
+
+	return ESP_OK;
 }
 
 
-void GPS_baud_rate_set_extra(uint32_t baud){ // default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+esp_err_t GPS_baud_rate_set_extra(uint32_t baud){ // default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+	esp_err_t status = ESP_OK;
+
 	char message[16];
 	if (baud != 4800 && baud != 9600 && baud != 14400 && baud != 19200 && baud != 38400 && baud != 57600 && baud != 115200){
 		ESP_LOGE(TAG, "WRONG BAUDRATE");
-		return;
+		return ESP_ERR_INVALID_ARG;
 	}
+
 	sprintf(message, "PMTK251,%i", baud);
-	GPS_send_cmd(message);
-	uart_wait_tx_done(GNSS_UART, portMAX_DELAY);
-	uart_set_baudrate(GNSS_UART, baud);
-	ESP_LOGI(TAG, "GPS and UARTPORT %d baudrate set to %d", GNSS_UART, baud);
+	status = GPS_send_cmd(message);
+
+	if(status == ESP_OK){
+		status = uart_wait_tx_done(GNSS_UART, portMAX_DELAY);
+	}
+
+	if(status == ESP_OK){
+		status = uart_set_baudrate(GNSS_UART, baud);
+	}
+
+	if(status == ESP_OK){
+		ESP_LOGI(TAG, "GPS and UARTPORT %d baudrate set to %d", GNSS_UART, baud);
+	}
+
+	return status;
 }
 
 

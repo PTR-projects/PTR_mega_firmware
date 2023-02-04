@@ -49,10 +49,19 @@ void task_kpptr_main(void *pvParameter){
 	gettimeofday(&tv_now, NULL);
 	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
 
-	Sensors_init();
-	GPS_init();
-	//Detector_init();
-	AHRS_init(time_us);
+	esp_err_t status = ESP_FAIL;
+	while(status != ESP_OK){
+		status  = ESP_OK;
+		status |= Sensors_init();
+		status |= GPS_init();
+		//status |= Detector_init();
+		status |= AHRS_init(time_us);
+		ESP_LOGE(TAG, "Main task - failed to prepare main task");
+		SysMgr_checkout(checkout_main, check_fail);
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	}
+
+	SysMgr_checkout(checkout_main, check_ready);
 	ESP_LOGI(TAG, "Task Main - ready!");
 
 	xLastWakeTime = xTaskGetTickCount ();
@@ -71,10 +80,9 @@ void task_kpptr_main(void *pvParameter){
 		//Detector_detect();
 
 
-		LED_blinkWS(0, COLOUR_AQUA, 20, 100, 1, 1);
+		//LED_blinkWS(0, COLOUR_AQUA, 20, 100, 1, 1);
 
-		if(GPS_getData(&gps_d, 0))
-			LED_blinkWS(1, COLOUR_ORANGE, 20, 100, 1, 1);
+		GPS_getData(&gps_d, 0);
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
@@ -110,7 +118,7 @@ void task_kpptr_main(void *pvParameter){
 							 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
 		int64_t tic_toc_comp = ((int64_t)tv_comp.tv_sec * 1000000L + (int64_t)tv_comp.tv_usec)
 							 - ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec);
-		ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
+		//ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
 		//------------------------------------
 
 	}
@@ -120,11 +128,16 @@ void task_kpptr_main(void *pvParameter){
 void task_kpptr_telemetry(void *pvParameter){
 	DataPackageRF_t DataPackageRF_d;
 
-	LORA_init();
+	while(LORA_init() != ESP_OK){
+		ESP_LOGE(TAG, "Telemetry task - failed to prepare Lora");
+		SysMgr_checkout(checkout_lora, check_fail);
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	}
+
+	SysMgr_checkout(checkout_lora, check_ready);
 	while(1){
 		if(xQueueReceive(queue_MainToTelemetry, &DataPackageRF_d, 100)){
-			//LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), LORA_TX_NO_WAIT);
-			LED_blinkWS(2, COLOUR_PURPLE, 20, 100, 1, 1);
+			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), LORA_TX_NO_WAIT);
 		}
 	}
 }
@@ -132,8 +145,8 @@ void task_kpptr_telemetry(void *pvParameter){
 void task_kpptr_storage(void *pvParameter){
 	while(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
 		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
+		SysMgr_checkout(checkout_storage, check_void);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
-		SysMgr_checkout(checkout_storage, check_fail);
 	}
 
 	DataPackage_t * DataPackage_ptr;
@@ -166,10 +179,19 @@ void task_kpptr_utils(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	uint32_t interval_ms = 20;
 
-	LED_init(interval_ms);
-	BUZZER_init();
+	esp_err_t status = ESP_FAIL;
+	while(status != ESP_OK){
+		status  = ESP_OK;
+		status |= LED_init(interval_ms);
+		status |= BUZZER_init();
+		ESP_LOGI(TAG, "Task Utils - failed to init!");
+		SysMgr_checkout(checkout_utils, check_fail);
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	}
+
 	ESP_LOGI(TAG, "Task Utils - ready!");
 
+	SysMgr_checkout(checkout_utils, check_ready);
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
@@ -184,9 +206,14 @@ void task_kpptr_analog(void *pvParameter){
 
 	Analog_meas_t Analog_meas;
 
-	Analog_init(100, 0.1f);
+	while(Analog_init(100, 0.1f) != ESP_OK){
+		ESP_LOGI(TAG, "Task Analog - failed to init!");
+		SysMgr_checkout(checkout_analog, check_fail);
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	}
 	ESP_LOGI(TAG, "Task Analog - ready!");
 
+	SysMgr_checkout(checkout_analog, check_ready);
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
@@ -207,19 +234,39 @@ void task_kpptr_sysmgr(void *pvParameter){
 
 		switch(SysMgr_getCheckoutStatus()){
 		case check_ready:
+			LED_blinkWS(LED_STAT, COLOUR_GREEN, 20, 100, 0, 0);
 			break;
 
 		case check_void:
+			LED_blinkWS(LED_STAT, COLOUR_ORANGE, 20, 100, 0, 0);
 			break;
 
 		case check_fail:
+			LED_blinkWS(LED_STAT, COLOUR_RED, 20, 300, 300, 0);
 			break;
 
 		default:
 			break;
 		}
 
-		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
+		switch(SysMgr_getArm()){
+		case system_armed:
+			LED_blinkWS(LED_ARM, COLOUR_GREEN, 20, 100, 0, 0);
+			break;
+
+		case system_dissarmed:
+			LED_blinkWS(LED_ARM, COLOUR_ORANGE, 20, 100, 0, 0);
+			break;
+
+		case system_arming_error:
+			LED_blinkWS(LED_ARM, COLOUR_RED, 20, 300, 300, 0);
+			break;
+
+		default:
+			break;
+		}
+
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 10Hz
 	}
 }
 
@@ -244,7 +291,7 @@ void app_main(void)
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
+    //xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 
