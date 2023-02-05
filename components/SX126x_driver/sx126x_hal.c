@@ -108,7 +108,7 @@ sx126x_hal_status_t sx126x_hal_read(const void* context, const uint8_t *command,
 		trans.base.rxlength  = 8 * data_length;
 		trans.address_bits 	 = 8 * command_length;
 		trans.base.addr 	 = cmd;
-		trans.base.tx_buffer = data;
+		trans.base.rx_buffer = data;
 	}
 	else {
 		ESP_LOGE(TAG, "Unsuported SPI message  to SX1262, Cmd len = %i, Data len = %i", command_length, data_length);

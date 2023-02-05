@@ -58,7 +58,8 @@ void LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1,
 	sx126x_pkt_params_lora_d.preamble_len_in_symb 	= 8;
 	sx126x_set_lora_pkt_params(0, &sx126x_pkt_params_lora_d);
 
-	sx126x_set_dio_irq_params(0, SX126X_IRQ_ALL, (SX126X_IRQ_TX_DONE + SX126X_IRQ_TIMEOUT+ SX126X_IRQ_RX_DONE),
+	sx126x_set_dio_irq_params(0, (SX126X_IRQ_TX_DONE + SX126X_IRQ_TIMEOUT + SX126X_IRQ_RX_DONE),
+								 (SX126X_IRQ_TX_DONE + SX126X_IRQ_TIMEOUT + SX126X_IRQ_RX_DONE),
 								 SX126X_IRQ_NONE, SX126X_IRQ_NONE);
 }
 
@@ -105,12 +106,16 @@ bool LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout, i
 
 	if(txtimeout){
 		volatile uint16_t timeout = 10000;
-		while ((!(SX126X_readIrqStatus() & SX126X_IRQ_TX_DONE)) && timeout){	//Wait for TX done
-			vTaskDelay(1);
+		vTaskDelay(100);	//assume minimum TX time is 100ms		<<---- change to auto calculation based on settings
+
+		uint16_t irq = SX126X_readIrqStatus();
+		while ((!(irq & SX126X_IRQ_TX_DONE)) && timeout) {
+			vTaskDelay(pdMS_TO_TICKS(20));
 			timeout--;
+			irq = SX126X_readIrqStatus();
 		}
 
-		if (SX126X_readIrqStatus() & SX126X_IRQ_TIMEOUT) {        //check for timeout
+		if (irq & SX126X_IRQ_TIMEOUT) {        //check for timeout
 			return false;
 		} else {
 			return true;

@@ -198,21 +198,22 @@ void app_main(void)
     //----- Check queues -----------
     if(queue_AnalogToMain == 0)
     	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
-
+/*
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
+*/
 
-
+    LORA_init();
 
     while (true) {
     	uint8_t buffer[8] = {1,2,3,4,5,6,7,8};
-    	LORA_sendPacketLoRa(buffer, 8, 100,1);
+    	LORA_sendPacketLoRa(buffer, 8, 1000, 0);
     	//GPS_test();
-        vTaskDelay(pdMS_TO_TICKS( 1000 ));
+        vTaskDelay(pdMS_TO_TICKS( 300 ));
     }
 }
 
