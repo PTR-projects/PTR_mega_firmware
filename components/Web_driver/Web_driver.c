@@ -14,13 +14,16 @@
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "esp_http_server.h"
-
+#include "cJSON.h"
 
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
+
 #include "Web_driver.h"
 #include "Web_driver_json.h"
+#include "Web_driver_cmd.h"
+
 
 static const char *TAG = "Web_driver";
 
@@ -61,6 +64,11 @@ esp_vfs_spiffs_conf_t conf = {
      .format_if_mount_failed = true
 };
 
+
+typedef struct rest_server_context {
+    char base_path[ESP_VFS_PATH_MAX + 1];
+    char scratch[SCRATCH_BUFSIZE];
+} rest_server_context_t;
 
 /*!
  * @brief Initialize web component by calling init functions for wifi and http server.
@@ -487,26 +495,9 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
  * @return `ESP_OK` if done
  * @return `ESP_FAIL` otherwise.
  */
-esp_err_t jsonStatus_get_handler(httpd_req_t *req)
-{
-	//temporary placeholder data
-
-/*
-	state.state = 1;
-	state.timestamp = 10233;
-	state.drougeAlt = 500;
-	state.mainAlt = 200;
-	state.angle = 11;
-	state.batteryVoltage = 6.7;
-	state.serialNumber = 1234567;
-*/
-
+esp_err_t jsonStatus_get_handler(httpd_req_t *req){
 	char *string = Web_driver_json_statusCreate(state);
 
-
-    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
-
-
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
@@ -514,22 +505,58 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req)
 }
 
 
-esp_err_t jsonLive_get_handler(httpd_req_t *req)
-{
-
-	//live.gps.longitude.direction = "N";
-	//live.gps.latitude.direction = "W";
+/*!
+ * @brief Handler responsible for serving json with live telemetry data.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t jsonLive_get_handler(httpd_req_t *req){
 	char *string = Web_driver_json_liveCreate(live);
 
-
-    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
-
-
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
+
+
+/*!
+ * @brief Handler responsible for commands sent through wifi.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t cmd_post_handler(httpd_req_t *req){
+	int total_len = req->content_len;
+	    int cur_len = 0;
+	    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	    int received = 0;
+	    if (total_len >= SCRATCH_BUFSIZE) {
+	        /* Respond with 500 Internal Server Error */
+	        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+	        return ESP_FAIL;
+	    }
+	    while (cur_len < total_len) {
+	        received = httpd_req_recv(req, buf + cur_len, total_len);
+	        if (received <= 0) {
+	            /* Respond with 500 Internal Server Error */
+	            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+	            return ESP_FAIL;
+	        }
+	        cur_len += received;
+	    }
+	    buf[total_len] = '\0';
+
+	    Web_cmd_handler(buf);
+
+	    httpd_resp_sendstr(req, "Post control value successfully");
+
+    return ESP_OK;
+}
+
 
 
 /*!
@@ -590,6 +617,15 @@ esp_err_t Web_http_init(const char *base_path){
 			.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &jsonLive_get);
+
+	httpd_uri_t cmd_send = {
+			    .uri      = "/cmd",
+			    .method   = HTTP_POST,
+			    .handler  = cmd_post_handler,
+			    .user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &cmd_send);
+
 
 	httpd_uri_t file_delete = {
 			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
@@ -664,11 +700,24 @@ esp_err_t Web_off(void){
 }
 
 
-
+/*!
+ * @brief Exchange status data with main program to display it.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
 void Web_status_exchange(Web_driver_status_t EX_status){
 	state = EX_status;
 }
 
+/*!
+ * @brief Exchange live data with main program to display it.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
 void Web_live_exchange(Web_driver_live_t EX_live){
 	live = EX_live;
 }

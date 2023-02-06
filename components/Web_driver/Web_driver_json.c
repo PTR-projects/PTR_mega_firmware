@@ -13,7 +13,10 @@
 
 static const char *TAG = "Web_driver_json";
 
-
+/*!
+ * @brief Create json string and fill it with status values.
+ * @return string* with json
+ */
 char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 	char *string = NULL;
@@ -74,7 +77,10 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	return string;
 }
 
-
+/*!
+ * @brief Create json string and fill it with live values.
+ * @return string* with json
+ */
 char* Web_driver_json_liveCreate(Web_driver_live_t live){
 
 	char *string = NULL;
