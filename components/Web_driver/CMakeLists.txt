@@ -1,8 +1,9 @@
-idf_component_register(SRCS "web_driver.c" "Web_driver_json.c"
+idf_component_register(SRCS "web_driver.c" "Web_driver_json.c" "Web_driver_cmd.c"
                     INCLUDE_DIRS "include"
-                    PRIV_REQUIRES  nvs_flash esp_http_server spiffs littlefs json
+                    PRIV_REQUIRES  nvs_flash esp_http_server spiffs littlefs json IGN_driver
                     #EMBED_FILES "data/index.html" "data/styles.css" "data/scripts.js"
                     )
+
 
 set(WEB_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/www")
 if(EXISTS ${WEB_SRC_DIR})
