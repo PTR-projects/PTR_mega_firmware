@@ -20,6 +20,7 @@
 #include "Web_driver.h"
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
+#include "Preferences.h"
 
 static const char *TAG = "Web_driver_cmd";
 
@@ -49,10 +50,10 @@ esp_err_t Web_cmd_handler(char *buf){
 	uint32_t key =  cJSON_GetObjectItem(json, "key")->valueint;
 	ESP_LOGI(TAG, "Key: %d", key);
 
-	if(key != Web_driver_cmd_d.key){
+	/*if(key != Web_driver_cmd_d.key){
 		ESP_LOGE(TAG, "Wrong key, given value was: %d", key);
 		return ESP_FAIL;
-	}
+	}*/
 
 	if(strcmp(cmd,"ign_set") == 0){
 		int32_t arg1 =  cJSON_GetObjectItem(json, "arg1")->valueint;
@@ -85,21 +86,33 @@ esp_err_t Web_cmd_handler(char *buf){
 	//Replikacja funkcji programu Areconfig
 	if(strcmp(cmd,"mainAlt_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
+		Preferences_data_t temp = Preferences_get();
+		temp.mainAlt = arg1;
+		Preferences_update(temp);
 		//switch main parachute altidude to given value
 	}
 
 	if(strcmp(cmd,"drougeAlt_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
+		Preferences_data_t temp = Preferences_get();
+		temp.drougeAlt = arg1;
+		Preferences_update(temp);
 		//switch drouge parachute altidude to given value
 	}
 
 	if(strcmp(cmd,"launchRailHeight_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
+		Preferences_data_t temp = Preferences_get();
+		temp.railHeight = arg1;
+		Preferences_update(temp);
 		//Set launch rail height to given value
 	}
 
 	if(strcmp(cmd,"maxAngle_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
+		Preferences_data_t temp = Preferences_get();
+		temp.maxAngle = arg1;
+		Preferences_update(temp);
 		//Set angla at which failsafe triggers
 	}
 
