@@ -357,7 +357,7 @@ void app_main(void)
     //----- Check queues -----------
     if(queue_AnalogToMain == 0)
     	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
-
+/*
     xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 12, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
@@ -365,9 +365,7 @@ void app_main(void)
     //xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
+*/
 
     while (true) {
-        vTaskDelay(pdMS_TO_TICKS( 1000 ));
     }
-}
-
