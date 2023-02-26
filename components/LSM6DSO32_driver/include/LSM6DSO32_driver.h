@@ -1,5 +1,13 @@
 #pragma once
 
+#include <stdio.h>
+#include <string.h>
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "BOARD.h"
+#include "driver/spi_master.h"
+#include "esp_log.h"
+
 typedef struct{
 	float temp;
 

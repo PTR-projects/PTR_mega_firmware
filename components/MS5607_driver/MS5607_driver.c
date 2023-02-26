@@ -3,11 +3,17 @@
 #include "freertos/task.h"
 #include "esp_err.h"
 #include "SPI_driver.h"
-
+#include "esp_log.h"
 #include "MS5607_driver.h"
+#include "BOARD.h"
+#include <string.h>
+#include <driver/spi_master.h>
 
-static void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len);
-static void MS5607_write(uint8_t address);
+#define MS5607_SPI_CS_PIN SPI_SLAVE_MS5607_PIN
+#define SPI_BUS SPI2_HOST
+
+static esp_err_t MS5607_read(uint8_t addr, uint8_t * data_in, uint16_t length);
+static esp_err_t MS5607_write(uint8_t addr);
 static esp_err_t MS5607_resetDevice();
 static esp_err_t MS5607_readCalibration();
 static esp_err_t MS5607_reqPress();
@@ -20,9 +26,48 @@ static esp_err_t  MS5607_calcTemp();
 
 static MS5607_cal_t MS5607_cal_d;
 static MS5607_t 	MS5607_d;
+static spi_device_handle_t spi_dev_handle_MS5607;
 
+esp_err_t MS5607_spi_init(void)
+{
+	esp_err_t ret = ESP_OK;
+
+/*  SPI BUS INITIALIZATION */
+// Uncomment if not initialised elsewhere
+/*
+	spi_bus_config_t buscfg={
+		.miso_io_num   = SPI_MISO_PIN,
+		.mosi_io_num   = SPI_MOSI_PIN,
+		.sclk_io_num   = SPI_SCK_PIN,
+		.quadwp_io_num = -1,
+		.quadhd_io_num = -1,
+
+	};
+
+	ret = spi_bus_initialize(SPI_BUS, &buscfg, SPI_DMA_DISABLED); //Initialize the SPI bus (prev: SPI_DMA_CH_AUTO)
+	ESP_ERROR_CHECK(ret);
+
+*/
+
+/* CONFIGURE SPI DEVICE */
+
+spi_device_interface_config_t MS5607_spi_config = {
+			.mode           =  0,
+			.spics_io_num   = MS5607_SPI_CS_PIN,
+			.clock_speed_hz =  1 * 1000 * 1000,
+			.queue_size     =  1,
+			.command_bits = 0,
+			.address_bits = 8,
+
+		};
+
+ret = spi_bus_add_device(SPI_BUS, &MS5607_spi_config, &spi_dev_handle_MS5607);
+return ret;
+}
 
 esp_err_t MS5607_init() {
+	MS5607_spi_init();
+	MS5607_resetDevice();
 	MS5607_readCalibration();
 
 	MS5607_reqPress();
@@ -80,15 +125,44 @@ esp_err_t MS5607_getMeas(MS5607_meas_t * meas){
 	return ESP_OK;
 }
 
-static void MS5607_read(uint8_t address, uint8_t * buf, uint8_t len) {
-    uint8_t txBuff[4] = {0U};
-    txBuff[0] = address;
-    SPI_RW(SPI_SLAVE_MS5607, txBuff, buf, len+1);
+static esp_err_t MS5607_read(uint8_t addr, uint8_t * data_in, uint16_t length) {
+	esp_err_t ret = ESP_OK;
+	spi_transaction_t trans;
+	memset(&trans, 0x00, sizeof(trans));
+	trans.length = ((8 * length));
+	trans.rxlength = 8 * length;
+
+	trans.addr = addr;
+	trans.rx_buffer = data_in;
+
+
+	spi_device_acquire_bus(spi_dev_handle_MS5607, portMAX_DELAY);
+	if (spi_device_polling_transmit(spi_dev_handle_MS5607, &trans) != ESP_OK)
+	{
+		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		ret = ESP_FAIL;
+	}
+	spi_device_release_bus(spi_dev_handle_MS5607);
+	return ret;
 }
 
-static void MS5607_write(uint8_t address) {
-    uint8_t txBuff[1] = {address};
-    SPI_RW(SPI_SLAVE_MS5607, txBuff, NULL, 1);
+static esp_err_t MS5607_write(uint8_t addr) {
+
+	esp_err_t ret = ESP_OK;
+	spi_transaction_t trans;
+	memset(&trans, 0x00, sizeof(trans));
+	trans.length = 8;
+	trans.addr = addr;
+
+	spi_device_acquire_bus(spi_dev_handle_MS5607, portMAX_DELAY);
+	if (spi_device_polling_transmit(spi_dev_handle_MS5607, &trans) != ESP_OK)
+	{
+		ESP_LOGE("MS5607", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		ret = ESP_FAIL;
+	}
+	spi_device_release_bus(spi_dev_handle_MS5607);
+
+	return ret;
 }
 
 static esp_err_t MS5607_resetDevice() {
@@ -101,26 +175,26 @@ static esp_err_t MS5607_resetDevice() {
 static esp_err_t MS5607_readCalibration() {
 	MS5607_resetDevice();
 
-	uint8_t buf[3] = {0};
-	MS5607_read(MS5607_PROM_READ, buf, 2);
+	uint8_t buf[2] = {0};
+	MS5607_read(MS5607_PROM_READ, buf, 1);
 
 	MS5607_read(MS5607_PROM_READ+2, buf, 2);
-	MS5607_cal_d.C1 = ((uint16_t)buf[1] << 8) | buf[2];
+	MS5607_cal_d.C1 = ((uint16_t)buf[0] << 8) | buf[1];
 
 	MS5607_read(MS5607_PROM_READ+4, buf, 2);
-	MS5607_cal_d.C2 = ((uint16_t)buf[1] << 8) | buf[2];
+	MS5607_cal_d.C2 = ((uint16_t)buf[0] << 8) | buf[1];
 
 	MS5607_read(MS5607_PROM_READ+6, buf, 2);
-	MS5607_cal_d.C3 = ((uint16_t)buf[1] << 8) | buf[2];
+	MS5607_cal_d.C3 = ((uint16_t)buf[0] << 8) | buf[1];
 
 	MS5607_read(MS5607_PROM_READ+8, buf, 2);
-	MS5607_cal_d.C4 = ((uint16_t)buf[1] << 8) | buf[2];
+	MS5607_cal_d.C4 = ((uint16_t)buf[0] << 8) | buf[1];
 
 	MS5607_read(MS5607_PROM_READ+10, buf, 2);
-	MS5607_cal_d.C5 = ((uint16_t)buf[1] << 8) | buf[2];
+	MS5607_cal_d.C5 = ((uint16_t)buf[0] << 8) | buf[1];
 
 	MS5607_read(MS5607_PROM_READ+12, buf, 2);
-	MS5607_cal_d.C6 = ((uint16_t)buf[1] << 8) | buf[2];
+	MS5607_cal_d.C6 = ((uint16_t)buf[0] << 8) | buf[1];
 
 	return ESP_OK;
 
@@ -150,10 +224,10 @@ static esp_err_t MS5607_reqTemp() {
 }
 
 static esp_err_t MS5607_readPress() {
-	uint8_t buf[4] = {0};
+	uint8_t buf[3] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
 
-	uint32_t D1 = ((uint32_t)(((uint32_t)buf[1])<<16 | ((uint32_t)buf[2])<<8 | (uint32_t)buf[3]));
+	uint32_t D1 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2]));
 
 	if(D1 == 0) {
 		return ESP_FAIL; //Requested ADC_READ before conversion was completed
@@ -164,10 +238,10 @@ static esp_err_t MS5607_readPress() {
 }
 
 static esp_err_t MS5607_readTemp() {
-	uint8_t buf[4] = {0};
+	uint8_t buf[3] = {0};
 	MS5607_read(MS5607_ADC_READ, buf, 3);
 
-	uint32_t D2 = ((uint32_t)(((uint32_t)buf[1])<<16 | ((uint32_t)buf[2])<<8 | (uint32_t)buf[3])) ;
+	uint32_t D2 = ((uint32_t)(((uint32_t)buf[0])<<16 | ((uint32_t)buf[1])<<8 | (uint32_t)buf[2])) ;
 
 	if(D2 == 0) {
 		return ESP_FAIL; //Requested ADC_READ before conversion was completed

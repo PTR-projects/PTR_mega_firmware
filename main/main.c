@@ -48,12 +48,13 @@ void task_kpptr_main(void *pvParameter){
 	struct timeval tv_comp;
 	gettimeofday(&tv_now, NULL);
 	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-
+	ESP_LOGE(TAG, "Starting Sensors init");
 	Sensors_init();
+	ESP_LOGE(TAG, "End of sensor init");
 	GPS_init();
 	//Detector_init();
 	AHRS_init(time_us);
-	ESP_LOGI(TAG, "Task Main - ready!");
+	ESP_LOGE(TAG, "Task Main - ready!");
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
@@ -230,6 +231,9 @@ void app_main(void)
     SysMgr_init();
     Web_init();
     SPI_init(2000000);
+    //LIS331_init(LIS331_IC_100G);
+
+
     DM_init();
 
     //----- Create queues ----------
@@ -238,20 +242,25 @@ void app_main(void)
 
     //----- Check queues -----------
     if(queue_AnalogToMain == 0)
-    	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
+        ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
 
-    xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 12, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_sysmgr,     "task_kpptr_sysmgr",     1024*4, NULL, configMAX_PRIORITIES - 12, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_utils,         "task_kpptr_utils",     1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_analog,     "task_kpptr_analog",     1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_storage,    "task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_telemetry,    "task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
-    xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
+
+    xTaskCreatePinnedToCore(&task_kpptr_main,        "task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_0);
 
 
 
     while (true) {
         vTaskDelay(pdMS_TO_TICKS( 1000 ));
+        //ESP_LOGI(TAG, "LIS331 ID: %i", LIS331_WhoAmI());
+        ESP_LOGE(TAG, "MS5607 Temp: %f", MS5607_getTemp());
+        ESP_LOGE(TAG, "MS5607 Press: %f", MS5607_getPress());
+
     }
 }
 

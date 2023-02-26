@@ -65,11 +65,13 @@ esp_err_t LIS331_read(uint8_t addr, uint8_t * data_in, uint16_t length){
 	esp_err_t ret = ESP_OK;
 	spi_transaction_t trans;
 	memset(&trans, 0x00, sizeof(trans));
+
 	trans.length = (8 + (8 * length));
 	trans.rxlength = 8 * length;
 	trans.cmd = CMD_READ;
 	trans.addr = addr;
 	trans.rx_buffer = data_in;
+
 
 	spi_device_acquire_bus(spi_dev_handle_LIS331, portMAX_DELAY);
 	if (spi_device_polling_transmit(spi_dev_handle_LIS331, &trans) != ESP_OK)

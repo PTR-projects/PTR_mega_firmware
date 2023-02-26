@@ -1,15 +1,37 @@
-#include <stdio.h>
-#include <string.h>
-#include "esp_err.h"
-#include "SPI_driver.h"
 #include "LSM6DSO32_driver.h"
+
+#define SPI_BUS SPI2_HOST
+#define SPI_CS_PIN SPI_SLAVE_LSM6DSO32_PIN
 
 esp_err_t LSM6DSO32_Write(uint8_t address, uint8_t val);
 esp_err_t LSM6DSO32_Read (uint8_t address, uint8_t * rx, uint8_t length);
 
 LSM6DSO32_t LSM6DSO32_d;
+static spi_device_handle_t spi_dev_handle_LSM6DSO32;
+
+
+esp_err_t LSM6DSO32_SPIinit(){
+	esp_err_t ret = ESP_OK;
+
+spi_device_interface_config_t LSM6DSO32_spi_config = {
+			.mode           =  0,
+			.spics_io_num   = SPI_CS_PIN,
+			.clock_speed_hz =  1 * 1000 * 1000,
+			.queue_size     =  1,
+			.command_bits = 2,
+			.address_bits = 6,
+
+		};
+
+ret = spi_bus_add_device(SPI_BUS, &LSM6DSO32_spi_config, &spi_dev_handle_LSM6DSO32);
+printf("ADD LSM %d\n", ret);
+return ret;
+
+
+}
 
 esp_err_t LSM6DSO32_init(){
+	LSM6DSO32_SPIinit();
 	LSM6DSO32_Write(LSM6DS_CTRL1_XL, LSM6DS_CTRL1_XL_ACC_RATE_104_HZ | LSM6DS_CTRL1_XL_ACC_FS_32G | LSM6DS_CTRL1_ACC_LPF2_EN);
 	LSM6DSO32_Write(LSM6DS_CTRL2_G,  LSM6DS_CTRL2_G_GYRO_RATE_104_HZ | LSM6DS_CTRL2_G_GYRO_FS_1000_DPS);
 	LSM6DSO32_Write(LSM6DS_CTRL3_C,  LSM6DS_CTRL3_BDU | LSM6DS_CTRL3_INT_PP | LSM6DS_CTRL3_INT_H | LSM6DS_CTRL3_INC);
@@ -56,16 +78,30 @@ esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas){
 esp_err_t LSM6DSO32_Write(uint8_t address, uint8_t val){
 	uint8_t txBuff[2] = {address & 0b01111111, val};
 
-	SPI_RW(SPI_SLAVE_LSM6DSO32, txBuff, NULL, 2);
+//	SPI_RW(SPI_SLAVE_LSM6DSO32, txBuff, NULL, 2);
 
 	return ESP_OK;	//ESP_FAIL
 }
 
 esp_err_t LSM6DSO32_Read(uint8_t address, uint8_t * rx, uint8_t length){
-	uint8_t txBuff[40] = {0U};
-	txBuff[0] = address | 0x80;	//address inc (0x40)
 
-	SPI_RW(SPI_SLAVE_LSM6DSO32, txBuff, rx, length+1);
+	esp_err_t ret = ESP_OK;
+		spi_transaction_t trans;
+		memset(&trans, 0x00, sizeof(trans));
+		trans.length = (8 + (8 * length));
+		trans.rxlength = 8 * length;
+		trans.cmd = 0x02;
+		trans.addr = address;
+		trans.rx_buffer = rx;
 
-	return ESP_OK;	//ESP_FAIL
+		spi_device_acquire_bus(spi_dev_handle_LSM6DSO32, portMAX_DELAY);
+		if (spi_device_polling_transmit(spi_dev_handle_LSM6DSO32, &trans) != ESP_OK)
+		{
+			ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+			ret = ESP_FAIL;
+		}
+		spi_device_release_bus(spi_dev_handle_LSM6DSO32);
+
+		return ret;
+
 }

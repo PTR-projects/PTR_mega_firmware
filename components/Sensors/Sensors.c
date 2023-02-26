@@ -4,8 +4,9 @@
 #include "LIS331_driver.h"
 #include "MMC5983MA_driver.h"
 #include "LSM6DSO32_driver.h"
-
+#include "esp_log.h"
 #include "Sensors.h"
+
 
 esp_err_t Sensors_axes_translation();
 
@@ -14,13 +15,17 @@ static Sensors_t Sensors_d;
 
 esp_err_t Sensors_init()
 {
+	ESP_LOGI("Sensor","Sensor init start");
 	memset(&Sensors_d, 0, sizeof(Sensors_d));
-
+	ESP_LOGE("Sensor", "MS6507 init start");
 	MS5607_init();
-	LIS331_init(LIS331_IC_100G);
+	ESP_LOGE("Sensor", "Lis init start");
+	//LIS331_init(LIS331_IC_100G);
+	ESP_LOGE("Sensor", "mmc init start");
 	MMC5983MA_init();
+	ESP_LOGE("Sensor", "lsm init start");
 	LSM6DSO32_init();
-
+	ESP_LOGI("Sensor","Sensor init end");
 	return ESP_OK; 	//ESP_FAIL
 }
 
@@ -28,12 +33,12 @@ esp_err_t Sensors_update(){
 	//get new data from sensors
 
 	MS5607_getReloadSmart();
-	LIS331_readMeas();
+	//LIS331_readMeas();
 	LSM6DSO32_readMeas();
 	MMC5983MA_readMeas();
 
 	MS5607_getMeas(&(Sensors_d.MS5607));
-	LIS331_getMeas(&(Sensors_d.LIS331));
+	//LIS331_getMeas(&(Sensors_d.LIS331));
 	LSM6DSO32_getMeas(&(Sensors_d.LSM6DSO32));
 	MMC5983MA_getMeas(&(Sensors_d.MMC5983MA));
 
