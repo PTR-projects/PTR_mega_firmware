@@ -45,8 +45,8 @@ static const char *TAG = "Web_driver";
 		(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 
-Web_driver_status_t state;
-Web_driver_live_t live;
+Web_driver_status_t status_web;
+Web_driver_live_t live_web;
 
 
 esp_err_t Web_wifi_init 					(void);
@@ -61,7 +61,7 @@ esp_vfs_spiffs_conf_t conf = {
      .base_path = "/www",
      .partition_label = "www",
      .max_files = 5,
-     .format_if_mount_failed = true
+     .format_if_mount_failed = false
 };
 
 
@@ -496,7 +496,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t jsonStatus_get_handler(httpd_req_t *req){
-	char *string = Web_driver_json_statusCreate(state);
+	char *string = Web_driver_json_statusCreate(status_web);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -513,7 +513,7 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t jsonLive_get_handler(httpd_req_t *req){
-	char *string = Web_driver_json_liveCreate(live);
+	char *string = Web_driver_json_liveCreate(live_web);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -708,7 +708,7 @@ esp_err_t Web_off(void){
  * @return `ESP_FAIL` otherwise.
  */
 void Web_status_exchange(Web_driver_status_t EX_status){
-	state = EX_status;
+	status_web = EX_status;
 }
 
 /*!
@@ -719,9 +719,67 @@ void Web_status_exchange(Web_driver_status_t EX_status){
  * @return `ESP_FAIL` otherwise.
  */
 void Web_live_exchange(Web_driver_live_t EX_live){
-	live = EX_live;
+	live_web = EX_live;
 }
 
 
+esp_err_t Web_status_updateAnalog(float vbat){
+    status_web.batteryVoltage = vbat;
+
+    return ESP_OK;
+}
+
+esp_err_t Web_status_updateIgniters(uint8_t ign1_cont, uint8_t ign2_cont, uint8_t ign3_cont, uint8_t ign4_cont, uint8_t ign1_fired, uint8_t ign2_fired, uint8_t ign3_fired, uint8_t ign4_fired){
+    status_web.igniters[0].continuity = ign1_cont;
+    status_web.igniters[1].continuity = ign2_cont;
+    status_web.igniters[2].continuity = ign3_cont;
+    status_web.igniters[3].continuity = ign4_cont;
+
+    status_web.igniters[0].fired = ign1_fired;
+    status_web.igniters[1].fired = ign2_fired;
+    status_web.igniters[2].fired = ign3_fired;
+    status_web.igniters[3].fired = ign4_fired;
+
+    return ESP_OK;
+}
+
+esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog, uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage, uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web){
+    live_web.timestamp = timestamp_ms;
+    status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
+    status_web.sysmgr_analog_status     = state_analog;
+    status_web.sysmgr_lora_status         = state_lora;
+    status_web.sysmgr_adcs_status         = state_adcs;        //zmiana nazwy z main; //ADCS = Attitude Determination and Control System
+    status_web.sysmgr_storage_status     = state_storage;
+    status_web.sysmgr_sysmgr_status     = state_sysmgr;
+    status_web.sysmgr_utils_status         = state_utils;
+    status_web.sysmgr_web_status         = state_web;
+
+    return ESP_OK;
+}
+
+esp_err_t Web_status_updateconfig(uint64_t SWversion, uint64_t serialNumber, float drougeAlt, float mainAlt){        //zakładam wykonywanie tego przy okazji odczyty konfiguracji konfiguracji, czyli na starcie i po zmienie konfiguracji
+    status_web.software_version = SWversion;        //zmiana z tablicy charów na uint64 w którym zakodujemy wszystkie informacje
+    status_web.serial_number = serialNumber;
+    status_web.drougeAlt = drougeAlt;
+    status_web.mainAlt = mainAlt;
+
+    return ESP_OK;
+}
+
+esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats){
+    live_web.gps.latitude  = lat;        // pozmieniane lekko nazwy i dodane pole "sats"
+    live_web.gps.longitude = lon;
+    live_web.gps.fix  = fix;
+    live_web.gps.sats = sats;
+
+    return ESP_OK;
+}
+
+esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        //ADCS = Attitude Determination and Control System
+    status_web.flightstate = flightstate;    //nowe
+    status_web.rocket_tilt = rocket_tilt;    //zmian nazwy z angle
+
+    return ESP_OK;
+}
 
 
