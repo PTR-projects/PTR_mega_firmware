@@ -32,7 +32,8 @@ typedef enum{
 	LED_IGN1 	= 4,
 	LED_IGN2 	= 5,
 	LED_IGN3 	= 6,
-	LED_IGN4 	= 7
+	LED_IGN4 	= 7,
+	BUZZER		= 100
 } led_enum_t;
 
 //Led configuration struct

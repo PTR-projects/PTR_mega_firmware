@@ -1,5 +1,6 @@
 #include "LED_driver.h"
 #include "esp_log.h"
+#include "freertos/semphr.h"
 #include "BOARD.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
@@ -19,8 +20,9 @@ static esp_err_t any_led_state(uint8_t i, uint8_t state);
 
 // ESPLOG Tag definition
 static const char *TAG = "LED";
-
 static uint32_t loop_interval_ms = 100;
+static SemaphoreHandle_t mutex_LED;
+static StaticSemaphore_t xMutexBuffer_LED;
 
 
 rmt_item32_t led_data_buffer[LED_BUFFER_ITEMS * STRIP_LED_COLOURS]; //Strip LED set buffer TODO Tu chyba nie powinno by� tego * LED_WS_COUNT
@@ -41,6 +43,9 @@ esp_err_t LED_init(uint32_t interval_ms){
 	ws2812_control_init();
 
 	loop_interval_ms = interval_ms;
+
+	// Init mutex
+	mutex_LED = xSemaphoreCreateMutexStatic(&(xMutexBuffer_LED));
 
 	return ESP_OK;
 }
@@ -66,102 +71,118 @@ esp_err_t BUZZER_init(){
 
 esp_err_t LED_srv() {
 	ESP_LOGV(TAG, "LED UPDATE");
-	for (uint8_t i = 0; i < (LED_ARRAY_SIZE); i++) {
+	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
+		for (uint8_t i = 0; i < (LED_ARRAY_SIZE); i++) {
 
-		switch (led_array[i].mode) {
-		case LED_MODE_ON:
-			any_led_state(i, 1);
-			break;
+			switch (led_array[i].mode) {
+			case LED_MODE_ON:
+				any_led_state(i, 1);
+				break;
 
-		case LED_MODE_OFF:
-			any_led_state(i, 0);
-						break;
+			case LED_MODE_OFF:
+				any_led_state(i, 0);
+							break;
 
-		case LED_MODE_BLINK:
-			ESP_LOGV(TAG, "LED blink");
-			if (led_array[i].state == 0) {
-				if (++led_array[i].counter > led_array[i].off_time_tics) {
-					any_led_state(i, 1);
-					led_array[i].counter = 0;
+			case LED_MODE_BLINK:
+				ESP_LOGV(TAG, "LED blink");
+				if (led_array[i].state == 0) {
+					if (++led_array[i].counter > led_array[i].off_time_tics) {
+						any_led_state(i, 1);
+						led_array[i].counter = 0;
+					}
 				}
-			}
-			if (led_array[i].state == 1) {
-				if (++led_array[i].counter > led_array[i].on_time_tics) {
-					any_led_state(i, 0);
-					led_array[i].counter = 0;
+				if (led_array[i].state == 1) {
+					if (++led_array[i].counter > led_array[i].on_time_tics) {
+						any_led_state(i, 0);
+						led_array[i].counter = 0;
+					}
 				}
-			}
-			break;
+				break;
 
-		case LED_MODE_PULSE:
-			ESP_LOGV(TAG, "LED pulse");
-			if (led_array[i].state == 0 && led_array[i].pulses > 0) {
-				if (++led_array[i].counter > led_array[i].off_time_tics) {
-					any_led_state(i, 1);
-					led_array[i].counter = 0;
-					led_array[i].pulses--;
+			case LED_MODE_PULSE:
+				ESP_LOGV(TAG, "LED pulse");
+				if (led_array[i].state == 0 && led_array[i].pulses > 0) {
+					if (++led_array[i].counter > led_array[i].off_time_tics) {
+						any_led_state(i, 1);
+						led_array[i].counter = 0;
+						led_array[i].pulses--;
+					}
 				}
-			}
-			if (led_array[i].state == 1) {
-				if (++led_array[i].counter > led_array[i].on_time_tics) {
-					any_led_state(i, 0);
-					led_array[i].counter = 0;
+				if (led_array[i].state == 1) {
+					if (++led_array[i].counter > led_array[i].on_time_tics) {
+						any_led_state(i, 0);
+						led_array[i].counter = 0;
+					}
 				}
+				break;
+			default:
+				;
 			}
-			break;
-		default:
-			;
 		}
+		xSemaphoreGive(mutex_LED);
 	}
+
 	setup_rmt_data_buffer();
+
 	return ESP_OK;
 }
 
 esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number){
-	if (beeps_number == 0) {
-		led_mode(BUZZER_POS, LED_MODE_BLINK);
-		led_blink_rate(BUZZER_POS, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
+		if (beeps_number == 0) {
+			led_mode(BUZZER_POS, LED_MODE_BLINK);
+			led_blink_rate(BUZZER_POS, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+		}
+		else{
+			led_mode(BUZZER_POS, LED_MODE_PULSE);
+			led_blink_rate(BUZZER_POS, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+			led_array[BUZZER_POS].counter = beeps_number;
+		}
+		xSemaphoreGive(mutex_LED);
 	}
-	else{
-		led_mode(BUZZER_POS, LED_MODE_PULSE);
-		led_blink_rate(BUZZER_POS, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
-		led_array[BUZZER_POS].counter = beeps_number;
-	}
+
 	return ESP_OK;
 }
 
 esp_err_t LED_blink(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
-	if (blinks_number == 0) {
-		led_mode(LED_POS + led_no, LED_MODE_BLINK);
-		led_blink_rate(LED_POS + led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
+		if (blinks_number == 0) {
+			led_mode(LED_POS + led_no, LED_MODE_BLINK);
+			led_blink_rate(LED_POS + led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+		}
+		else{
+			led_mode(LED_POS + led_no, LED_MODE_PULSE);
+			led_blink_rate(LED_POS + led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+			led_array[LED_POS + led_no].pulses = blinks_number;
+		}
+		xSemaphoreGive(mutex_LED);
 	}
-	else{
-		led_mode(LED_POS + led_no, LED_MODE_PULSE);
-		led_blink_rate(LED_POS + led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
-		led_array[LED_POS + led_no].pulses = blinks_number;
-	}
+
 	return ESP_OK;
 }
 
 esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
-
-	if (blinks_number == 0) {
-		strip_led_colour(led_no, colour, brightness_percent);
-		strip_led_mode(led_no, LED_MODE_BLINK);
-		strip_led_blink_rate(led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
-
-		if(t_off_ms == 0){
+	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(100)) == pdTRUE){
+		if (blinks_number == 0) {
 			strip_led_colour(led_no, colour, brightness_percent);
-			strip_led_mode(led_no, LED_MODE_ON);
+			strip_led_mode(led_no, LED_MODE_BLINK);
 			strip_led_blink_rate(led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+
+			if(t_off_ms == 0){
+				strip_led_colour(led_no, colour, brightness_percent);
+				strip_led_mode(led_no, LED_MODE_ON);
+				strip_led_blink_rate(led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+			}
 		}
+		else{
+			strip_led_colour(led_no, colour, brightness_percent);
+			strip_led_mode(led_no, LED_MODE_PULSE);
+			strip_led_blink_rate(led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
+			strip_led_blink_pulses(led_no, blinks_number);
+		}
+		xSemaphoreGive(mutex_LED);
 	}
-	else{
-		strip_led_colour(led_no, colour, brightness_percent);
-		strip_led_mode(led_no, LED_MODE_PULSE);
-		strip_led_blink_rate(led_no, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
-		strip_led_blink_pulses(led_no, blinks_number);
-	}
+
 	return ESP_OK;
 }
 
@@ -190,6 +211,11 @@ static esp_err_t ws2812_control_init(void) {
 }
 
 static esp_err_t ws2812_control_deinit(void) {
+	rmt_channel_status_result_t tmp;
+	rmt_get_channel_status(&tmp);
+	if(tmp.status[STRIP_LED_CHANNEL] == RMT_CHANNEL_UNINIT)
+		return ESP_OK;
+
 	rmt_driver_uninstall(STRIP_LED_CHANNEL); // uninstall RMT driver, ignore errors
 
 	ESP_LOGI(TAG, "Strip LED deinit");
