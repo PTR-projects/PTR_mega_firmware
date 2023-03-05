@@ -1,5 +1,10 @@
 #pragma once
-
+#include <stdio.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -8,36 +13,39 @@
 #include "esp_event.h"
 
 typedef struct{
-	long serialNumber;
-	char softwareVersion[10];
+	uint64_t serial_number;
+	uint64_t software_version;
 
-	int state;
-	int timestamp;
+	uint8_t flightstate;
+
 	int drougeAlt;
 	int mainAlt;
 
-	int sysmgr_sysmgr_status;
-	int sysmgr_main_status;
-	int sysmgr_storage_status;
-	int sysmgr_lora_status;
-	int sysmgr_analog_status;
-	int sysmgr_utils_status;
-	int sysmgr_web_status;
-
-	float angle;
-	float latitude;
-	float longitude;
-	int fix;
-
 	float batteryVoltage;
+	float rocket_tilt;
 
 	struct {
-		bool fired;
-		bool continuity;
+		uint8_t fired;
+		uint8_t continuity;
 	} igniters[4];
+
+
+	uint8_t sysmgr_system_status;
+	uint8_t sysmgr_main_status;
+	uint8_t sysmgr_analog_status;
+	uint8_t	sysmgr_lora_status;
+	uint8_t	sysmgr_adcs_status;
+	uint8_t	sysmgr_storage_status;
+	uint8_t sysmgr_sysmgr_status;
+	uint8_t	sysmgr_utils_status;
+	uint8_t	sysmgr_web_status;
+
 } Web_driver_status_t;
 
 typedef struct{
+
+	uint32_t timestamp;
+
 	struct {
 		float pressure;
 		float altitude;
@@ -72,9 +80,11 @@ typedef struct{
 		float latitude;
 		float longitude;
 
-		int fix;
-		int sats;
+		uint8_t fix;
+		uint8_t sats;
 	} gps;
+
+
 
 	float anglex;
 	float angley;
