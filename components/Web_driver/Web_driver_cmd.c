@@ -145,7 +145,7 @@ esp_err_t IGN_handle(uint8_t ign_no){
 	ESP_LOGI(TAG, "Igniter: %d, fire!", ign_no);
 
 	uint32_t time_ms = pdTICKS_TO_MS(xTaskGetTickCount ());
-	IGN_srv(time_ms);
+
 
 	return ESP_OK;
 }
