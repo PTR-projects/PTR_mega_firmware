@@ -52,7 +52,14 @@ menu "KP-PTR Configuration"
 	    default 1
 	    help
 			Logging rate in Hz.
-		
+	
+    config KPPTR_MASTERKEY
+        int "KP-PTR master key"
+        range 1 10000000
+        default 1
+        help
+            Master key used for device managment
+        
 	choice KPPTR_LOG_DEVICE
         prompt "KP-PTR logging device"
         default KPPTR_LOG_DEVICE_FLASH

@@ -27,8 +27,8 @@
 
 static const char *TAG = "Web_driver";
 
-#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
-#define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
+//#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
+//#define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
 #define WIFI_CHANNEL   1
 #define MAX_STA_CONN   1
 
@@ -49,12 +49,10 @@ Web_driver_status_t status_web;
 Web_driver_live_t live_web;
 
 
-esp_err_t Web_wifi_init 					(void);
+esp_err_t Web_wifi_init 				(void);
 esp_err_t Web_http_init 				(const char *base_path);
-void Web_http_stop							(httpd_handle_t server);
-esp_err_t Web_wifi_stop						(void);
-
-
+void Web_http_stop						(httpd_handle_t server);
+esp_err_t Web_wifi_stop					(void);
 
 
 esp_vfs_spiffs_conf_t conf = {
@@ -63,7 +61,6 @@ esp_vfs_spiffs_conf_t conf = {
      .max_files = 5,
      .format_if_mount_failed = false
 };
-
 
 typedef struct rest_server_context {
     char base_path[ESP_VFS_PATH_MAX + 1];
@@ -83,7 +80,7 @@ esp_err_t Web_init(void){
 	ret = esp_vfs_spiffs_register(&conf);
 
 	 if(ret != ESP_OK){
-		 ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
+		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
 	 }
 
 	ret = Web_wifi_init();
@@ -91,6 +88,7 @@ esp_err_t Web_init(void){
 		ret = Web_http_init(base_path);
 	}
 
+    Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
 	return ret;
 }
 
@@ -121,17 +119,17 @@ esp_err_t Web_wifi_init(void){
     wifi_config_t wifi_config = {
     	.ap =
     	{
-    		.ssid = WIFI_SSID,
-    		.ssid_len = strlen(WIFI_SSID),
+    		.ssid = CONFIG_ESP_WIFI_SSID,
+    		.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
     		.channel = WIFI_CHANNEL,
-    		.password = WIFI_PASS,
+    		.password = CONFIG_ESP_WIFI_PASSWORD,
     		.max_connection = MAX_STA_CONN,
     		.authmode = WIFI_AUTH_WPA_WPA2_PSK
     	},
     };
 
 
-    if (strlen(WIFI_PASS) == 0) {
+    if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     }
 
@@ -139,7 +137,7 @@ esp_err_t Web_wifi_init(void){
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
+    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD, WIFI_CHANNEL);
 
     tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
@@ -150,8 +148,6 @@ esp_err_t Web_wifi_init(void){
 
     return ESP_OK;
 }
-
-
 
 
 /*!
@@ -225,7 +221,6 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
 }
 
 
-
 static esp_err_t index_html_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_status(req, "307 Temporary Redirect");
@@ -233,6 +228,7 @@ static esp_err_t index_html_get_handler(httpd_req_t *req)
     httpd_resp_send(req, NULL, 0);  // Response body can be empty
     return ESP_OK;
 }
+
 
 /*!
  * @brief Handler responsible for serving all files to the client.
@@ -311,6 +307,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
+
 
 /*!
  * @brief Handler responsible for deleting files.
@@ -488,6 +485,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+
 /*!
  * @brief Handler responsible for serving json with status data.
  * @param req
@@ -652,14 +650,10 @@ esp_err_t Web_http_init(const char *base_path){
 	httpd_register_uri_handler(server, &file_download);
 
 
-
-
 	ESP_LOGI(TAG, "Started HTTP server successfully");
-
-
-
 	return ESP_OK;
 }
+
 
 /*!
  * @brief Turn off HTTP server
@@ -676,6 +670,7 @@ void Web_http_stop(httpd_handle_t server){
     }
 }
 
+
 /*!
  * @brief Turn off WIFI soft access point
  * @return `ESP_OK` if initialized
@@ -688,6 +683,7 @@ esp_err_t Web_wifi_stop(void){
 
 	return ret;
 }
+
 
 /*!
  * @brief Turn off web component by calling deactivation functions for wifi and HTTP server.
@@ -711,6 +707,7 @@ void Web_status_exchange(Web_driver_status_t EX_status){
 	status_web = EX_status;
 }
 
+
 /*!
  * @brief Exchange live data with main program to display it.
  * @param req
@@ -724,10 +721,11 @@ void Web_live_exchange(Web_driver_live_t EX_live){
 
 
 esp_err_t Web_status_updateAnalog(float vbat){
-    status_web.batteryVoltage = vbat;
+    status_web.battery_voltage = vbat;
 
     return ESP_OK;
 }
+
 
 esp_err_t Web_status_updateIgniters(uint8_t ign1_cont, uint8_t ign2_cont, uint8_t ign3_cont, uint8_t ign4_cont, uint8_t ign1_fired, uint8_t ign2_fired, uint8_t ign3_fired, uint8_t ign4_fired){
     status_web.igniters[0].continuity = ign1_cont;
@@ -743,6 +741,7 @@ esp_err_t Web_status_updateIgniters(uint8_t ign1_cont, uint8_t ign2_cont, uint8_
     return ESP_OK;
 }
 
+
 esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog, uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage, uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web){
     live_web.timestamp = timestamp_ms;
     status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
@@ -757,14 +756,16 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
     return ESP_OK;
 }
 
+
 esp_err_t Web_status_updateconfig(uint64_t SWversion, uint64_t serialNumber, float drougeAlt, float mainAlt){        //zakładam wykonywanie tego przy okazji odczyty konfiguracji konfiguracji, czyli na starcie i po zmienie konfiguracji
     status_web.software_version = SWversion;        //zmiana z tablicy charów na uint64 w którym zakodujemy wszystkie informacje
     status_web.serial_number = serialNumber;
-    status_web.drougeAlt = drougeAlt;
-    status_web.mainAlt = mainAlt;
+    status_web.drouge_alt = drougeAlt;
+    status_web.main_alt = mainAlt;
 
     return ESP_OK;
 }
+
 
 esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats){
     live_web.gps.latitude  = lat;        // pozmieniane lekko nazwy i dodane pole "sats"
@@ -775,12 +776,14 @@ esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats)
     return ESP_OK;
 }
 
+
 esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        //ADCS = Attitude Determination and Control System
-    status_web.flightstate = flightstate;    //nowe
+    status_web.flight_state = flightstate;    //nowe
     status_web.rocket_tilt = rocket_tilt;    //zmian nazwy z angle
 
     return ESP_OK;
 }
+
 
 esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     Web_driver_live_t     live_web;

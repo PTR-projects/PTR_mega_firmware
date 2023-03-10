@@ -40,15 +40,12 @@ esp_err_t Preferences_init(){
 	esp_err_t ret = ESP_FAIL;
 	char buf[200];
 
-	Preferences_default.mainAlt = 200;
-	Preferences_default.drougeAlt = 0;
+	//Deafult KPPTR configuration
+	Preferences_default.main_alt = 200;
+	Preferences_default.drouge_alt = 0;
+	Preferences_default.max_tilt = 45;
+	Preferences_default.staging_delay = 0;
 
-	/*ret = esp_vfs_spiffs_register(&conf_preferences);
-
-	if(ret != ESP_OK){
-		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
-	}
-	 */
 	struct stat st;
 	int8_t FileStatus = stat(preferences_path, &st);
 
@@ -63,8 +60,8 @@ esp_err_t Preferences_init(){
 		ret = ESP_OK;
 	}
 	else{
-			ESP_LOGI(TAG, "Config file present");
-			ret = ESP_OK;
+		ESP_LOGI(TAG, "Config file present");
+		ret = ESP_OK;
 	}
 
 
@@ -87,8 +84,10 @@ esp_err_t Preferences_init(){
 	cJSON *json = cJSON_Parse(buf);
 
 	ESP_LOGI(TAG, "Read: %s", buf);
-	Preferences_data_d.mainAlt = cJSON_GetObjectItem(json, "mainAlt")->valueint;
-	Preferences_data_d.drougeAlt =  cJSON_GetObjectItem(json, "drougeAlt")->valueint;
+	Preferences_data_d.main_alt = cJSON_GetObjectItem(json, "main_alt")->valueint;
+	Preferences_data_d.drouge_alt = cJSON_GetObjectItem(json, "drouge_alt")->valueint;
+	Preferences_data_d.max_tilt = cJSON_GetObjectItem(json, "max_tilt")->valueint;
+	Preferences_data_d.staging_delay = cJSON_GetObjectItem(json, "staging_delay")->valueint;
 
 	cJSON_Delete(json);
 
@@ -111,14 +110,15 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	char *string = NULL;
 	cJSON *json = cJSON_CreateObject();
 
-
+	//Update current config store in RAM
 	Preferences_data_d = config;
 
-	cJSON_AddNumberToObject(json, "mainAlt", Preferences_data_d.mainAlt);
-	cJSON_AddNumberToObject(json, "drougeAlt", Preferences_data_d.drougeAlt);
+	cJSON_AddNumberToObject(json, "main_alt", Preferences_data_d.main_alt);
+	cJSON_AddNumberToObject(json, "drouge_alt", Preferences_data_d.drouge_alt);
+	cJSON_AddNumberToObject(json, "max_tilt", Preferences_data_d.max_tilt);
+	cJSON_AddNumberToObject(json, "staging_delay", Preferences_data_d.staging_delay);
 
 	string = cJSON_Print(json);
-
 	if(string == NULL){
 		ESP_LOGE(TAG, "Cannot create JSON string");
 	}
@@ -131,6 +131,7 @@ esp_err_t Preferences_update(Preferences_data_t config){
 		return ESP_ERR_NOT_FOUND;
 	}
 
+	//Update config stored on FLASH
 	fwrite(string, 1, strlen(string), f);
 	fclose(f);
 	ESP_LOGI(TAG, "Updated config successfully");
@@ -140,7 +141,9 @@ esp_err_t Preferences_update(Preferences_data_t config){
 }
 
 
-
+esp_err_t Preferences_restore_dafaults(){
+	return Preferences_update(Preferences_default);
+}
 
 
 

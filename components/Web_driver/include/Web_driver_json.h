@@ -16,12 +16,12 @@ typedef struct{
 	uint64_t serial_number;
 	uint64_t software_version;
 
-	uint8_t flightstate;
+	uint8_t flight_state;
 
-	int drougeAlt;
-	int mainAlt;
+	int drouge_alt;
+	int main_alt;
 
-	float batteryVoltage;
+	float battery_voltage;
 	float rocket_tilt;
 
 	struct {
@@ -84,13 +84,11 @@ typedef struct{
 		uint8_t sats;
 	} gps;
 
-
-
 	float anglex;
 	float angley;
 	float anglez;
 
-
+	float rake;
 } Web_driver_live_t;
 
 

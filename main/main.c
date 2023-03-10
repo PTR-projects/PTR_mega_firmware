@@ -20,6 +20,7 @@
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
 #include "web_driver.h"
+#include "Preferences.h"
 #include "DataManager.h"
 #include "SysMgr.h"
 
@@ -307,12 +308,9 @@ void task_kpptr_sysmgr(void *pvParameter){
 			break;
 		}
 
-
-
 		Web_driver_status_t status_web;
-		status_web.angle = 0.0f;
-		status_web.batteryVoltage = 0.0f;
-		status_web.drougeAlt = 0;
+		status_web.battery_voltage = 0.0f;
+		status_web.drouge_alt = 0;
 		status_web.igniters[0].continuity = false;
 		status_web.igniters[1].continuity = false;
 		status_web.igniters[2].continuity = false;
@@ -320,11 +318,9 @@ void task_kpptr_sysmgr(void *pvParameter){
 		status_web.igniters[0].fired = false;
 		status_web.igniters[1].fired = false;
 		status_web.igniters[2].fired = false;
-		status_web.igniters[3].fired = false;
-		status_web.mainAlt = 0;
-		status_web.serialNumber = 0;
-		status_web.state = 0;
-		status_web.timestamp = 0;
+		status_web.igniters[3].fired = false;	
+		status_web.serial_number = 0;
+		status_web.flight_state = 0;
 		status_web.sysmgr_analog_status 	= SysMgr_getComponentState(checkout_analog);
 		status_web.sysmgr_lora_status 		= SysMgr_getComponentState(checkout_lora);
 		status_web.sysmgr_main_status 		= SysMgr_getComponentState(checkout_main);
@@ -332,7 +328,6 @@ void task_kpptr_sysmgr(void *pvParameter){
 		status_web.sysmgr_sysmgr_status 	= SysMgr_getComponentState(checkout_sysmgr);
 		status_web.sysmgr_utils_status 		= SysMgr_getComponentState(checkout_utils);
 		status_web.sysmgr_web_status 		= SysMgr_getComponentState(checkout_web);
-		strcpy(status_web.softwareVersion, "v0.1.0");
 
 		Web_status_exchange(status_web);
 
@@ -346,6 +341,7 @@ void app_main(void)
     nvs_flash_init();
     SysMgr_init();
     Web_init();
+	Preferences_init();
     SPI_init(2000000);
     DM_init();
 

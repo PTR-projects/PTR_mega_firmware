@@ -48,10 +48,10 @@ esp_err_t Web_cmd_handler(char *buf){
 	uint32_t key =  cJSON_GetObjectItem(json, "key")->valueint;
 	ESP_LOGI(TAG, "Key: %d", key);
 
-	/*if(key != Web_driver_cmd_d.key){
+	if(key != Web_driver_cmd_d.key){
 		ESP_LOGE(TAG, "Wrong key, given value was: %d", key);
 		return ESP_FAIL;
-	}*/
+	}
 
 	if(strcmp(cmd,"ign_set") == 0){
 		int32_t arg1 =  cJSON_GetObjectItem(json, "arg1")->valueint;
@@ -82,43 +82,48 @@ esp_err_t Web_cmd_handler(char *buf){
 
 
 	//Replikacja funkcji programu Areconfig
-	if(strcmp(cmd,"mainAlt_set") == 0){
+	if(strcmp(cmd,"main_alt_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
 		Preferences_data_t temp = Preferences_get();
-		temp.mainAlt = arg1;
+		temp.main_alt = arg1;
 		Preferences_update(temp);
 		//switch main parachute altidude to given value
 	}
 
-	if(strcmp(cmd,"drougeAlt_set") == 0){
+	if(strcmp(cmd,"drouge_alt_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
 		Preferences_data_t temp = Preferences_get();
-		temp.drougeAlt = arg1;
+		temp.drouge_alt = arg1;
 		Preferences_update(temp);
 		//switch drouge parachute altidude to given value
 	}
 
-	if(strcmp(cmd,"launchRailHeight_set") == 0){
+	if(strcmp(cmd,"launch_rail_height_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
 		Preferences_data_t temp = Preferences_get();
-		temp.railHeight = arg1;
+		temp.rail_height = arg1;
 		Preferences_update(temp);
 		//Set launch rail height to given value
 	}
 
-	if(strcmp(cmd,"maxAngle_set") == 0){
+	if(strcmp(cmd,"max_tilt_set") == 0){
 		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
 		Preferences_data_t temp = Preferences_get();
-		temp.maxAngle = arg1;
+		temp.max_tilt = arg1;
 		Preferences_update(temp);
-		//Set angla at which failsafe triggers
+		//Set angle at which failsafe triggers
+	}
+
+	if(strcmp(cmd,"config_default") == 0){
+		Preferences_restore_dafaults();
+		//Reset config to default
 	}
 
 	cJSON_Delete(json);
 
 	return ESP_OK;
-
 }
+
 
 esp_err_t IGN_handle(uint8_t ign_no){
 
@@ -139,14 +144,8 @@ esp_err_t IGN_handle(uint8_t ign_no){
 	}
 	ESP_LOGI(TAG, "Igniter: %d, fire!", ign_no);
 
-	vTaskDelay(500/portTICK_PERIOD_MS);
-
-	ret = IGN_set(ign_no, 0);
-	if(ret != ESP_OK){
-		ESP_LOGI(TAG, "Igniter: %d, error during turning off!", ign_no);
-		return ESP_FAIL;
-	}
-	ESP_LOGI(TAG, "Igniter: %d, off!", ign_no);
+	uint32_t time_ms = pdTICKS_TO_MS(xTaskGetTickCount ());
+	IGN_srv(time_ms);
 
 	return ESP_OK;
 }

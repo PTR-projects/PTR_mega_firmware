@@ -29,8 +29,8 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	cJSON_AddItemToObject(json, "configuration", configuration);
 
 	cJSON *logic = cJSON_CreateObject();
-	cJSON_AddNumberToObject(logic, "flightstate", status.flightstate);
-	cJSON_AddNumberToObject(logic, "batteryVoltage", status.batteryVoltage);
+	cJSON_AddNumberToObject(logic, "flight_state", status.flight_state);
+	cJSON_AddNumberToObject(logic, "battery_voltage", status.battery_voltage);
 	cJSON_AddItemToObject(json, "logic", logic);
 
 
@@ -84,7 +84,9 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 
 	cJSON *json = cJSON_CreateObject();
 
-	cJSON_AddNumberToObject(json, "timestamp", live.timestamp);
+	cJSON *Global = cJSON_CreateObject();
+	cJSON_AddNumberToObject(Global, "timestamp", live.timestamp);
+	cJSON_AddItemToObject(json, "Global", Global);
 
 	cJSON *MS5607 = cJSON_CreateObject();
 	cJSON_AddNumberToObject(MS5607, "pressure", live.MS5607.pressure);

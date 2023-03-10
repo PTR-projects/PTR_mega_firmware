@@ -6,15 +6,15 @@
 #include "esp_event.h"
 
 typedef struct{
-	int mainAlt;
-	int drougeAlt;
+	int main_alt;
+	int drouge_alt;
 
-	float railHeight;
+	float rail_height;
 
-	float maxAngle;
+	float max_tilt;
 
-	float stagingDelay;
-	float stagingMaxAngle;
+	float staging_delay;
+	float staging_max_tilt;
 
 	uint32_t key;
 }Preferences_data_t;
@@ -22,3 +22,4 @@ typedef struct{
 esp_err_t Preferences_init();
 esp_err_t Preferences_update(Preferences_data_t config);
 Preferences_data_t Preferences_get();
+esp_err_t Preferences_restore_dafaults();
