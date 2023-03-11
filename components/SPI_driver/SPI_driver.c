@@ -27,9 +27,11 @@ esp_err_t SPI_init(uint32_t frequency){
 	gpio_set_direction	(SPI_SLAVE_LSM6DSO32_PIN, GPIO_MODE_OUTPUT);
 	gpio_set_level		(SPI_SLAVE_LSM6DSO32_PIN, 1);
 
+#ifdef SPI_SLAVE_FLASH_PIN
 	gpio_reset_pin		(SPI_SLAVE_FLASH_PIN);
 	gpio_set_direction	(SPI_SLAVE_FLASH_PIN, GPIO_MODE_OUTPUT);
 	gpio_set_level		(SPI_SLAVE_FLASH_PIN, 1);
+#endif
 
 	gpio_reset_pin		(SPI_SLAVE_MMC5983MA_PIN);
 	gpio_set_direction	(SPI_SLAVE_MMC5983MA_PIN, GPIO_MODE_OUTPUT);
@@ -101,9 +103,17 @@ esp_err_t SPI_CS(spi_slave_t slave, uint8_t state){
 		gpio_set_level(SPI_SLAVE_LSM6DSO32_PIN, state);
 		break;
 
+#ifdef SPI_SLAVE_LSM6DSO32_2_PIN
+	case SPI_SLAVE_LSM6DSO32_2:
+		gpio_set_level(SPI_SLAVE_LSM6DSO32_2_PIN, state);
+		break;
+#endif
+
+#ifdef SPI_SLAVE_FLASH_PIN
 	case SPI_SLAVE_FLASH:
 		gpio_set_level(SPI_SLAVE_FLASH_PIN, state);
 		break;
+#endif
 
 	case SPI_SLAVE_MMC5983MA:
 		gpio_set_level(SPI_SLAVE_MMC5983MA_PIN, state);

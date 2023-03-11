@@ -63,10 +63,15 @@ typedef struct{
 #define BITS_PER_LED_CMD 8
 #define STRIP_LED_COLOURS 3
 #define STRIP_LED_GPIO LED_WS_PIN
-#define LED_BUFFER_ITEMS ((LED_WS_COUNT * BITS_PER_LED_CMD * STRIP_LED_COLOURS))
-#define LED_ARRAY_SIZE (LED_POS + LED_STD_COUNT + BUZZER_COUNT)
-#define BUZZER_POS LED_POS + LED_STD_COUNT
-#define LED_POS LED_WS_COUNT * STRIP_LED_COLOURS
+
+#define LED_WS_RGB_COUNT 		(LED_WS_COUNT * STRIP_LED_COLOURS)
+#define LED_WS_BUFFER_ITEMS 	((LED_WS_COUNT * BITS_PER_LED_CMD * STRIP_LED_COLOURS))
+#define LED_ARRAY_SIZE 			(LED_WS_RGB_COUNT + LED_STD_COUNT + BUZZER_COUNT)
+#define BUZZER_ARRAY_POS 		(LED_WS_RGB_COUNT + LED_STD_COUNT)
+
+#define LED_CHECK_IF_WS(x)  ((x >= LED_WS_POS0) && (x < (LED_WS_POS0+LED_WS_COUNT)) && (x != -1))
+#define LED_CHECK_IF_STD(x) ((x >= LED_STD_POS0) && (x < (LED_STD_POS0+LED_STD_COUNT)) && (x != -1))
+
 // HIGH/LOW times for StripLED
 #define WS_T0H 3  // 0 bit high time
 #define WS_T1H 7  // 1 bit high time
@@ -79,7 +84,7 @@ esp_err_t LED_srv(void); //Update LED status task should be run in SRV_CLOCK int
 // LED
 esp_err_t LED_init(uint32_t interval_ms); 	//Initialize LED and Strip LED
 esp_err_t LED_set(uint8_t led_no, uint8_t state); 		//Set normal LED on/off
-esp_err_t LED_blink(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number); // Blink LED on/off time in MS 0 beeps number means infinite
+esp_err_t LED_blinkSTD(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number); // Blink LED on/off time in MS 0 beeps number means infinite
 
 //Strip LED
 esp_err_t LED_setWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint8_t state); 	//Set strip LED ON/OFF Brightness 0-255
@@ -90,8 +95,15 @@ esp_err_t BUZZER_init(); //Initialize Buzzer
 esp_err_t BUZZER_set(uint8_t state); 	//Set buzzer LED ON/OFF
 esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number); // Beep Buzzer on/off in MS 0 beeps number means infinite
 
-
-
+//High Level LED/Buzzer wrapper
+esp_err_t LED_setARM(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setIGN1(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setIGN2(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setIGN3(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setIGN4(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setRF(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 
 
 #endif

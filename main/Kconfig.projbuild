@@ -12,12 +12,10 @@ menu "KP-PTR Configuration"
         help
             Select hardware version and revision.
 
+        config BOARD_KPPTR_VER_0_REV_1
+            bool "Version 0 revision 1"
         config BOARD_KPPTR_VER_1_REV_0
             bool "Version 1 revision 0"
-        config BOARD_KPPTR_VER_1_REV_1
-            bool "Version 1 revision 1"
-        config BOARD_KPPTR_VER_1_REV_2
-			bool "Version 1 revision 2"
     endchoice
 			
 	config ESP_WIFI_SSID
@@ -52,7 +50,14 @@ menu "KP-PTR Configuration"
 	    default 1
 	    help
 			Logging rate in Hz.
-		
+	
+    config KPPTR_MASTERKEY
+        int "KP-PTR master key"
+        range 1 10000000
+        default 1
+        help
+            Master key used for device managment
+        
 	choice KPPTR_LOG_DEVICE
         prompt "KP-PTR logging device"
         default KPPTR_LOG_DEVICE_FLASH
@@ -180,4 +185,3 @@ menu "GNSS Configuration"
 	endmenu
 
 endmenu
-
