@@ -226,6 +226,7 @@ void task_kpptr_utils(void *pvParameter){
 		status  = ESP_OK;
 		status |= LED_init(interval_ms);
 		status |= BUZZER_init();
+		status |= IGN_init();
 		ESP_LOGI(TAG, "Task Utils - failed to init!");
 		SysMgr_checkout(checkout_utils, check_fail);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
@@ -238,6 +239,7 @@ void task_kpptr_utils(void *pvParameter){
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		LED_srv();
+		IGN_srv(pdTICKS_TO_MS(xTaskGetTickCount ()));
 	}
 	vTaskDelete(NULL);
 }
