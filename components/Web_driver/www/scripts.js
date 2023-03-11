@@ -292,25 +292,25 @@ function ign_ign4_unlock_handler ()  {
 function ign_ign1_fire_handler() {
 	console.log("Igniters - Fire ign 1");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-1=8342');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":1,"key":2137}');
 }
 
 function ign_ign2_fire_handler() {
 	console.log("Igniters - Fire ign 2");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-2=8464');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":2,"key":2137}');
 }
 
 function ign_ign3_fire_handler() {
 	console.log("Igniters - Fire ign 3");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-3=1523');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":3,"key":2137}');
 }
 
 function ign_ign4_fire_handler() {
 	console.log("Igniters - Fire ign 4");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-4=6123');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":4,"key":2137}');
 }
 
 function POST_simple(url, data) {
