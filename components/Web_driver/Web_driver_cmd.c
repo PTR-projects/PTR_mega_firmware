@@ -42,16 +42,33 @@ esp_err_t Web_cmd_handler(char *buf){
 	cJSON *json = cJSON_Parse(buf);
 	ESP_LOGI(TAG, "%s", buf);
 
+	if(json == NULL){
+		return ESP_FAIL;
+	}
+
+	//Parse CMD
+	if(NULL == cJSON_GetObjectItem(json, "cmd"))
+		return ESP_FAIL;
+
 
 	char *cmd = cJSON_GetObjectItem(json, "cmd")->valuestring;
-	ESP_LOGI(TAG, "Command: %s", cmd);
+	ESP_LOGV(TAG, "Command: %s", cmd);
+
+	//Parse Key
+	if(NULL == cJSON_GetObjectItem(json, "key"))
+		return ESP_FAIL;
+
 	uint32_t key =  cJSON_GetObjectItem(json, "key")->valueint;
-	ESP_LOGI(TAG, "Key: %d", key);
+	ESP_LOGV(TAG, "Key: %d", key);
 
 	if(key != Web_driver_cmd_d.key){
 		ESP_LOGE(TAG, "Wrong key, given value was: %d", key);
 		return ESP_FAIL;
 	}
+
+	//Parse Arg1
+	if(NULL == cJSON_GetObjectItem(json, "arg1"))
+		return ESP_FAIL;
 
 	if(strcmp(cmd,"ign_set") == 0){
 		int32_t arg1 =  cJSON_GetObjectItem(json, "arg1")->valueint;
@@ -76,7 +93,6 @@ esp_err_t Web_cmd_handler(char *buf){
 				ESP_LOGE(TAG, "Cannot fire igniter, bad arguments!");
 				return ESP_FAIL;
 			break;
-
 		}
 	}
 
