@@ -71,7 +71,7 @@ esp_err_t IGN_srv(uint32_t time){
 	return ESP_OK;
 }
 
-uint8_t IGN_getState(uint8_t ign_no){
+int8_t IGN_getState(uint8_t ign_no){
 	if(ign_no == 1){
 		if(gpio_get_level(IGN1_EN_PIN)) return 1;
 		else return 0;

@@ -18,9 +18,10 @@ esp_err_t Sensors_init(){
 	
 	memset(&Sensors_d, 0, sizeof(Sensors_d));
 	MS5607_init();
-	LIS331_init(LIS331_IC_100G);
+
 	MMC5983MA_init();
 	LSM6DSO32_init();
+	LIS331_init(LIS331_IC_100G);
 	return ESP_OK; 	//ESP_FAIL
 }
 

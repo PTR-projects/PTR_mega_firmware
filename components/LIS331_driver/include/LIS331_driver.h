@@ -26,10 +26,9 @@ typedef struct {
 	union{
 		uint8_t raw[6];
 		struct{
-
-			int16_t accX_raw;	//2 3
-			int16_t accY_raw;	//4 5
-			int16_t accZ_raw;	//6 7
+			int16_t accX_raw;	//1 2
+			int16_t accY_raw;	//3 4
+			int16_t accZ_raw;	//5 6
 		};
 	};
 
@@ -51,8 +50,6 @@ typedef struct {
 
 /* SPI CONFIG */
 #define SPI_BUS SPI2_HOST
-#define SPI_DEV SPI_SLAVE_LIS331
-#define SPI_CS_PIN 36
 
 #define LIS331_WHO_AM_I                 0x0F
 

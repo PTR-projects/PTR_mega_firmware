@@ -39,6 +39,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "esp_err.h"
 
 void SX126X_checkBusy();
 /*
@@ -121,7 +122,7 @@ sx126x_hal_status_t sx126x_hal_reset( const void* context );
  */
 sx126x_hal_status_t sx126x_hal_wakeup( const void* context );
 
-void SX126X_initIO();
+esp_err_t SX126X_initIO();
 void SX126X_checkBusy() ;
 
 #endif  // SX126X_HAL_H

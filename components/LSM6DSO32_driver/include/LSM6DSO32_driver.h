@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 #include "esp_err.h"
+#include "esp_check.h"
 #include "freertos/FreeRTOS.h"
 #include "BOARD.h"
+#include "SPI_driver.h"
 #include "driver/spi_master.h"
 #include "esp_log.h"
 
@@ -24,8 +26,6 @@ typedef struct{
 	union{
 		uint8_t raw[14];
 		struct{
-			uint16_t dummy;
-
 			int16_t temp_raw;
 
 			int16_t gyroX_raw;

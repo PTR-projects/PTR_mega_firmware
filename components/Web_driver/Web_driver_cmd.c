@@ -180,8 +180,7 @@ esp_err_t Web_cmd_handler(char *buf){
 
 
 esp_err_t IGN_handle(uint8_t ign_no){
-
-	uint8_t status = IGN_getState(ign_no);
+	int8_t status = IGN_getState(ign_no);
 	if(status == 1){
 		ESP_LOGE(TAG, "Igniter: %d, already up!", ign_no);
 		return ESP_FAIL;
@@ -197,9 +196,6 @@ esp_err_t IGN_handle(uint8_t ign_no){
 		return ESP_FAIL;
 	}
 	ESP_LOGI(TAG, "Igniter: %d, fire!", ign_no);
-
-	uint32_t time_ms = pdTICKS_TO_MS(xTaskGetTickCount ());
-
 
 	return ESP_OK;
 }

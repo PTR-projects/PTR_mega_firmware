@@ -4,7 +4,7 @@
 #include "freertos/timers.h"
 #include "esp_log.h"
 #include "esp_err.h"
-
+#include "esp_check.h"
 #include "SX126x_hal.h"
 #include "SX126x_driver.h"
 #include "LORA_driver.h"
@@ -15,11 +15,11 @@ esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower);
 
 esp_err_t LORA_init()
 {
-	SX126X_initIO();
+	ESP_RETURN_ON_ERROR(SX126X_initIO(), TAG, "SX1262_initIO fail!");
 	vTaskDelay(pdMS_TO_TICKS( 20 ));
 
 	ESP_LOGI(TAG, "SX1262 init...");
-	LORA_modeLORA(433000000UL, 0);	//433MHz, 0dBm
+	ESP_RETURN_ON_ERROR(LORA_modeLORA(433000000UL, 0), TAG, "Error setting LORA mode");	//433MHz, 0dBm
 
 	ESP_LOGI(TAG, "SX1262 ready");
 

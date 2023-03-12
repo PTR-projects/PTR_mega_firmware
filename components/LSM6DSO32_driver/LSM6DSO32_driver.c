@@ -3,6 +3,8 @@
 #define SPI_BUS SPI2_HOST
 #define SPI_CS_PIN SPI_SLAVE_LSM6DSO32_PIN
 
+static const char *TAG = "LSM6DSO32";
+
 esp_err_t LSM6DSO32_Write(uint8_t address, uint8_t val);
 esp_err_t LSM6DSO32_Read (uint8_t address, uint8_t * rx, uint8_t length);
 
@@ -11,23 +13,14 @@ static spi_device_handle_t spi_dev_handle_LSM6DSO32;
 
 
 esp_err_t LSM6DSO32_SPIinit(){
-	esp_err_t ret = ESP_OK;
+	if(SPI_checkInit() != ESP_OK){
+		ESP_LOGE(TAG, "SPI controller not initialized! Use SPI_init() in main.c");
+		return ESP_ERR_INVALID_STATE;
+	}
 
-spi_device_interface_config_t LSM6DSO32_spi_config = {
-			.mode           =  0,
-			.spics_io_num   = SPI_CS_PIN,
-			.clock_speed_hz =  1 * 1000 * 1000,
-			.queue_size     =  1,
-			.command_bits = 2,
-			.address_bits = 6,
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_LSM6DSO32, SPI_CS_PIN, 1, 1, 1, 7), TAG, "SPI register failed");
 
-		};
-
-ret = spi_bus_add_device(SPI_BUS, &LSM6DSO32_spi_config, &spi_dev_handle_LSM6DSO32);
-printf("ADD LSM %d\n", ret);
-return ret;
-
-
+	return ESP_OK;
 }
 
 esp_err_t LSM6DSO32_init(){
@@ -54,17 +47,17 @@ uint8_t LSM6DSO32_WhoAmI(){
 }
 
 esp_err_t LSM6DSO32_readMeas(){
-	LSM6DSO32_Read(0x20, LSM6DSO32_d.raw+1, 14);
+	LSM6DSO32_Read(0x20, LSM6DSO32_d.raw, 14);
 
-	LSM6DSO32_d.meas.accX = (LSM6DSO32_d.accX_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accXoffset;
-	LSM6DSO32_d.meas.accY = (LSM6DSO32_d.accY_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accYoffset;
-	LSM6DSO32_d.meas.accZ = (LSM6DSO32_d.accZ_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accZoffset;
+	LSM6DSO32_d.meas.accX  = (LSM6DSO32_d.accX_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accXoffset;
+	LSM6DSO32_d.meas.accY  = (LSM6DSO32_d.accY_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accYoffset;
+	LSM6DSO32_d.meas.accZ  = (LSM6DSO32_d.accZ_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accZoffset;
 
 	LSM6DSO32_d.meas.gyroX = (LSM6DSO32_d.gyroX_raw)*(0.035f) - LSM6DSO32_d.gyroXoffset;
 	LSM6DSO32_d.meas.gyroY = (LSM6DSO32_d.gyroY_raw)*(0.035f) - LSM6DSO32_d.gyroYoffset;
 	LSM6DSO32_d.meas.gyroZ = (LSM6DSO32_d.gyroZ_raw)*(0.035f) - LSM6DSO32_d.gyroZoffset;
 
-	LSM6DSO32_d.meas.temp = (LSM6DSO32_d.temp_raw)*(0.00390625f) + 25.0f;
+	LSM6DSO32_d.meas.temp  = (LSM6DSO32_d.temp_raw)*(0.00390625f) + 25.0f;
 
 	return ESP_OK;
 }
@@ -76,32 +69,43 @@ esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas){
 }
 
 esp_err_t LSM6DSO32_Write(uint8_t address, uint8_t val){
-	uint8_t txBuff[2] = {address & 0b01111111, val};
+	esp_err_t ret = ESP_OK;
+	spi_transaction_t trans;
+	memset(&trans, 0x00, sizeof(trans));
+	trans.length 	= 8;
+	trans.rxlength 	= 0 ;
+	trans.cmd 		= 0;		//0-write, 1-read
+	trans.addr 		= address;
+	trans.tx_buffer = &val;
 
-//	SPI_RW(SPI_SLAVE_LSM6DSO32, txBuff, NULL, 2);
+	spi_device_acquire_bus(spi_dev_handle_LSM6DSO32, portMAX_DELAY);
+	if (spi_device_polling_transmit(spi_dev_handle_LSM6DSO32, &trans) != ESP_OK)
+	{
+		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		ret = ESP_FAIL;
+	}
+	spi_device_release_bus(spi_dev_handle_LSM6DSO32);
 
-	return ESP_OK;	//ESP_FAIL
+	return ret;
 }
 
 esp_err_t LSM6DSO32_Read(uint8_t address, uint8_t * rx, uint8_t length){
-
 	esp_err_t ret = ESP_OK;
-		spi_transaction_t trans;
-		memset(&trans, 0x00, sizeof(trans));
-		trans.length = (8 + (8 * length));
-		trans.rxlength = 8 * length;
-		trans.cmd = 0x02;
-		trans.addr = address;
-		trans.rx_buffer = rx;
+	spi_transaction_t trans;
+	memset(&trans, 0x00, sizeof(trans));
+	trans.length 	= 8 * length;
+	trans.rxlength 	= 8 * length;
+	trans.cmd 		= 1;			//0-write, 1-read
+	trans.addr 		= address;
+	trans.rx_buffer = rx;
 
-		spi_device_acquire_bus(spi_dev_handle_LSM6DSO32, portMAX_DELAY);
-		if (spi_device_polling_transmit(spi_dev_handle_LSM6DSO32, &trans) != ESP_OK)
-		{
-			ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-			ret = ESP_FAIL;
-		}
-		spi_device_release_bus(spi_dev_handle_LSM6DSO32);
+	spi_device_acquire_bus(spi_dev_handle_LSM6DSO32, portMAX_DELAY);
+	if (spi_device_polling_transmit(spi_dev_handle_LSM6DSO32, &trans) != ESP_OK)
+	{
+		ESP_LOGE(TAG, "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		ret = ESP_FAIL;
+	}
+	spi_device_release_bus(spi_dev_handle_LSM6DSO32);
 
-		return ret;
-
+	return ret;
 }

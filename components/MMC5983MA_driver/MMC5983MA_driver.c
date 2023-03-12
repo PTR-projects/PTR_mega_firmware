@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "esp_err.h"
+#include "esp_check.h"
 #include "esp_log.h"
 #include "MMC5983MA_driver.h"
 #include "freertos/FreeRTOS.h"
@@ -8,59 +9,57 @@
 #include <string.h>
 
 #define READ_REG(x) (0x80 | x)
-#define MMC5983MA_SPI_CS_PIN SPI_SLAVE_MMC5983MA_PIN
 #define SPI_BUS SPI2_HOST
 
-static esp_err_t MMC5983MA_read(uint8_t addr, uint8_t * data_in, uint16_t length);
-static uint8_t MMC5983MA_readSingleByte(uint8_t  address);
-//static esp_err_t MMC5983MA_command(uint8_t command);
-static esp_err_t MMC5983MA_writeSingleByte(uint8_t adress, uint8_t value);
-static esp_err_t MMC5983MA_setRegisterBit(uint8_t registerAddress, uint8_t bitMask);
-static esp_err_t MMC5983MA_clearRegisterBit(const uint8_t registerAddress, const uint8_t bitMask);
-static bool MMC5983MA_isRegisterSet(const uint8_t registerAddress, const uint8_t bitMask);
-static void MMC5983MA_setControlBit(uint8_t registerAddress, const uint8_t bitMask);
-static void MMC5983MA_clearControlBit(uint8_t registerAddress, const uint8_t bitMask);
-static bool MMC5983MA_isControlBitSet(uint8_t registerAddress, const uint8_t bitMask);
-static int MMC5983MA_getTemperature();
-static void MMC5983MA_softReset();
-static void MMC5983MA_enableInterrupt();
-static void MMC5983MA_disableInterrupt();
-static bool MMC5983MA_isInterruptEnabled();
-static void MMC5983MA_enable3WireSPI();
-static void MMC5983MA_disable3WireSPI();
-static bool MMC5983MA_is3WireSPIEnabled();
-static void MMC5983MA_performSetOperation();
-static void MMC5983MA_performResetOperation();
-static void MMC5983MA_enableAutomaticSetReset();
-static void MMC5983MA_disableAutomaticSetReset();
-static bool MMC5983MA_isAutomaticSetResetEnabled();
-static void MMC5983MA_enableXChannel();
-static void MMC5983MA_disableXChannel();
-static bool MMC5983MA_isXChannelEnabled();
-static void MMC5983MA_enableYZChannels();
-static void MMC5983MA_disableYZChannels();
-static bool MMC5983MA_areYZChannelsEnabled();
-static void MMC5983MA_setFilterBandwidth(mmc5983ma_band_t bandwidth);
-static uint16_t MMC5983MA_getFilterBandwith();
-static void MMC5983MA_enableContinuousMode();
-static void MMC5983MA_disableContinuousMode();
-static bool MMC5983MA_isContinuousModeEnabled();
-static void MMC5983MA_setContinuousModeFrequency(mmc5983ma_cm_freq_t frequency);
-static uint16_t MMC5983MA_getContinuousModeFrequency();
-static void MMC5983MA_enablePeriodicSet();
-static void MMC5983MA_disablePeriodicSet();
-static bool MMC5983MA_isPeriodicSetEnabled();
-static void MMC5983MA_setPeriodicSetSamples(const uint16_t numberOfSamples);
-static uint16_t MMC5983MA_getPeriodicSetSamples();
-static void MMC5983MA_applyExtraCurrentPosToNeg();
-static void MMC5983MA_removeExtraCurrentPosToNeg();
-static bool MMC5983MA_isExtraCurrentAppliedPosToNeg();
-static void MMC5983MA_applyExtracurrentNegToPos();
-static void MMC5983MA_removeExtracurrentNegToPos();
-static bool MMC5983MA_isExtraCurrentAppliedNegToPos();
-static uint32_t MMC5983MA_getMeasurementX();
-static uint32_t MMC5983MA_getMeasurementY();
-static uint32_t MMC5983MA_getMeasurementZ();
+static esp_err_t MMC5983MA_read(uint8_t addr, uint8_t * data_in, uint16_t length) __attribute__((unused));
+static uint8_t MMC5983MA_readSingleByte(uint8_t  address) __attribute__((unused));
+static esp_err_t MMC5983MA_writeSingleByte(uint8_t adress, uint8_t value) __attribute__((unused));
+static esp_err_t MMC5983MA_setRegisterBit(uint8_t registerAddress, uint8_t bitMask) __attribute__((unused));
+static esp_err_t MMC5983MA_clearRegisterBit(const uint8_t registerAddress, const uint8_t bitMask) __attribute__((unused));
+static bool MMC5983MA_isRegisterSet(const uint8_t registerAddress, const uint8_t bitMask) __attribute__((unused));
+static void MMC5983MA_setControlBit(uint8_t registerAddress, const uint8_t bitMask) __attribute__((unused));
+static void MMC5983MA_clearControlBit(uint8_t registerAddress, const uint8_t bitMask) __attribute__((unused));
+static bool MMC5983MA_isControlBitSet(uint8_t registerAddress, const uint8_t bitMask) __attribute__((unused));
+static int MMC5983MA_getTemperature() __attribute__((unused));
+static void MMC5983MA_softReset() __attribute__((unused));
+static void MMC5983MA_enableInterrupt() __attribute__((unused));
+static void MMC5983MA_disableInterrupt() __attribute__((unused));
+static bool MMC5983MA_isInterruptEnabled() __attribute__((unused));
+static void MMC5983MA_enable3WireSPI() __attribute__((unused));
+static void MMC5983MA_disable3WireSPI() __attribute__((unused));
+static bool MMC5983MA_is3WireSPIEnabled() __attribute__((unused));
+static void MMC5983MA_performSetOperation() __attribute__((unused));
+static void MMC5983MA_performResetOperation() __attribute__((unused));
+static void MMC5983MA_enableAutomaticSetReset() __attribute__((unused));
+static void MMC5983MA_disableAutomaticSetReset() __attribute__((unused));
+static bool MMC5983MA_isAutomaticSetResetEnabled() __attribute__((unused));
+static void MMC5983MA_enableXChannel() __attribute__((unused));
+static void MMC5983MA_disableXChannel() __attribute__((unused));
+static bool MMC5983MA_isXChannelEnabled() __attribute__((unused));
+static void MMC5983MA_enableYZChannels() __attribute__((unused));
+static void MMC5983MA_disableYZChannels() __attribute__((unused));
+static bool MMC5983MA_areYZChannelsEnabled() __attribute__((unused));
+static void MMC5983MA_setFilterBandwidth(mmc5983ma_band_t bandwidth) __attribute__((unused));
+static uint16_t MMC5983MA_getFilterBandwith() __attribute__((unused));
+static void MMC5983MA_enableContinuousMode() __attribute__((unused));
+static void MMC5983MA_disableContinuousMode() __attribute__((unused));
+static bool MMC5983MA_isContinuousModeEnabled() __attribute__((unused));
+static void MMC5983MA_setContinuousModeFrequency(mmc5983ma_cm_freq_t frequency) __attribute__((unused));
+static uint16_t MMC5983MA_getContinuousModeFrequency() __attribute__((unused));
+static void MMC5983MA_enablePeriodicSet() __attribute__((unused));
+static void MMC5983MA_disablePeriodicSet() __attribute__((unused));
+static bool MMC5983MA_isPeriodicSetEnabled() __attribute__((unused));
+static void MMC5983MA_setPeriodicSetSamples(const uint16_t numberOfSamples) __attribute__((unused));
+static uint16_t MMC5983MA_getPeriodicSetSamples() __attribute__((unused));
+static void MMC5983MA_applyExtraCurrentPosToNeg() __attribute__((unused));
+static void MMC5983MA_removeExtraCurrentPosToNeg() __attribute__((unused));
+static bool MMC5983MA_isExtraCurrentAppliedPosToNeg() __attribute__((unused));
+static void MMC5983MA_applyExtracurrentNegToPos() __attribute__((unused));
+static void MMC5983MA_removeExtracurrentNegToPos() __attribute__((unused));
+static bool MMC5983MA_isExtraCurrentAppliedNegToPos() __attribute__((unused));
+static uint32_t MMC5983MA_getMeasurementX() __attribute__((unused));
+static uint32_t MMC5983MA_getMeasurementY() __attribute__((unused));
+static uint32_t MMC5983MA_getMeasurementZ() __attribute__((unused));
 
 
 static const char* TAG = "MMC5983MA";
@@ -72,39 +71,15 @@ static spi_device_handle_t spi_dev_handle_MMC5983MA;
 
 esp_err_t MMC5983MA_spi_init(void)
 {
-	esp_err_t ret = ESP_OK;
+	if(SPI_checkInit() != ESP_OK){
+		ESP_LOGE(TAG, "SPI controller not initialized! Use SPI_init() in main.c");
+		return ESP_ERR_INVALID_STATE;
+	}
 
-/*  SPI BUS INITIALIZATION */
-// Uncomment if not initialised elsewhere
-/*
-	spi_bus_config_t buscfg={
-		.miso_io_num   = SPI_MISO_PIN,
-		.mosi_io_num   = SPI_MOSI_PIN,
-		.sclk_io_num   = SPI_SCK_PIN,
-		.quadwp_io_num = -1,
-		.quadhd_io_num = -1,
+	/* CONFIGURE SPI DEVICE */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_MMC5983MA, SPI_SLAVE_MMC5983MA_PIN, 1, 1, 2, 6), TAG, "SPI register failed");
 
-	};
-
-	ret = spi_bus_initialize(SPI_BUS, &buscfg, SPI_DMA_DISABLED); //Initialize the SPI bus (prev: SPI_DMA_CH_AUTO)
-	ESP_ERROR_CHECK(ret);
-
-*/
-
-/* CONFIGURE SPI DEVICE */
-
-spi_device_interface_config_t MMC5983MA_spi_config = {
-			.mode           =  0,
-			.spics_io_num   = MMC5983MA_SPI_CS_PIN,
-			.clock_speed_hz =  1 * 1000 * 1000,
-			.queue_size     =  1,
-			.command_bits = 2,
-			.address_bits = 6,
-
-		};
-
-ret = spi_bus_add_device(SPI_BUS, &MMC5983MA_spi_config, &spi_dev_handle_MMC5983MA);
-return ret;
+	return ESP_OK;
 }
 
 
@@ -177,10 +152,10 @@ static esp_err_t MMC5983MA_read(uint8_t addr, uint8_t * data_in, uint16_t length
 	spi_transaction_t trans;
 	memset(&trans, 0x00, sizeof(trans));
 
-	trans.length = ((8 * length));
-	trans.rxlength = 8 * length;
-	trans.cmd = 0x03;
-	trans.addr = addr;
+	trans.length 	= 8 * length;
+	trans.rxlength 	= 8 * length;
+	trans.cmd 		= 0x02;
+	trans.addr 		= addr;
 	trans.rx_buffer = data_in;
 
 
@@ -216,22 +191,15 @@ static uint8_t MMC5983MA_readSingleByte(uint8_t  addr) {
 	return buf[0];
 }
 
-//static esp_err_t MMC5983MA_command(uint8_t command) {
-//    uint8_t txBuff[1] = {command};
-//    SPI_RW(SPI_SLAVE_MMC5983MA, txBuff, NULL, 1);
-//    ESP_LOGD(TAG, "Command %X sent to MMC5883MA", command);
-//    return ESP_OK;
-//}
-
 static esp_err_t MMC5983MA_writeSingleByte(uint8_t addr, uint8_t data_out) {
 	uint8_t buff[1] = {data_out};
 	esp_err_t ret = ESP_OK;
 	spi_transaction_t trans;
 	memset(&trans, 0x00, sizeof(trans));
-	trans.length = (8 + 8);
-	trans.rxlength = 8 ;
-	trans.cmd = 0x00;
-	trans.addr = addr;
+	trans.length 	= 8;
+	trans.rxlength 	= 0;
+	trans.cmd 		= 0x00;
+	trans.addr 		= addr;
 	trans.tx_buffer = buff;
 
 

@@ -344,7 +344,7 @@ void app_main(void)
     SysMgr_init();
     Web_init();
 	Preferences_init();
-    SPI_init(2000000);
+    SPI_init();
     DM_init();
 
     //----- Create queues ----------

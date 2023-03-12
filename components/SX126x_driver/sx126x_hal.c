@@ -14,6 +14,8 @@
 #include "esp_err.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_check.h"
+#include "SPI_driver.h"
 #include "SX126x_hal.h"
 
 esp_err_t SX126X_spi_init(void);
@@ -23,16 +25,16 @@ void SX126X_checkBusy();
 static const char *TAG = "sx126x driver";
 static spi_device_handle_t spi_dev_handle_SX126X;
 
-void SX126X_initIO(){
-	gpio_reset_pin(RF_BUSY_PIN);
-	gpio_reset_pin(RF_RST_PIN);
+esp_err_t SX126X_initIO(){
+	ESP_RETURN_ON_ERROR(gpio_reset_pin(RF_BUSY_PIN), TAG, "Error settin RF_BUSY_PIN");
+	ESP_RETURN_ON_ERROR(gpio_reset_pin(RF_RST_PIN),  TAG, "Error settin RF_RSTPIN");
+	ESP_RETURN_ON_ERROR(gpio_set_direction(RF_BUSY_PIN, GPIO_MODE_INPUT),  TAG, "Error settin RF_BUSY_PIN");
+	ESP_RETURN_ON_ERROR(gpio_set_direction(RF_RST_PIN,  GPIO_MODE_OUTPUT), TAG, "Error settin RF_RST_PIN");
 
-	gpio_set_direction(RF_BUSY_PIN, GPIO_MODE_INPUT);
-	gpio_set_direction(RF_RST_PIN,  GPIO_MODE_OUTPUT);
-
-	SX126X_spi_init();
-
+	ESP_RETURN_ON_ERROR(SX126X_spi_init(),	 TAG, "SX126X_spi_init failed");
 	sx126x_hal_reset(0);
+
+	return ESP_OK;
 }
 
 uint32_t SX126X_getBUSY() {
@@ -59,37 +61,15 @@ void SX126X_checkBusy() {
 
 esp_err_t SX126X_spi_init(void)
 {
-	esp_err_t ret = ESP_OK;
-
-	/*  SPI BUS INITIALIZATION */
-	// Uncomment if not initialised elsewhere
-	/*
-		spi_bus_config_t buscfg={
-			.miso_io_num   = SPI_MISO_PIN,
-			.mosi_io_num   = SPI_MOSI_PIN,
-			.sclk_io_num   = SPI_SCK_PIN,
-			.quadwp_io_num = -1,
-			.quadhd_io_num = -1,
-
-		};
-
-		ret = spi_bus_initialize(SPI_BUS, &buscfg, SPI_DMA_CH_AUTO); //Initialize the SPI bus (prev: SPI_DMA_CH_AUTO)
-		ESP_ERROR_CHECK(ret);
-	*/
-
+	if(SPI_checkInit() != ESP_OK){
+		ESP_LOGE(TAG, "SPI controller not initialized! Use SPI_init() in main.c");
+		return ESP_ERR_INVALID_STATE;
+	}
 
 	/* CONFIGURE SPI DEVICE */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_SX126X, SPI_SLAVE_SX1262_PIN, 1, 1, 0, 8), TAG, "SPI register failed");
 
-	spi_device_interface_config_t SX126X_spi_config = {
-				.mode           = 0,
-				.spics_io_num   = SPI_SLAVE_SX1262_PIN,
-				.clock_speed_hz = 1 * 1000 * 1000,
-				.queue_size     = 1,
-				.command_bits 	= 0,
-				.address_bits 	= 8
-			};
-
-	return spi_bus_add_device(SPI_BUS, &SX126X_spi_config, &spi_dev_handle_SX126X);
+	return ESP_OK;
 }
 
 sx126x_hal_status_t sx126x_hal_read(const void* context, const uint8_t *command, const uint16_t command_length,

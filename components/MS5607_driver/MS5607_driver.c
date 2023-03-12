@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_err.h"
+#include "esp_check.h"
 #include "SPI_driver.h"
 #include "esp_log.h"
 #include "MS5607_driver.h"
@@ -9,8 +10,7 @@
 #include <string.h>
 #include <driver/spi_master.h>
 
-#define MS5607_SPI_CS_PIN SPI_SLAVE_MS5607_PIN
-#define SPI_BUS SPI2_HOST
+static const char *TAG = "MS5607";
 
 static esp_err_t MS5607_read(uint8_t addr, uint8_t * data_in, uint16_t length);
 static esp_err_t MS5607_write(uint8_t addr);
@@ -30,39 +30,15 @@ static spi_device_handle_t spi_dev_handle_MS5607;
 
 esp_err_t MS5607_spi_init(void)
 {
-	esp_err_t ret = ESP_OK;
+	if(SPI_checkInit() != ESP_OK){
+		ESP_LOGE(TAG, "SPI controller not initialized! Use SPI_init() in main.c");
+		return ESP_ERR_INVALID_STATE;
+	}
 
-/*  SPI BUS INITIALIZATION */
-// Uncomment if not initialised elsewhere
-/*
-	spi_bus_config_t buscfg={
-		.miso_io_num   = SPI_MISO_PIN,
-		.mosi_io_num   = SPI_MOSI_PIN,
-		.sclk_io_num   = SPI_SCK_PIN,
-		.quadwp_io_num = -1,
-		.quadhd_io_num = -1,
+	/* CONFIGURE SPI DEVICE */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_MS5607, SPI_SLAVE_MS5607_PIN, 1, 1, 0, 8), TAG, "SPI register failed");
 
-	};
-
-	ret = spi_bus_initialize(SPI_BUS, &buscfg, SPI_DMA_DISABLED); //Initialize the SPI bus (prev: SPI_DMA_CH_AUTO)
-	ESP_ERROR_CHECK(ret);
-
-*/
-
-/* CONFIGURE SPI DEVICE */
-
-spi_device_interface_config_t MS5607_spi_config = {
-			.mode           =  0,
-			.spics_io_num   = MS5607_SPI_CS_PIN,
-			.clock_speed_hz =  1 * 1000 * 1000,
-			.queue_size     =  1,
-			.command_bits = 0,
-			.address_bits = 8,
-
-		};
-
-ret = spi_bus_add_device(SPI_BUS, &MS5607_spi_config, &spi_dev_handle_MS5607);
-return ret;
+	return ESP_OK;
 }
 
 esp_err_t MS5607_init() {
