@@ -4,7 +4,16 @@
 # Create a littlefs image of the specified directory on the host during build and optionally
 # have the created image flashed using `idf.py flash`
 set(MKLITTLEFS_DIR "${CMAKE_CURRENT_LIST_DIR}/mklittlefs")
-set(MKLITTLEFS "${MKLITTLEFS_DIR}/mklittlefs.exe")
+
+if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
+    set(MKLITTLEFS "${MKLITTLEFS_DIR}/mklittlefs.exe")
+elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Linux")
+    set(MKLITTLEFS "${MKLITTLEFS_DIR}/mklittlefs_linux")
+elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Darwin")
+    set(MKLITTLEFS "${MKLITTLEFS_DIR}/mklittlefs_apple")
+else()
+    fail_at_build_time("Host OS detection error")
+endif()
 
 function(littlefs_create_partition_image partition base_dir)
 	set(options FLASH_IN_PROJECT)

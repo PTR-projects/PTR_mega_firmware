@@ -88,8 +88,6 @@ function SelectSection_Live() {
 	ign_tab.style.display		= 'none';
 	settings_tab.style.display	= 'none';
 	liveview_tab.style.display	= 'block';
-	
-	getDataLive();
 
 	getDataLiveIntervalID = setInterval(getDataLive, 1000);
 }
@@ -294,25 +292,25 @@ function ign_ign4_unlock_handler ()  {
 function ign_ign1_fire_handler() {
 	console.log("Igniters - Fire ign 1");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-1=8342');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":1,"key":2137}');
 }
 
 function ign_ign2_fire_handler() {
 	console.log("Igniters - Fire ign 2");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-2=8464');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":2,"key":2137}');
 }
 
 function ign_ign3_fire_handler() {
 	console.log("Igniters - Fire ign 3");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-3=1523');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":3,"key":2137}');
 }
 
 function ign_ign4_fire_handler() {
 	console.log("Igniters - Fire ign 4");
 	navigator.vibrate(200); 
-	POST_simple("cmd", 'fire-ign-4=6123');
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":4,"key":2137}');
 }
 
 function POST_simple(url, data) {
@@ -338,25 +336,10 @@ function getData() {
 			document.getElementById("label-status-software-version").textContent 	= data.configuration.softwareVersion;
 			document.getElementById("label-status-system-state").textContent 	= data.logic.state;
 			document.getElementById("label-status-timestamp").textContent 	= data.logic.timestamp;
-			document.getElementById("label-status-main").textContent 	= data.sysMgr.Main_driver;
-			document.getElementById("label-status-storage").textContent = data.sysMgr.Storage_driver;
-			document.getElementById("label-status-web").textContent 	= data.sysMgr.Web_driver;
-			document.getElementById("label-status-sysmgr").textContent 	= data.sysMgr.SysMgr_driver;
-			document.getElementById("label-status-lora").textContent 	= data.sysMgr.Lora_driver;
-			document.getElementById("label-status-analog").textContent 	= data.sysMgr.Analog_driver;
-			document.getElementById("label-status-utils").textContent 	= data.sysMgr.Utils_driver;
+			document.getElementById("label-status-storage").textContent 	= data.sysMgr.Storage_driver;
 			document.getElementById("label-status-angle").textContent 	= data.sensors.angle;
-			document.getElementById("label-status-latitude").textContent 	= data.sensors.gnss_latitude;
-			document.getElementById("label-status-longitude").textContent 	= data.sensors.gnss_longitude;
-			document.getElementById("label-status-fixsats").textContent 	= data.sensors.gnss_fix;
-	  
-	  		formatOkFailText("label-status-main");
-	  		formatOkFailText("label-status-storage");
-	  		formatOkFailText("label-status-web");
-	  		formatOkFailText("label-status-sysmgr");
-	  		formatOkFailText("label-status-lora");
-	  		formatOkFailText("label-status-analog");
-	  		formatOkFailText("label-status-utils");
+			document.getElementById("label-status-latitude").textContent 	= data.sensors.gps.latitude.direction + data.sensors.gps.latitude.value;
+			document.getElementById("label-status-longitude").textContent 	= data.sensors.gps.longitude.direction + data.sensors.gps.latitude.value;
 	  })
 	  .catch(error => {
 		/* Handle any errors that occurred*/
@@ -368,18 +351,7 @@ function webInit(){
 	TabsInit();
 	/* Set an interval to retrieve new data every 10 second*/
 	setInterval(getData, 10000);
-	getData();
 	initDataLive();
-}
-
-function formatOkFailText(id){
-	if (document.getElementById(id).textContent == "OK"){
-		document.getElementById(id).style.color = "green";
-		document.getElementById(id).style.fontWeight = 'bold';
-	} else {
-		document.getElementById(id).style.color = "red";
-		document.getElementById(id).style.fontWeight = 'bold';
-	}
 }
 
 function createLiveTable(json) {

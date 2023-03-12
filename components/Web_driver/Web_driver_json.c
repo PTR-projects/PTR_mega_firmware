@@ -13,7 +13,10 @@
 
 static const char *TAG = "Web_driver_json";
 
-
+/*!
+ * @brief Create json string and fill it with status values.
+ * @return string* with json
+ */
 char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 	char *string = NULL;
@@ -21,44 +24,33 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	cJSON *json = cJSON_CreateObject();
 
 	cJSON *configuration = cJSON_CreateObject();
-	cJSON_AddNumberToObject(configuration, "serialNumber", status.serialNumber);
-	if(strcmp(status.softwareVersion, "\0") == 0){
-		cJSON_AddStringToObject(configuration, "softwareVersion", "N/A");
-	}
-	else{
-		cJSON_AddStringToObject(configuration, "softwareVersion", status.softwareVersion);
-	}
+	cJSON_AddNumberToObject(configuration, "serial_number", status.serial_number);
+	cJSON_AddNumberToObject(configuration, "software_version", status.software_version);
 	cJSON_AddItemToObject(json, "configuration", configuration);
 
 	cJSON *logic = cJSON_CreateObject();
-	cJSON_AddNumberToObject(logic, "state", status.state);
-	cJSON_AddNumberToObject(logic, "timestamp", status.timestamp);
-	cJSON_AddNumberToObject(logic, "batteryVoltage", status.batteryVoltage);
+	cJSON_AddNumberToObject(logic, "flight_state", status.flight_state);
+	cJSON_AddNumberToObject(logic, "battery_voltage", status.battery_voltage);
 	cJSON_AddItemToObject(json, "logic", logic);
 
 
 	cJSON *sysMgr = cJSON_CreateObject();
-	cJSON_AddStringToObject(sysMgr, "SysMgr_driver", 	(status.sysmgr_sysmgr_status 	== 0x01)?"OK":"FAIL");
-	cJSON_AddStringToObject(sysMgr, "Main_driver", 		(status.sysmgr_main_status 		== 0x01)?"OK":"FAIL");
-	cJSON_AddStringToObject(sysMgr, "Storage_driver", 	(status.sysmgr_storage_status 	== 0x01)?"OK":"FAIL");
-	cJSON_AddStringToObject(sysMgr, "Lora_driver", 		(status.sysmgr_lora_status 		== 0x01)?"OK":"FAIL");
-	cJSON_AddStringToObject(sysMgr, "Analog_driver", 	(status.sysmgr_analog_status 	== 0x01)?"OK":"FAIL");
-	cJSON_AddStringToObject(sysMgr, "Utils_driver", 	(status.sysmgr_utils_status 	== 0x01)?"OK":"FAIL");
-	cJSON_AddStringToObject(sysMgr, "Web_driver", 		(status.sysmgr_web_status 		== 0x01)?"OK":"FAIL");
-
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_system_status", status.sysmgr_system_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_analog_status", status.sysmgr_analog_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_lora_status", status.sysmgr_lora_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_adcs_status", status.sysmgr_adcs_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_storage_status", status.sysmgr_storage_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_sysmgr_status", status.sysmgr_sysmgr_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_utils_status", status.sysmgr_utils_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_web_status", status.sysmgr_web_status);
 	cJSON_AddItemToObject(json, "sysMgr", sysMgr);
 
 	cJSON *sensors = cJSON_CreateObject();
-	cJSON_AddNumberToObject(sensors, "angle", status.angle);
-	cJSON_AddNumberToObject(sensors, "latitude", status.latitude);
-	cJSON_AddNumberToObject(sensors, "longitude", status.longitude);
-	cJSON_AddNumberToObject(sensors, "fix", status.fix);
-
+	cJSON_AddNumberToObject(sensors, "rocket_tilt", status.rocket_tilt);
 	cJSON_AddItemToObject(json, "sensors", sensors);
 
 
 	cJSON *igniters = cJSON_CreateArray();
-
 	for(int i=0;i<4;i++){
 		cJSON *igniter = cJSON_CreateObject();
 
@@ -67,22 +59,24 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 		cJSON_AddItemToArray(igniters, igniter);
 	}
-
 	cJSON_AddItemToObject(json, "igniters", igniters);
 
-	string = cJSON_Print(json);
 
+	string = cJSON_Print(json);
 	if(string == NULL){
 		ESP_LOGE(TAG, "Cannot create JSON string");
 	}
 
 
 	cJSON_Delete(json);
-	ESP_LOGV(TAG, "%s", string);
+	ESP_LOGI(TAG, "%s", string);
 	return string;
 }
 
-
+/*!
+ * @brief Create json string and fill it with live values.
+ * @return string* with json
+ */
 char* Web_driver_json_liveCreate(Web_driver_live_t live){
 
 	char *string = NULL;
@@ -90,6 +84,9 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 
 	cJSON *json = cJSON_CreateObject();
 
+	cJSON *Global = cJSON_CreateObject();
+	cJSON_AddNumberToObject(Global, "timestamp", live.timestamp);
+	cJSON_AddItemToObject(json, "Global", Global);
 
 	cJSON *MS5607 = cJSON_CreateObject();
 	cJSON_AddNumberToObject(MS5607, "pressure", live.MS5607.pressure);
@@ -159,7 +156,7 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 
 
 	cJSON_Delete(json);
-	ESP_LOGV(TAG, "%s", string);
+	ESP_LOGI(TAG, "%s", string);
 	return string;
 }
 

@@ -14,24 +14,27 @@
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "esp_http_server.h"
-
+#include "cJSON.h"
 
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
+
 #include "Web_driver.h"
 #include "Web_driver_json.h"
+#include "Web_driver_cmd.h"
+#include "DataManager.h"
 
 static const char *TAG = "Web_driver";
 
-#define WIFI_SSID      "KPPTR"
-#define WIFI_PASS      "123456789"
+//#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
+//#define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
 #define WIFI_CHANNEL   1
 #define MAX_STA_CONN   1
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 
-/* Max size of an individual file. Make sure this*/
+/* Max size of an individual file.*/
 #define MAX_FILE_SIZE   (5000*1024) // 5000 KB
 #define MAX_FILE_SIZE_STR "5000KB"
 
@@ -42,25 +45,27 @@ static const char *TAG = "Web_driver";
 		(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 
-Web_driver_status_t state_package;
-Web_driver_live_t   live_package;
+Web_driver_status_t status_web;
+Web_driver_live_t live_web;
 
 
-esp_err_t Web_wifi_init 					(void);
+esp_err_t Web_wifi_init 				(void);
 esp_err_t Web_http_init 				(const char *base_path);
-void Web_http_stop							(httpd_handle_t server);
-esp_err_t Web_wifi_stop						(void);
-
-
+void Web_http_stop						(httpd_handle_t server);
+esp_err_t Web_wifi_stop					(void);
 
 
 esp_vfs_spiffs_conf_t conf = {
      .base_path = "/www",
      .partition_label = "www",
      .max_files = 5,
-     .format_if_mount_failed = true
+     .format_if_mount_failed = false
 };
 
+typedef struct rest_server_context {
+    char base_path[ESP_VFS_PATH_MAX + 1];
+    char scratch[SCRATCH_BUFSIZE];
+} rest_server_context_t;
 
 /*!
  * @brief Initialize web component by calling init functions for wifi and http server.
@@ -75,7 +80,7 @@ esp_err_t Web_init(void){
 	ret = esp_vfs_spiffs_register(&conf);
 
 	 if(ret != ESP_OK){
-		 ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
+		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
 	 }
 
 	ret = Web_wifi_init();
@@ -83,64 +88,7 @@ esp_err_t Web_init(void){
 		ret = Web_http_init(base_path);
 	}
 
-	state_package.latitude = 0.0f;
-	state_package.longitude = 0.0f;
-	state_package.fix = 0;
-	state_package.angle = 0.0f;
-	state_package.batteryVoltage = 0.0f;
-	state_package.drougeAlt = 0;
-	state_package.igniters[0].continuity = false;
-	state_package.igniters[1].continuity = false;
-	state_package.igniters[2].continuity = false;
-	state_package.igniters[3].continuity = false;
-	state_package.igniters[0].fired = false;
-	state_package.igniters[1].fired = false;
-	state_package.igniters[2].fired = false;
-	state_package.igniters[3].fired = false;
-	state_package.mainAlt = 0;
-	state_package.serialNumber = 0;
-	state_package.state = 0;
-	state_package.timestamp = 0;
-	state_package.sysmgr_analog_status = 0;
-	state_package.sysmgr_lora_status = 0;
-	state_package.sysmgr_main_status = 0;
-	state_package.sysmgr_storage_status = 0;
-	state_package.sysmgr_sysmgr_status = 0;
-	state_package.sysmgr_utils_status = 0;
-	state_package.sysmgr_web_status = 0;
-	strcpy(state_package.softwareVersion, "v0.1.0");
-
-	live_package.LIS331.ax = 0.0f;
-	live_package.LIS331.ay = 0.0f;
-	live_package.LIS331.az = 0.0f;
-	live_package.LSM6DS32_0.ax = 0.0f;
-	live_package.LSM6DS32_0.ay = 0.0f;
-	live_package.LSM6DS32_0.az = 0.0f;
-	live_package.LSM6DS32_0.gx = 0.0f;
-	live_package.LSM6DS32_0.gy = 0.0f;
-	live_package.LSM6DS32_0.gz = 0.0f;
-	live_package.LSM6DS32_0.temperature = 0.0f;
-	live_package.LSM6DS32_1.ax = 0.0f;
-	live_package.LSM6DS32_1.ay = 0.0f;
-	live_package.LSM6DS32_1.az = 0.0f;
-	live_package.LSM6DS32_1.gx = 0.0f;
-	live_package.LSM6DS32_1.gy = 0.0f;
-	live_package.LSM6DS32_1.gz = 0.0f;
-	live_package.LSM6DS32_1.temperature = 0.0f;
-	live_package.MMC5983MA.mx = 0.0f;
-	live_package.MMC5983MA.my = 0.0f;
-	live_package.MMC5983MA.mz = 0.0f;
-	live_package.MS5607.altitude = 0.0f;
-	live_package.MS5607.pressure = 0.0f;
-	live_package.MS5607.temperature = 0.0f;
-	live_package.anglex = 0.0f;
-	live_package.angley = 0.0f;
-	live_package.anglez = 0.0f;
-	live_package.gps.fix = 0.0f;
-	live_package.gps.latitude = 0.0f;
-	live_package.gps.longitude = 0.0f;
-	live_package.gps.sats = 0;
-
+    Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
 	return ret;
 }
 
@@ -171,17 +119,17 @@ esp_err_t Web_wifi_init(void){
     wifi_config_t wifi_config = {
     	.ap =
     	{
-    		.ssid = WIFI_SSID,
-    		.ssid_len = strlen(WIFI_SSID),
+    		.ssid = CONFIG_ESP_WIFI_SSID,
+    		.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
     		.channel = WIFI_CHANNEL,
-    		.password = WIFI_PASS,
+    		.password = CONFIG_ESP_WIFI_PASSWORD,
     		.max_connection = MAX_STA_CONN,
     		.authmode = WIFI_AUTH_WPA_WPA2_PSK
     	},
     };
 
 
-    if (strlen(WIFI_PASS) == 0) {
+    if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     }
 
@@ -189,7 +137,7 @@ esp_err_t Web_wifi_init(void){
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
+    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD, WIFI_CHANNEL);
 
     tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
@@ -200,8 +148,6 @@ esp_err_t Web_wifi_init(void){
 
     return ESP_OK;
 }
-
-
 
 
 /*!
@@ -275,7 +221,6 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
 }
 
 
-
 static esp_err_t index_html_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_status(req, "307 Temporary Redirect");
@@ -283,6 +228,7 @@ static esp_err_t index_html_get_handler(httpd_req_t *req)
     httpd_resp_send(req, NULL, 0);  // Response body can be empty
     return ESP_OK;
 }
+
 
 /*!
  * @brief Handler responsible for serving all files to the client.
@@ -361,6 +307,7 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
+
 
 /*!
  * @brief Handler responsible for deleting files.
@@ -538,6 +485,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+
 /*!
  * @brief Handler responsible for serving json with status data.
  * @param req
@@ -545,25 +493,8 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
  * @return `ESP_OK` if done
  * @return `ESP_FAIL` otherwise.
  */
-esp_err_t jsonStatus_get_handler(httpd_req_t *req)
-{
-	//temporary placeholder data
-
-/*
-	state.state = 1;
-	state.timestamp = 10233;
-	state.drougeAlt = 500;
-	state.mainAlt = 200;
-	state.angle = 11;
-	state.batteryVoltage = 6.7;
-	state.serialNumber = 1234567;
-*/
-
-	char *string = Web_driver_json_statusCreate(state_package);
-
-
-    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
-
+esp_err_t jsonStatus_get_handler(httpd_req_t *req){
+	char *string = Web_driver_json_statusCreate(status_web);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -572,22 +503,58 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req)
 }
 
 
-esp_err_t jsonLive_get_handler(httpd_req_t *req)
-{
-
-	//live.gps.longitude.direction = "N";
-	//live.gps.latitude.direction = "W";
-	char *string = Web_driver_json_liveCreate(live_package);
-
-
-    //httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
-
+/*!
+ * @brief Handler responsible for serving json with live telemetry data.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t jsonLive_get_handler(httpd_req_t *req){
+	char *string = Web_driver_json_liveCreate(live_web);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
+
+
+/*!
+ * @brief Handler responsible for commands sent through wifi.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t cmd_post_handler(httpd_req_t *req){
+	int total_len = req->content_len;
+	    int cur_len = 0;
+	    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	    int received = 0;
+	    if (total_len >= SCRATCH_BUFSIZE) {
+	        /* Respond with 500 Internal Server Error */
+	        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+	        return ESP_FAIL;
+	    }
+	    while (cur_len < total_len) {
+	        received = httpd_req_recv(req, buf + cur_len, total_len);
+	        if (received <= 0) {
+	            /* Respond with 500 Internal Server Error */
+	            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+	            return ESP_FAIL;
+	        }
+	        cur_len += received;
+	    }
+	    buf[total_len] = '\0';
+
+	    Web_cmd_handler(buf);
+
+	    httpd_resp_sendstr(req, "Post control value successfully");
+
+    return ESP_OK;
+}
+
 
 
 /*!
@@ -649,6 +616,15 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &jsonLive_get);
 
+	httpd_uri_t cmd_send = {
+			    .uri      = "/cmd",
+			    .method   = HTTP_POST,
+			    .handler  = cmd_post_handler,
+			    .user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &cmd_send);
+
+
 	httpd_uri_t file_delete = {
 			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
 		    .method    = HTTP_POST,
@@ -674,14 +650,10 @@ esp_err_t Web_http_init(const char *base_path){
 	httpd_register_uri_handler(server, &file_download);
 
 
-
-
 	ESP_LOGI(TAG, "Started HTTP server successfully");
-
-
-
 	return ESP_OK;
 }
+
 
 /*!
  * @brief Turn off HTTP server
@@ -698,6 +670,7 @@ void Web_http_stop(httpd_handle_t server){
     }
 }
 
+
 /*!
  * @brief Turn off WIFI soft access point
  * @return `ESP_OK` if initialized
@@ -711,6 +684,7 @@ esp_err_t Web_wifi_stop(void){
 	return ret;
 }
 
+
 /*!
  * @brief Turn off web component by calling deactivation functions for wifi and HTTP server.
  * @return `ESP_OK` if initialized
@@ -722,15 +696,129 @@ esp_err_t Web_off(void){
 }
 
 
-
+/*!
+ * @brief Exchange status data with main program to display it.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
 void Web_status_exchange(Web_driver_status_t EX_status){
-	state_package = EX_status;
+	status_web = EX_status;
 }
 
+
+/*!
+ * @brief Exchange live data with main program to display it.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
 void Web_live_exchange(Web_driver_live_t EX_live){
-	live_package = EX_live;
+	live_web = EX_live;
 }
 
 
+esp_err_t Web_status_updateAnalog(float vbat){
+    status_web.battery_voltage = vbat;
 
+    return ESP_OK;
+}
+
+
+esp_err_t Web_status_updateIgniters(uint8_t ign1_cont, uint8_t ign2_cont, uint8_t ign3_cont, uint8_t ign4_cont, uint8_t ign1_fired, uint8_t ign2_fired, uint8_t ign3_fired, uint8_t ign4_fired){
+    status_web.igniters[0].continuity = ign1_cont;
+    status_web.igniters[1].continuity = ign2_cont;
+    status_web.igniters[2].continuity = ign3_cont;
+    status_web.igniters[3].continuity = ign4_cont;
+
+    status_web.igniters[0].fired = ign1_fired;
+    status_web.igniters[1].fired = ign2_fired;
+    status_web.igniters[2].fired = ign3_fired;
+    status_web.igniters[3].fired = ign4_fired;
+
+    return ESP_OK;
+}
+
+
+esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog, uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage, uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web){
+    live_web.timestamp = timestamp_ms;
+    status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
+    status_web.sysmgr_analog_status     = state_analog;
+    status_web.sysmgr_lora_status         = state_lora;
+    status_web.sysmgr_adcs_status         = state_adcs;        //zmiana nazwy z main; //ADCS = Attitude Determination and Control System
+    status_web.sysmgr_storage_status     = state_storage;
+    status_web.sysmgr_sysmgr_status     = state_sysmgr;
+    status_web.sysmgr_utils_status         = state_utils;
+    status_web.sysmgr_web_status         = state_web;
+
+    return ESP_OK;
+}
+
+
+esp_err_t Web_status_updateconfig(uint64_t SWversion, uint64_t serialNumber, float drougeAlt, float mainAlt){        //zakładam wykonywanie tego przy okazji odczyty konfiguracji konfiguracji, czyli na starcie i po zmienie konfiguracji
+    status_web.software_version = SWversion;        //zmiana z tablicy charów na uint64 w którym zakodujemy wszystkie informacje
+    status_web.serial_number = serialNumber;
+    status_web.drouge_alt = drougeAlt;
+    status_web.main_alt = mainAlt;
+
+    return ESP_OK;
+}
+
+
+esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats){
+    live_web.gps.latitude  = lat;        // pozmieniane lekko nazwy i dodane pole "sats"
+    live_web.gps.longitude = lon;
+    live_web.gps.fix  = fix;
+    live_web.gps.sats = sats;
+
+    return ESP_OK;
+}
+
+
+esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        //ADCS = Attitude Determination and Control System
+    status_web.flight_state = flightstate;    //nowe
+    status_web.rocket_tilt = rocket_tilt;    //zmian nazwy z angle
+
+    return ESP_OK;
+}
+
+
+esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
+    Web_driver_live_t     live_web;
+
+    live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
+    live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
+    live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;
+    live_web.LSM6DS32_0.ax = DataPackage_ptr->sensors.accX;
+    live_web.LSM6DS32_0.ay = DataPackage_ptr->sensors.accY;
+    live_web.LSM6DS32_0.az = DataPackage_ptr->sensors.accZ;
+    live_web.LSM6DS32_0.gx = DataPackage_ptr->sensors.gyroX;
+    live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
+    live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
+    live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
+    live_web.LSM6DS32_1.ax = 10.0f;
+    live_web.LSM6DS32_1.ay = 0.0f;
+    live_web.LSM6DS32_1.az = 0.0f;
+    live_web.LSM6DS32_1.gx = 0.0f;
+    live_web.LSM6DS32_1.gy = 0.0f;
+    live_web.LSM6DS32_1.gz = 0.0f;
+    live_web.LSM6DS32_1.temperature = 0.0f;
+    live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
+    live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
+    live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
+    live_web.MS5607.altitude = 0.0f;
+    live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
+    live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
+    live_web.anglex = 0.0f;
+    live_web.angley = 0.0f;
+    live_web.anglez = 0.0f;
+    live_web.gps.fix = DataPackage_ptr->sensors.gnss_fix;
+    live_web.gps.latitude = DataPackage_ptr->sensors.latitude;
+    live_web.gps.longitude = DataPackage_ptr->sensors.longitude;
+    live_web.gps.sats = DataPackage_ptr->sensors.gnss_fix;
+    Web_live_exchange(live_web);
+    return ESP_OK;
+}
 

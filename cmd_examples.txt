@@ -1,0 +1,4 @@
+{"cmd": "main_alt_set","arg1":200,"key":2137} -> set main parachute altitude to 200
+{"cmd": "drouge_alt_set","arg1":0,"key":2137} -> set drouge parachute altitude to apogee
+{"cmd": "max_tilt_set","arg1":45,"key":2137} -> set max tilt of the rocket to 45 degrees
+{"cmd": "ign_set","arg1":1,"key":2137} -> fire ign no. 1

@@ -55,7 +55,7 @@ esp_err_t Storage_init(Storage_filesystem_t filesys , uint32_t key){
 
     Storage_data_d.Storage_filestystem_d 	= filesys;
     Storage_data_d.ReadyFlag 				= false;
-    Storage_data_d.MasterKey 				= key;
+    Storage_data_d.MasterKey 				= CONFIG_KPPTR_MASTERKEY;
     Storage_data_d.minFreeMem 				= 100;
 
     strcpy(Storage_data_d.path, "/storage/meas.bin");
