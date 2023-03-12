@@ -22,7 +22,7 @@
 
 static const char *TAG = "Preferences_driver";
 const char* preferences_path = "/www/preferences.txt";
-
+ 
 
 esp_vfs_spiffs_conf_t conf_preferences = {
      .base_path = "/www",
@@ -45,12 +45,13 @@ esp_err_t Preferences_init(){
 	Preferences_default.drouge_alt = 0;
 	Preferences_default.max_tilt = 45;
 	Preferences_default.staging_delay = 0;
-
+	Preferences_default.rail_height = 2
+	;
 	struct stat st;
 	int8_t FileStatus = stat(preferences_path, &st);
 
 	if(FileStatus == -1){
-		ESP_LOGI(TAG, "Config file not present, created file successfully");
+		ESP_LOGI(TAG, "Config file not present, creating file");
 
 		FILE* f = fopen(preferences_path, "w");
 		fclose(f);
@@ -84,11 +85,20 @@ esp_err_t Preferences_init(){
 	cJSON *json = cJSON_Parse(buf);
 
 	ESP_LOGI(TAG, "Read: %s", buf);
+	if(NULL == cJSON_GetObjectItem(json, "main_alt") || 
+	NULL == cJSON_GetObjectItem(json, "drouge_alt") ||
+	NULL == cJSON_GetObjectItem(json, "max_tilt") ||
+	NULL == cJSON_GetObjectItem(json, "staging_delay") || 
+	NULL == cJSON_GetObjectItem(json, "rail_height")){
+		return ESP_FAIL;
+	}
+	
+	
 	Preferences_data_d.main_alt = cJSON_GetObjectItem(json, "main_alt")->valueint;
 	Preferences_data_d.drouge_alt = cJSON_GetObjectItem(json, "drouge_alt")->valueint;
 	Preferences_data_d.max_tilt = cJSON_GetObjectItem(json, "max_tilt")->valueint;
 	Preferences_data_d.staging_delay = cJSON_GetObjectItem(json, "staging_delay")->valueint;
-
+	Preferences_data_d.rail_height = cJSON_GetObjectItem(json, "rail_height")->valueint;
 	cJSON_Delete(json);
 
 	return ret;
@@ -117,6 +127,7 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	cJSON_AddNumberToObject(json, "drouge_alt", Preferences_data_d.drouge_alt);
 	cJSON_AddNumberToObject(json, "max_tilt", Preferences_data_d.max_tilt);
 	cJSON_AddNumberToObject(json, "staging_delay", Preferences_data_d.staging_delay);
+	cJSON_AddNumberToObject(json, "rail_height", Preferences_data_d.rail_height);
 
 	string = cJSON_Print(json);
 	if(string == NULL){
