@@ -4,13 +4,16 @@
 #include "MMC5983MA_driver.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "BOARD.h"
+#include <string.h>
 
 #define READ_REG(x) (0x80 | x)
+#define MMC5983MA_SPI_CS_PIN SPI_SLAVE_MMC5983MA_PIN
+#define SPI_BUS SPI2_HOST
 
-
-static esp_err_t MMC5983MA_read(uint8_t  address, uint8_t * buf, uint8_t len);
+static esp_err_t MMC5983MA_read(uint8_t addr, uint8_t * data_in, uint16_t length);
 static uint8_t MMC5983MA_readSingleByte(uint8_t  address);
-static esp_err_t MMC5983MA_command(uint8_t command);
+//static esp_err_t MMC5983MA_command(uint8_t command);
 static esp_err_t MMC5983MA_writeSingleByte(uint8_t adress, uint8_t value);
 static esp_err_t MMC5983MA_setRegisterBit(uint8_t registerAddress, uint8_t bitMask);
 static esp_err_t MMC5983MA_clearRegisterBit(const uint8_t registerAddress, const uint8_t bitMask);
@@ -64,8 +67,50 @@ static const char* TAG = "MMC5983MA";
 static controlBitMemory_t controlBitMemory;
 MMC5983MA_t MMC5983MA_d;
 
+static spi_device_handle_t spi_dev_handle_MMC5983MA;
+
+
+esp_err_t MMC5983MA_spi_init(void)
+{
+	esp_err_t ret = ESP_OK;
+
+/*  SPI BUS INITIALIZATION */
+// Uncomment if not initialised elsewhere
+/*
+	spi_bus_config_t buscfg={
+		.miso_io_num   = SPI_MISO_PIN,
+		.mosi_io_num   = SPI_MOSI_PIN,
+		.sclk_io_num   = SPI_SCK_PIN,
+		.quadwp_io_num = -1,
+		.quadhd_io_num = -1,
+
+	};
+
+	ret = spi_bus_initialize(SPI_BUS, &buscfg, SPI_DMA_DISABLED); //Initialize the SPI bus (prev: SPI_DMA_CH_AUTO)
+	ESP_ERROR_CHECK(ret);
+
+*/
+
+/* CONFIGURE SPI DEVICE */
+
+spi_device_interface_config_t MMC5983MA_spi_config = {
+			.mode           =  0,
+			.spics_io_num   = MMC5983MA_SPI_CS_PIN,
+			.clock_speed_hz =  1 * 1000 * 1000,
+			.queue_size     =  1,
+			.command_bits = 2,
+			.address_bits = 6,
+
+		};
+
+ret = spi_bus_add_device(SPI_BUS, &MMC5983MA_spi_config, &spi_dev_handle_MMC5983MA);
+return ret;
+}
+
+
 esp_err_t MMC5983MA_init()
 {
+	MMC5983MA_spi_init();
 	MMC5983MA_enableAutomaticSetReset();
 	MMC5983MA_enablePeriodicSet();
 	MMC5983MA_setPeriodicSetSamples(100);
@@ -84,37 +129,36 @@ esp_err_t MMC5983MA_init()
 	uint8_t buf[2] = {0};
 	MMC5983MA_read(MMC_PROD_ID_REG, buf, 1);
 
-	if(buf[1] == MMC_PROD_ID){
-		ESP_LOGI(TAG, "MMC5883MA initialization returned: %X", buf[1]);
+	if(buf[0] == MMC_PROD_ID){
+		ESP_LOGI(TAG, "MMC5883MA initialization returned: %X", buf[0]);
 		return ESP_OK;
 	}
-	ESP_LOGW(TAG, "WARNING: MMC5883MA initialization returned: %X", buf[1]);
+	ESP_LOGW(TAG, "WARNING: MMC5883MA initialization returned: %X", buf[0]);
 	return ESP_FAIL;
 }
 
 esp_err_t MMC5983MA_readMeas()
 {
 	if(MMC5983MA_isRegisterSet(MMC_STATUS_REG, MMC_MEAS_M_DONE)){
-		uint8_t buffer[8] = {0};
+		uint8_t buffer[7] = {0};
 		MMC5983MA_read(MMC_X_OUT_0_REG, buffer, 7);
 
-		int32_t Xraw = (((uint32_t) buffer[1]) << 10) | (((uint32_t) buffer[2]) << 2) | ((buffer[7] & 0xC0) >> 6);
-		int32_t Yraw = (((uint32_t) buffer[3]) << 10) | (((uint32_t) buffer[4]) << 2) | ((buffer[7] & 0x30) >> 4);
-		int32_t Zraw = (((uint32_t) buffer[5]) << 10) | (((uint32_t) buffer[6]) << 2) | ((buffer[7] & 0x0C) >> 2);
+		int32_t Xraw = (((uint32_t) buffer[0]) << 10) | (((uint32_t) buffer[1]) << 2) | ((buffer[6] & 0xC0) >> 6);
+		int32_t Yraw = (((uint32_t) buffer[2]) << 10) | (((uint32_t) buffer[3]) << 2) | ((buffer[6] & 0x30) >> 4);
+		int32_t Zraw = (((uint32_t) buffer[4]) << 10) | (((uint32_t) buffer[5]) << 2) | ((buffer[6] & 0x0C) >> 2);
 
-		//printf("%i,%i,%i\n", Xraw, Yraw, Zraw);
 
-		Xraw -= 131072;
-		Yraw -= 131072;
-		Zraw -= 131072;
 
 		MMC5983MA_d.Xraw = Xraw;
 		MMC5983MA_d.Yraw = Yraw;
 		MMC5983MA_d.Zraw = Zraw;
 
-		MMC5983MA_d.meas.magX = (Xraw - MMC5983MA_d.offsetX) / MMC5983MA_d.gainX;
-		MMC5983MA_d.meas.magY = (Yraw - MMC5983MA_d.offsetY) / MMC5983MA_d.gainY;
-		MMC5983MA_d.meas.magZ = (Zraw - MMC5983MA_d.offsetZ) / MMC5983MA_d.gainZ;
+		MMC5983MA_d.meas.magX = ((float)((Xraw - 131072)*2)) / 16384;
+		MMC5983MA_d.meas.magY = ((float)((Yraw - 131072)*2)) / 16384;
+		MMC5983MA_d.meas.magZ = ((float)((Zraw - 131072)*2)) / 16384;
+
+
+
 
 		return ESP_OK;
 	}
@@ -127,31 +171,79 @@ esp_err_t MMC5983MA_getMeas(MMC5983MA_meas_t * meas){
 	return ESP_OK;
 }
 
-static esp_err_t MMC5983MA_read(uint8_t  address, uint8_t * buf, uint8_t len) {
-	uint8_t txBuff[8] = {READ_REG(address)};
-    SPI_RW(SPI_SLAVE_MMC5983MA, txBuff, buf, len+1);
-    return ESP_OK;
+static esp_err_t MMC5983MA_read(uint8_t addr, uint8_t * data_in, uint16_t length) {
+
+	esp_err_t ret = ESP_OK;
+	spi_transaction_t trans;
+	memset(&trans, 0x00, sizeof(trans));
+
+	trans.length = ((8 * length));
+	trans.rxlength = 8 * length;
+	trans.cmd = 0x03;
+	trans.addr = addr;
+	trans.rx_buffer = data_in;
+
+
+	spi_device_acquire_bus(spi_dev_handle_MMC5983MA, portMAX_DELAY);
+	if (spi_device_polling_transmit(spi_dev_handle_MMC5983MA, &trans) != ESP_OK)
+	{
+		ESP_LOGE("MMC5983MA", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		ret = ESP_FAIL;
+	}
+	spi_device_release_bus(spi_dev_handle_MMC5983MA);
+
+	return ret;
 }
 
-static uint8_t MMC5983MA_readSingleByte(uint8_t  address) {
-	uint8_t txBuff[2] = {READ_REG(address)};
-	uint8_t buf[2] = {0};
-    SPI_RW(SPI_SLAVE_MMC5983MA, txBuff, buf, 2);
-    return buf[1];
+static uint8_t MMC5983MA_readSingleByte(uint8_t  addr) {
+
+	uint8_t buf[1] = {0};
+	spi_transaction_t trans;
+	memset(&trans, 0x00, sizeof(trans));
+	trans.length = 16;
+	trans.rxlength = 8;
+	trans.cmd = 0x02;
+	trans.addr = addr;
+	trans.rx_buffer = buf;
+
+	spi_device_acquire_bus(spi_dev_handle_MMC5983MA, portMAX_DELAY);
+	if (spi_device_polling_transmit(spi_dev_handle_MMC5983MA, &trans) != ESP_OK)
+	{
+		ESP_LOGE("MMC5983MA", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+	}
+	spi_device_release_bus(spi_dev_handle_MMC5983MA);
+
+	return buf[0];
 }
 
-static esp_err_t MMC5983MA_command(uint8_t command) {
-    uint8_t txBuff[1] = {command};
-    SPI_RW(SPI_SLAVE_MMC5983MA, txBuff, NULL, 1);
-    ESP_LOGD(TAG, "Command %X sent to MMC5883MA", command);
-    return ESP_OK;
-}
+//static esp_err_t MMC5983MA_command(uint8_t command) {
+//    uint8_t txBuff[1] = {command};
+//    SPI_RW(SPI_SLAVE_MMC5983MA, txBuff, NULL, 1);
+//    ESP_LOGD(TAG, "Command %X sent to MMC5883MA", command);
+//    return ESP_OK;
+//}
 
-static esp_err_t MMC5983MA_writeSingleByte(uint8_t adress, uint8_t value) {
-    uint8_t txBuff[2] = {adress,value};
-    SPI_RW(SPI_SLAVE_MMC5983MA, txBuff, NULL, 2);
-    ESP_LOGD(TAG, "Byte sent to MMC5883MA Adress: %X Value: %X", txBuff[0], txBuff[1]);
-    return ESP_OK;
+static esp_err_t MMC5983MA_writeSingleByte(uint8_t addr, uint8_t data_out) {
+	uint8_t buff[1] = {data_out};
+	esp_err_t ret = ESP_OK;
+	spi_transaction_t trans;
+	memset(&trans, 0x00, sizeof(trans));
+	trans.length = (8 + 8);
+	trans.rxlength = 8 ;
+	trans.cmd = 0x00;
+	trans.addr = addr;
+	trans.tx_buffer = buff;
+
+
+	spi_device_acquire_bus(spi_dev_handle_MMC5983MA, portMAX_DELAY);
+	if (spi_device_polling_transmit(spi_dev_handle_MMC5983MA, &trans) != ESP_OK)
+	{
+		ESP_LOGE("MMC5983MA", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		ret = ESP_FAIL;
+	}
+	spi_device_release_bus(spi_dev_handle_MMC5983MA);
+
+	return ret;
 }
 
 static esp_err_t MMC5983MA_setRegisterBit(const uint8_t registerAddress, const uint8_t bitMask)

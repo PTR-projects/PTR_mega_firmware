@@ -71,6 +71,7 @@ esp_err_t LIS331_read(uint8_t addr, uint8_t * data_in, uint16_t length){
 	trans.addr = addr;
 	trans.rx_buffer = data_in;
 
+
 	spi_device_acquire_bus(spi_dev_handle_LIS331, portMAX_DELAY);
 	if (spi_device_polling_transmit(spi_dev_handle_LIS331, &trans) != ESP_OK)
 	{

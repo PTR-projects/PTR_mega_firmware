@@ -4,23 +4,23 @@
 #include "LIS331_driver.h"
 #include "MMC5983MA_driver.h"
 #include "LSM6DSO32_driver.h"
-
+#include "esp_log.h"
 #include "Sensors.h"
 
+static const char *TAG = "Sensors";
 esp_err_t Sensors_axes_translation();
 
 //--------- Private var ---------------
 static Sensors_t Sensors_d;
 
-esp_err_t Sensors_init()
-{
+esp_err_t Sensors_init(){
+	ESP_LOGI(TAG,"Sensor init start");
+	
 	memset(&Sensors_d, 0, sizeof(Sensors_d));
-
 	MS5607_init();
 	LIS331_init(LIS331_IC_100G);
 	MMC5983MA_init();
 	LSM6DSO32_init();
-
 	return ESP_OK; 	//ESP_FAIL
 }
 
