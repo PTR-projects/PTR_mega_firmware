@@ -29,7 +29,7 @@ esp_err_t SPI_init(){
 	return ESP_OK;
 }
 
-esp_err_t SPI_registerDevice(spi_device_handle_t * handle, int CS_pin, int clock_mhz, int queue_size, int cmd_bits, int addr_bits){
+esp_err_t SPI_registerDevice(spi_dev_handle_t *handle, int CS_pin, int clock_mhz, int queue_size, int cmd_bits, int addr_bits){
 	ESP_RETURN_ON_FALSE(((cmd_bits+addr_bits)%8) == 0, ESP_ERR_INVALID_ARG, TAG, "SPI_register - wrong ADDR or CMD length");
 
 	/* CONFIGURE SPI DEVICE */
@@ -50,15 +50,14 @@ esp_err_t SPI_registerDevice(spi_device_handle_t * handle, int CS_pin, int clock
 		.post_cb		= NULL
 	};
 
-	//ESP_RETURN_ON_ERROR(spi_bus_add_device(SPI2_HOST, &spi_device_config, handle), TAG, "Failed to add new device, CS_pin %i", CS_pin);
-
-	esp_err_t ret = spi_bus_add_device(SPI2_HOST, &spi_device_config, handle);
-	ESP_LOGE(TAG, "Add CS %i returned: %i", CS_pin, (int)ret);
+	ESP_RETURN_ON_ERROR(spi_bus_add_device(SPI2_HOST, &spi_device_config, handle), TAG, "Failed to add new device, CS_pin %i", CS_pin);
+//	esp_err_t ret = spi_bus_add_device(SPI2_HOST, &spi_device_config, handle);
+//	ESP_LOGV(TAG, "Add CS %i returned: %i", CS_pin, (int)ret);
 
 	return ESP_OK;
 }
 
-esp_err_t SPI_transfer(spi_device_handle_t * handle, uint8_t cmd, uint8_t addr, uint8_t * tx_buf, uint8_t * rx_buf, int payload_len){
+esp_err_t SPI_transfer(spi_dev_handle_t handle, uint8_t cmd, uint8_t addr, uint8_t * tx_buf, uint8_t * rx_buf, int payload_len){
 	ESP_RETURN_ON_FALSE(handle != NULL, ESP_ERR_INVALID_ARG, TAG, "SPI_transfer - handle is NULL");
 
 	esp_err_t ret = ESP_OK;
@@ -71,12 +70,12 @@ esp_err_t SPI_transfer(spi_device_handle_t * handle, uint8_t cmd, uint8_t addr, 
 	trans.rx_buffer = rx_buf;
 	trans.tx_buffer = tx_buf;
 
-	if(spi_device_acquire_bus(*handle, portMAX_DELAY) == ESP_OK){  //TODO <<--------------------------------------------- dać jakiś limit na timeout???
-		if (spi_device_polling_transmit(*handle, &trans) != ESP_OK) {
+	if(spi_device_acquire_bus(handle, portMAX_DELAY) == ESP_OK){  //TODO <<--------------------------------------------- dać jakiś limit na timeout???
+		if (spi_device_polling_transmit(handle, &trans) != ESP_OK) {
 			ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
 			ret = ESP_FAIL;
 		}
-		spi_device_release_bus(*handle);
+		spi_device_release_bus(handle);
 	}
 
 	return ret;

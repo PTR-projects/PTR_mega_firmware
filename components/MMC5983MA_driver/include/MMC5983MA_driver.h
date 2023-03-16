@@ -3,8 +3,6 @@
 #include "SPI_driver.h"
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
-#include "esp_system.h"
-#include <driver/spi_master.h>
 
 typedef struct{
 	float magX;

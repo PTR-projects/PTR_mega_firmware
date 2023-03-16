@@ -20,7 +20,7 @@
 
 static const char *TAG = "LIS331";
 static LIS331_t LIS331_d;
-static spi_device_handle_t spi_dev_handle_LIS331;
+static spi_dev_handle_t spi_dev_handle_LIS331;
 
 
 esp_err_t LIS331_spi_init(void)
@@ -37,65 +37,18 @@ esp_err_t LIS331_spi_init(void)
 }
 
 esp_err_t LIS331_read(uint8_t addr, uint8_t * data_in, uint16_t length){
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length 	= 8 * length;
-	trans.rxlength 	= 8 * length;
-	trans.cmd 		= CMD_READ;
-	trans.addr 		= addr;
-	trans.rx_buffer = data_in;
-
-	spi_device_acquire_bus(spi_dev_handle_LIS331, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_LIS331, &trans) != ESP_OK)
-	{
-		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_LIS331);
-
-	return ret;
+	return SPI_transfer(spi_dev_handle_LIS331, LIS331_CMD_READ, addr, NULL, data_in, length);
 }
 
 uint8_t LIS331_read_single(uint8_t addr){
 	uint8_t buf = 0;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length 	= 8;
-	trans.rxlength 	= 8;
-	trans.cmd 		= CMD_READ;
-	trans.addr 		= addr;
-	trans.rx_buffer = &buf;
-
-	spi_device_acquire_bus(spi_dev_handle_LIS331, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_LIS331, &trans) != ESP_OK)
-	{
-		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-	}
-	spi_device_release_bus(spi_dev_handle_LIS331);
+	SPI_transfer(spi_dev_handle_LIS331, LIS331_CMD_READ, addr, NULL, &buf, 1);
 
 	return buf;
 }
 
 esp_err_t LIS331_write(uint8_t addr, uint8_t data_out){
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length 	= 8;
-	trans.rxlength 	= 0 ;
-	trans.cmd 		= CMD_WRITE;
-	trans.addr 		= addr;
-	trans.tx_buffer = &data_out;
-
-	spi_device_acquire_bus(spi_dev_handle_LIS331, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_LIS331, &trans) != ESP_OK)
-	{
-		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_LIS331);
-
-	return ret;
+	return SPI_transfer(spi_dev_handle_LIS331, LIS331_CMD_WRITE, addr, &data_out, NULL, 1);
 }
 
 esp_err_t LIS331_set(uint8_t reg_addr, uint8_t cmd_mask, uint8_t cmd_value)
@@ -139,7 +92,7 @@ esp_err_t LIS331_init(LIS331_type_t type)
 		range = 3;
 
 	LIS331_write(LIS331_CTRL_REG1, 0x37);	//XYZ enabled, Normal mode, 400Hz ODR
-	LIS331_write(LIS331_CTRL_REG4, (range << 4) | BDU_MASK);
+	LIS331_write(LIS331_CTRL_REG4, (range << 4) | LIS331_BDU_MASK);
 
 	LIS331_d.sensor_range = type;
 
@@ -150,77 +103,77 @@ esp_err_t LIS331_init(LIS331_type_t type)
 esp_err_t LIS331_x_axis_set(bool val)
 {
 	if (!val){
-		LIS331_set(LIS331_CTRL_REG1, XEN_MASK , 0x0);
+		LIS331_set(LIS331_CTRL_REG1, LIS331_XEN_MASK , 0x0);
 	}
 	else
 	{
-		LIS331_set(LIS331_CTRL_REG1, XEN_MASK , XEN_MASK);
+		LIS331_set(LIS331_CTRL_REG1, LIS331_XEN_MASK , LIS331_XEN_MASK);
 	}
 	return ESP_OK;
 }
 
 bool LIS331_x_axis_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG1, XEN_MASK) == XEN_MASK;
+	return LIS331_get(LIS331_CTRL_REG1, LIS331_XEN_MASK) == LIS331_XEN_MASK;
 }
 
 
 esp_err_t LIS331_y_axis_set(bool val)
 {
 	if (!val){
-		LIS331_set(LIS331_CTRL_REG1, YEN_MASK , 0x0);
+		LIS331_set(LIS331_CTRL_REG1, LIS331_YEN_MASK , 0x0);
 	}
 	else
 	{
-		LIS331_set(LIS331_CTRL_REG1, YEN_MASK , YEN_MASK);
+		LIS331_set(LIS331_CTRL_REG1, LIS331_YEN_MASK , LIS331_YEN_MASK);
 	}
 	return ESP_OK;
 }
 
 bool LIS331_y_axis_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG1, YEN_MASK) == YEN_MASK;
+	return LIS331_get(LIS331_CTRL_REG1, LIS331_YEN_MASK) == LIS331_YEN_MASK;
 }
 
 esp_err_t LIS331_z_axis_set(bool val)
 {
 	if (!val){
-		LIS331_set(LIS331_CTRL_REG1, ZEN_MASK , 0x0);
+		LIS331_set(LIS331_CTRL_REG1, LIS331_ZEN_MASK , 0x0);
 	}
 	else
 	{
-		LIS331_set(LIS331_CTRL_REG1, ZEN_MASK , ZEN_MASK);
+		LIS331_set(LIS331_CTRL_REG1, LIS331_ZEN_MASK , LIS331_ZEN_MASK);
 	}
 	return ESP_OK;
 }
 
 bool LIS331_z_axis_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG1, ZEN_MASK) == ZEN_MASK;
+	return LIS331_get(LIS331_CTRL_REG1, LIS331_ZEN_MASK) == LIS331_ZEN_MASK;
 }
 
 esp_err_t LIS331_power_mode_set(LIS331_power_mode_t val)
 {
-	LIS331_set(LIS331_CTRL_REG1, POWER_MODE_MASK , val);
+	LIS331_set(LIS331_CTRL_REG1, LIS331_POWER_MODE_MASK , val);
 
 	return ESP_OK;
 }
 
 LIS331_power_mode_t LIS331_power_mode_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG1, POWER_MODE_MASK);
+	return LIS331_get(LIS331_CTRL_REG1, LIS331_POWER_MODE_MASK);
 }
 
 esp_err_t LIS331_data_rate_set(LIS331_data_rate_t val)
 {
-	LIS331_set(LIS331_CTRL_REG1, DATA_RATE_MASK , val);
+	LIS331_set(LIS331_CTRL_REG1, LIS331_DATA_RATE_MASK , val);
 
 	return ESP_OK;
 }
 
 LIS331_data_rate_t LIS331_data_rate_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG1, DATA_RATE_MASK);
+	return LIS331_get(LIS331_CTRL_REG1, LIS331_DATA_RATE_MASK);
 }
 
 esp_err_t LIS331_xyz_acc_raw_get(void)
@@ -267,7 +220,7 @@ esp_err_t LIS331_getMeasurementXYZ(float* X, float* Y, float* Z)
 
 esp_err_t LIS331_boot(void)
 {
-	LIS331_set(LIS331_CTRL_REG2, BOOT_MASK , BOOT_MASK);
+	LIS331_set(LIS331_CTRL_REG2, LIS331_BOOT_MASK , LIS331_BOOT_MASK);
 
   return ESP_OK;
 }
@@ -275,14 +228,14 @@ esp_err_t LIS331_boot(void)
 
 esp_err_t LIS331_hp_filter_set(LIS331_hp_mode_t val)
 {
-	LIS331_set(LIS331_CTRL_REG2, HP_MODE_MASK , val);
+	LIS331_set(LIS331_CTRL_REG2, LIS331_HP_MODE_MASK , val);
 
   return ESP_OK;
 }
 
 LIS331_hp_mode_t LIS331_hp_filter_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG2, HP_MODE_MASK);
+	return LIS331_get(LIS331_CTRL_REG2, LIS331_HP_MODE_MASK);
 }
 
 esp_err_t LIS331_hp_en_set(uint8_t interup, bool val)
@@ -290,21 +243,21 @@ esp_err_t LIS331_hp_en_set(uint8_t interup, bool val)
 	switch(interup){
 	case 1:
 		if (!val){
-			LIS331_set(LIS331_CTRL_REG2, HP_EN1_MASK, 0);
+			LIS331_set(LIS331_CTRL_REG2, LIS331_HP_EN1_MASK, 0);
 		}
 		else
 		{
-			LIS331_set(LIS331_CTRL_REG2, HP_EN1_MASK, HP_EN1_MASK);
+			LIS331_set(LIS331_CTRL_REG2, LIS331_HP_EN1_MASK, LIS331_HP_EN1_MASK);
 		}
 		break;
 
 	case 2:
 		if (!val){
-			LIS331_set(LIS331_CTRL_REG2, HP_EN2_MASK, 0);
+			LIS331_set(LIS331_CTRL_REG2, LIS331_HP_EN2_MASK, 0);
 		}
 		else
 		{
-			LIS331_set(LIS331_CTRL_REG2, HP_EN2_MASK,HP_EN2_MASK);
+			LIS331_set(LIS331_CTRL_REG2, LIS331_HP_EN2_MASK,LIS331_HP_EN2_MASK);
 		}
 		break;
 	default:
@@ -317,10 +270,10 @@ bool LIS331_hp_en_get(uint8_t interup)
 {
 	switch(interup){
 	case 1:
-		return LIS331_get(LIS331_CTRL_REG2, HP_EN1_MASK);
+		return LIS331_get(LIS331_CTRL_REG2, LIS331_HP_EN1_MASK);
 
 	case 2:
-		return LIS331_get(LIS331_CTRL_REG2, HP_EN2_MASK);
+		return LIS331_get(LIS331_CTRL_REG2, LIS331_HP_EN2_MASK);
 	default:
 		return ESP_ERR_INVALID_ARG;
 	}
@@ -329,54 +282,54 @@ bool LIS331_hp_en_get(uint8_t interup)
 
 esp_err_t LIS331_hp_cutoff_set(LIS331_hp_cutoff_t val)
 {
-	LIS331_set(LIS331_CTRL_REG2, HP_CUTOFF_MASK , val);
+	LIS331_set(LIS331_CTRL_REG2, LIS331_HP_CUTOFF_MASK , val);
 
   return ESP_OK;
 }
 
 LIS331_hp_cutoff_t LIS331_hp_cutoff_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG2, HP_CUTOFF_MASK);
+	return LIS331_get(LIS331_CTRL_REG2, LIS331_HP_CUTOFF_MASK);
 }
 
 
 esp_err_t LIS331_bdu_set(bool val)
 {
 	if (!val){
-		LIS331_set(LIS331_CTRL_REG4, BDU_MASK, 0);
+		LIS331_set(LIS331_CTRL_REG4, LIS331_BDU_MASK, 0);
 	}
 	else{
-		LIS331_set(LIS331_CTRL_REG4, BDU_MASK, BDU_MASK);
+		LIS331_set(LIS331_CTRL_REG4, LIS331_BDU_MASK, LIS331_BDU_MASK);
 	}
 	return ESP_OK;
 }
 
 bool LIS331_bdu_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG4, BDU_MASK) == BDU_MASK;
+	return LIS331_get(LIS331_CTRL_REG4, LIS331_BDU_MASK) == LIS331_BDU_MASK;
 }
 
 esp_err_t LIS331_ble_set(bool val)
 {
 	if (!val){
-		LIS331_set(LIS331_CTRL_REG4, BLE_MASK, 0);
+		LIS331_set(LIS331_CTRL_REG4, LIS331_BLE_MASK, 0);
 	}
 	else{
-		LIS331_set(LIS331_CTRL_REG4, BLE_MASK, BLE_MASK);
+		LIS331_set(LIS331_CTRL_REG4, LIS331_BLE_MASK, LIS331_BLE_MASK);
 	}
 	return ESP_OK;
 }
 
 bool LIS331_ble_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG4, BLE_MASK) == BLE_MASK;
+	return LIS331_get(LIS331_CTRL_REG4, LIS331_BLE_MASK) == LIS331_BLE_MASK;
 }
 
 
 
 esp_err_t LIS331_range_set(LIS331_range_t val)
 {
-	LIS331_set(LIS331_CTRL_REG4, FS_MASK , val);
+	LIS331_set(LIS331_CTRL_REG4, LIS331_FS_MASK , val);
 	switch(val){
 	case LIS331_RANGE_100G:
 		LIS331_d.sensor_range = 100;
@@ -396,6 +349,6 @@ esp_err_t LIS331_range_set(LIS331_range_t val)
 
 LIS331_range_t LIS331_range_get(void)
 {
-	return LIS331_get(LIS331_CTRL_REG4, FS_MASK);
+	return LIS331_get(LIS331_CTRL_REG4, LIS331_FS_MASK);
 }
 

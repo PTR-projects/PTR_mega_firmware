@@ -66,7 +66,7 @@ static const char* TAG = "MMC5983MA";
 static controlBitMemory_t controlBitMemory;
 MMC5983MA_t MMC5983MA_d;
 
-static spi_device_handle_t spi_dev_handle_MMC5983MA;
+static spi_dev_handle_t spi_dev_handle_MMC5983MA;
 
 
 esp_err_t MMC5983MA_spi_init(void)
@@ -86,6 +86,7 @@ esp_err_t MMC5983MA_spi_init(void)
 esp_err_t MMC5983MA_init()
 {
 	MMC5983MA_spi_init();
+	// Reset !!!
 	MMC5983MA_enableAutomaticSetReset();
 	MMC5983MA_enablePeriodicSet();
 	MMC5983MA_setPeriodicSetSamples(100);
@@ -101,14 +102,14 @@ esp_err_t MMC5983MA_init()
 	MMC5983MA_d.gainY = 6660.5f;
 	MMC5983MA_d.gainZ = 6553.6f;
 
-	uint8_t buf[2] = {0};
-	MMC5983MA_read(MMC_PROD_ID_REG, buf, 1);
+	uint8_t ID = 0;
+	MMC5983MA_read(MMC_PROD_ID_REG, &ID, 1);
 
-	if(buf[0] == MMC_PROD_ID){
-		ESP_LOGI(TAG, "MMC5883MA initialization returned: %X", buf[0]);
+	if(ID == MMC_PROD_ID){
+		ESP_LOGI(TAG, "MMC5883MA initialization returned: 0x%X", ID);
 		return ESP_OK;
 	}
-	ESP_LOGW(TAG, "WARNING: MMC5883MA initialization returned: %X", buf[0]);
+	ESP_LOGW(TAG, "WARNING: MMC5883MA initialization returned: 0x%X", ID);
 	return ESP_FAIL;
 }
 
@@ -147,71 +148,18 @@ esp_err_t MMC5983MA_getMeas(MMC5983MA_meas_t * meas){
 }
 
 static esp_err_t MMC5983MA_read(uint8_t addr, uint8_t * data_in, uint16_t length) {
-
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-
-	trans.length 	= 8 * length;
-	trans.rxlength 	= 8 * length;
-	trans.cmd 		= 0x02;
-	trans.addr 		= addr;
-	trans.rx_buffer = data_in;
-
-
-	spi_device_acquire_bus(spi_dev_handle_MMC5983MA, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_MMC5983MA, &trans) != ESP_OK)
-	{
-		ESP_LOGE("MMC5983MA", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_MMC5983MA);
-
-	return ret;
+	return SPI_transfer(spi_dev_handle_MMC5983MA, 0x02, addr, NULL, data_in, length);
 }
 
 static uint8_t MMC5983MA_readSingleByte(uint8_t  addr) {
+	uint8_t buf = 0;
+	SPI_transfer(spi_dev_handle_MMC5983MA, 0x02, addr, NULL, &buf, 1);
 
-	uint8_t buf[1] = {0};
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length = 16;
-	trans.rxlength = 8;
-	trans.cmd = 0x02;
-	trans.addr = addr;
-	trans.rx_buffer = buf;
-
-	spi_device_acquire_bus(spi_dev_handle_MMC5983MA, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_MMC5983MA, &trans) != ESP_OK)
-	{
-		ESP_LOGE("MMC5983MA", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-	}
-	spi_device_release_bus(spi_dev_handle_MMC5983MA);
-
-	return buf[0];
+	return buf;
 }
 
 static esp_err_t MMC5983MA_writeSingleByte(uint8_t addr, uint8_t data_out) {
-	uint8_t buff[1] = {data_out};
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length 	= 8;
-	trans.rxlength 	= 0;
-	trans.cmd 		= 0x00;
-	trans.addr 		= addr;
-	trans.tx_buffer = buff;
-
-
-	spi_device_acquire_bus(spi_dev_handle_MMC5983MA, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_MMC5983MA, &trans) != ESP_OK)
-	{
-		ESP_LOGE("MMC5983MA", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_MMC5983MA);
-
-	return ret;
+	return SPI_transfer(spi_dev_handle_MMC5983MA, 0, addr, &data_out, NULL, 1);
 }
 
 static esp_err_t MMC5983MA_setRegisterBit(const uint8_t registerAddress, const uint8_t bitMask)

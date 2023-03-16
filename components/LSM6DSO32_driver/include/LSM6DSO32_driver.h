@@ -7,7 +7,6 @@
 #include "freertos/FreeRTOS.h"
 #include "BOARD.h"
 #include "SPI_driver.h"
-#include "driver/spi_master.h"
 #include "esp_log.h"
 
 typedef struct{

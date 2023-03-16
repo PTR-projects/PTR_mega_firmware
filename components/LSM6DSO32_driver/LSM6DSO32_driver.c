@@ -1,15 +1,12 @@
 #include "LSM6DSO32_driver.h"
 
-#define SPI_BUS SPI2_HOST
-#define SPI_CS_PIN SPI_SLAVE_LSM6DSO32_PIN
-
 static const char *TAG = "LSM6DSO32";
 
 esp_err_t LSM6DSO32_Write(uint8_t address, uint8_t val);
 esp_err_t LSM6DSO32_Read (uint8_t address, uint8_t * rx, uint8_t length);
 
 LSM6DSO32_t LSM6DSO32_d;
-static spi_device_handle_t spi_dev_handle_LSM6DSO32;
+static spi_dev_handle_t spi_dev_handle_LSM6DSO32;
 
 
 esp_err_t LSM6DSO32_SPIinit(){
@@ -18,7 +15,7 @@ esp_err_t LSM6DSO32_SPIinit(){
 		return ESP_ERR_INVALID_STATE;
 	}
 
-	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_LSM6DSO32, SPI_CS_PIN, 1, 1, 1, 7), TAG, "SPI register failed");
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN, 1, 1, 1, 7), TAG, "SPI register failed");
 
 	return ESP_OK;
 }
@@ -69,43 +66,9 @@ esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas){
 }
 
 esp_err_t LSM6DSO32_Write(uint8_t address, uint8_t val){
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length 	= 8;
-	trans.rxlength 	= 0 ;
-	trans.cmd 		= 0;		//0-write, 1-read
-	trans.addr 		= address;
-	trans.tx_buffer = &val;
-
-	spi_device_acquire_bus(spi_dev_handle_LSM6DSO32, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_LSM6DSO32, &trans) != ESP_OK)
-	{
-		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_LSM6DSO32);
-
-	return ret;
+	return SPI_transfer(spi_dev_handle_LSM6DSO32, 0, address, &val, NULL, 1);
 }
 
 esp_err_t LSM6DSO32_Read(uint8_t address, uint8_t * rx, uint8_t length){
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length 	= 8 * length;
-	trans.rxlength 	= 8 * length;
-	trans.cmd 		= 1;			//0-write, 1-read
-	trans.addr 		= address;
-	trans.rx_buffer = rx;
-
-	spi_device_acquire_bus(spi_dev_handle_LSM6DSO32, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_LSM6DSO32, &trans) != ESP_OK)
-	{
-		ESP_LOGE(TAG, "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_LSM6DSO32);
-
-	return ret;
+	return SPI_transfer(spi_dev_handle_LSM6DSO32, 1, address, NULL, rx, length);
 }

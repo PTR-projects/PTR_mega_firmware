@@ -8,7 +8,6 @@
 #include "MS5607_driver.h"
 #include "BOARD.h"
 #include <string.h>
-#include <driver/spi_master.h>
 
 static const char *TAG = "MS5607";
 
@@ -20,13 +19,13 @@ static esp_err_t MS5607_reqPress();
 static esp_err_t MS5607_reqTemp();
 static esp_err_t MS5607_readPress();
 static esp_err_t MS5607_readTemp();
-static esp_err_t  MS5607_calcPress();
-static esp_err_t  MS5607_calcTemp();
+static esp_err_t MS5607_calcPress();
+static esp_err_t MS5607_calcTemp();
 
 
-static MS5607_cal_t MS5607_cal_d;
-static MS5607_t 	MS5607_d;
-static spi_device_handle_t spi_dev_handle_MS5607;
+static MS5607_cal_t 	MS5607_cal_d;
+static MS5607_t 		MS5607_d;
+static spi_dev_handle_t spi_dev_handle_MS5607;
 
 esp_err_t MS5607_spi_init(void)
 {
@@ -102,43 +101,11 @@ esp_err_t MS5607_getMeas(MS5607_meas_t * meas){
 }
 
 static esp_err_t MS5607_read(uint8_t addr, uint8_t * data_in, uint16_t length) {
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length = ((8 * length));
-	trans.rxlength = 8 * length;
-
-	trans.addr = addr;
-	trans.rx_buffer = data_in;
-
-
-	spi_device_acquire_bus(spi_dev_handle_MS5607, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_MS5607, &trans) != ESP_OK)
-	{
-		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_MS5607);
-	return ret;
+	return SPI_transfer(spi_dev_handle_MS5607, 0, addr, NULL, data_in, length);
 }
 
 static esp_err_t MS5607_write(uint8_t addr) {
-
-	esp_err_t ret = ESP_OK;
-	spi_transaction_t trans;
-	memset(&trans, 0x00, sizeof(trans));
-	trans.length = 8;
-	trans.addr = addr;
-
-	spi_device_acquire_bus(spi_dev_handle_MS5607, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_MS5607, &trans) != ESP_OK)
-	{
-		ESP_LOGE("MS5607", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-		ret = ESP_FAIL;
-	}
-	spi_device_release_bus(spi_dev_handle_MS5607);
-
-	return ret;
+	return SPI_transfer(spi_dev_handle_MS5607, 0, addr, NULL, NULL, 0);	// możliwe, że len = 8
 }
 
 static esp_err_t MS5607_resetDevice() {

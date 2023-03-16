@@ -1,7 +1,6 @@
 #pragma once
 #include "esp_err.h"
 #include <stdbool.h>
-#include <driver/spi_master.h>
 
 typedef enum LIS331_type
 {
@@ -44,51 +43,49 @@ typedef struct {
 
 
 /*TRANSACTION*/
-#define CMD_READ		0x03 	// 11
-#define CMD_READ_SINGLE 0x02 	// 10
-#define CMD_WRITE		0x01	// 01
+#define LIS331_CMD_READ		0x03 	// 11
+#define LIS331_CMD_READ_SINGLE 0x02 	// 10
+#define LIS331_CMD_WRITE		0x01	// 01
 
 /* SPI CONFIG */
-#define SPI_BUS SPI2_HOST
-
 #define LIS331_WHO_AM_I                 0x0F
 
 #define LIS331_CTRL_REG1                0x20
 
-#define XEN_MASK						(1 << 0)
-#define YEN_MASK						(1 << 1)
-#define ZEN_MASK						(1 << 2)
-#define DATA_RATE_MASK					(3 << 3)
-#define POWER_MODE_MASK					(7 << 5)
+#define LIS331_XEN_MASK					(1 << 0)
+#define LIS331_YEN_MASK					(1 << 1)
+#define LIS331_ZEN_MASK					(1 << 2)
+#define LIS331_DATA_RATE_MASK			(3 << 3)
+#define LIS331_POWER_MODE_MASK			(7 << 5)
 
 #define LIS331_CTRL_REG2                0x21
 
-#define HP_CUTOFF_MASK					(3 << 0)
-#define HP_EN1_MASK						(1 << 2)
-#define HP_EN2_MASK						(1 << 3)
-#define FDS_MASK						(1 << 4)
-#define HP_MODE_MASK					(3 << 5)
-#define BOOT_MASK						(1 << 7)
+#define LIS331_HP_CUTOFF_MASK			(3 << 0)
+#define LIS331_HP_EN1_MASK				(1 << 2)
+#define LIS331_HP_EN2_MASK				(1 << 3)
+#define LIS331_FDS_MASK					(1 << 4)
+#define LIS331_HP_MODE_MASK				(3 << 5)
+#define LIS331_BOOT_MASK				(1 << 7)
 
 #define LIS331_CTRL_REG3                0x22
 
-#define I1_CFG_MASK						(3 << 0)
-#define LIR1_MASK						(1 << 2)
-#define I2_CFG_MASK						(3 << 3)
-#define LIR2_MASK						(1 << 5)
-#define PP_OD_MASK						(1 << 6)
-#define IHL_MASK						(1 << 7)
+#define LIS331_I1_CFG_MASK				(3 << 0)
+#define LIS331_LIR1_MASK				(1 << 2)
+#define LIS331_I2_CFG_MASK				(3 << 3)
+#define LIS331_LIR2_MASK				(1 << 5)
+#define LIS331_PP_OD_MASK				(1 << 6)
+#define LIS331_IHL_MASK					(1 << 7)
 
 #define LIS331_CTRL_REG4                0x23
 
-#define SIM_MASK						(1 << 0)
-#define FS_MASK							(3 << 4)
-#define BLE_MASK						(1 << 6)
-#define BDU_MASK						(1 << 7)
+#define LIS331_SIM_MASK					(1 << 0)
+#define LIS331_FS_MASK					(3 << 4)
+#define LIS331_BLE_MASK					(1 << 6)
+#define LIS331_BDU_MASK					(1 << 7)
 
 #define LIS331_CTRL_REG5                0x24
 
-#define TURN_ON_MASK					(3 << 0)
+#define LIS331_TURN_ON_MASK				(3 << 0)
 
 #define LIS331_HP_FILTER_RESET          0x25
 #define LIS331_REFERENCE                0x26
@@ -97,14 +94,14 @@ typedef struct {
 
 #define LIS331_STATUS_REG               0x27
 
-#define XDA_MASK						(1 << 0)
-#define YDA_MASK						(1 << 1)
-#define ZDA_MASK						(1 << 2)
-#define ZYXDA_MASK						(1 << 3)
-#define XOR_MASK						(1 << 4)
-#define YOR_MASK						(1 << 5)
-#define ZOR_MASK						(1 << 6)
-#define ZYXOR_MASK						(1 << 7)
+#define LIS331_XDA_MASK					(1 << 0)
+#define LIS331_YDA_MASK					(1 << 1)
+#define LIS331_ZDA_MASK					(1 << 2)
+#define LIS331_ZYXDA_MASK				(1 << 3)
+#define LIS331_XOR_MASK					(1 << 4)
+#define LIS331_YOR_MASK					(1 << 5)
+#define LIS331_ZOR_MASK					(1 << 6)
+#define LIS331_ZYXOR_MASK				(1 << 7)
 
 // OUTPUT REGISTERS
 #define LIS331_OUT_X_L	                0x28
