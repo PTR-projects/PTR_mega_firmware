@@ -49,6 +49,7 @@ void task_kpptr_main(void *pvParameter){
 	struct timeval tv_comp;
 	gettimeofday(&tv_now, NULL);
 	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+	int loop_counter = 0;
 
 	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
@@ -69,10 +70,10 @@ void task_kpptr_main(void *pvParameter){
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 100 ));
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 1 ));
 
 		//----- Tic ----------
-		gettimeofday(&tv_tic, NULL);
+//		gettimeofday(&tv_tic, NULL);
 		//--------------------
 
 		gettimeofday(&tv_now, NULL);
@@ -98,27 +99,30 @@ void task_kpptr_main(void *pvParameter){
 			ESP_LOGE(TAG, "Main RB error!");
 		}
 
+		loop_counter++;
 		//send data to RF every 500ms
 		if(((prevTickCountRF + pdMS_TO_TICKS( 500 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
+			ESP_LOGI(TAG, "Loops per second = %i", loop_counter*2);
+			loop_counter = 0;
 		}
 
 		//------- Toc ---------
-		gettimeofday(&tv_toc, NULL);
+//		gettimeofday(&tv_toc, NULL);
 		//---------------------
 
 		//------- Comp ---------
-		gettimeofday(&tv_comp, NULL);
+//		gettimeofday(&tv_comp, NULL);
 		//---------------------
 
 		//---------- Tic Toc analysis --------------
-		int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
-							 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
-		int64_t tic_toc_comp = ((int64_t)tv_comp.tv_sec * 1000000L + (int64_t)tv_comp.tv_usec)
-							 - ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec);
-		//ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
+//		int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
+//							 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
+//		int64_t tic_toc_comp = ((int64_t)tv_comp.tv_sec * 1000000L + (int64_t)tv_comp.tv_usec)
+//							 - ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec);
+//		ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
 		//------------------------------------
 
 	}

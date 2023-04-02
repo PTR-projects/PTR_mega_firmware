@@ -15,7 +15,10 @@ esp_err_t LSM6DSO32_SPIinit(){
 		return ESP_ERR_INVALID_STATE;
 	}
 
-	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN, 1, 1, 1, 7), TAG, "SPI register failed");
+	/* CONFIGURE SPI DEVICE */
+	/* Max SCK frequency - 10MHz */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN,
+												SPI_SCK_10MHZ, 1, 1, 7), TAG, "SPI register failed");
 
 	return ESP_OK;
 }

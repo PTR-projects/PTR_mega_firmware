@@ -77,7 +77,9 @@ esp_err_t MMC5983MA_spi_init(void)
 	}
 
 	/* CONFIGURE SPI DEVICE */
-	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_MMC5983MA, SPI_SLAVE_MMC5983MA_PIN, 1, 1, 2, 6), TAG, "SPI register failed");
+	/* Max SCK frequency - 10MHz */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_MMC5983MA, SPI_SLAVE_MMC5983MA_PIN,
+											SPI_SCK_10MHZ, 1, 2, 6), TAG, "SPI register failed");
 
 	return ESP_OK;
 }

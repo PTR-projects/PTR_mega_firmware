@@ -67,7 +67,9 @@ esp_err_t SX126X_spi_init(void)
 	}
 
 	/* CONFIGURE SPI DEVICE */
-	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_SX126X, SPI_SLAVE_SX1262_PIN, 1, 1, 0, 8), TAG, "SPI register failed");
+	/* Max SCK frequency - 16MHz */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_SX126X, SPI_SLAVE_SX1262_PIN,
+										SPI_SCK_16MHZ, 1, 0, 8), TAG, "SPI register failed");
 
 	return ESP_OK;
 }

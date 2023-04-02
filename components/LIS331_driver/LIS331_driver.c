@@ -31,7 +31,9 @@ esp_err_t LIS331_spi_init(void)
 	}
 
 	/* CONFIGURE SPI DEVICE */
-	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_LIS331, SPI_SLAVE_LIS331_PIN, 1, 1, 2, 6), TAG, "SPI register failed");
+	/* Max SCK frequency - 10MHz */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_LIS331, SPI_SLAVE_LIS331_PIN,
+										SPI_SCK_10MHZ, 1, 2, 6), TAG, "SPI register failed");
 
 	return ESP_OK;
 }

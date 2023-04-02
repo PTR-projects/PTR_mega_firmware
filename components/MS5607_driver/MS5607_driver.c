@@ -35,7 +35,9 @@ esp_err_t MS5607_spi_init(void)
 	}
 
 	/* CONFIGURE SPI DEVICE */
-	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_MS5607, SPI_SLAVE_MS5607_PIN, 1, 1, 0, 8), TAG, "SPI register failed");
+	/* Max SCK frequency - 20MHz */
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_MS5607, SPI_SLAVE_MS5607_PIN,
+									SPI_SCK_20MHZ, 1, 0, 8), TAG, "SPI register failed");
 
 	return ESP_OK;
 }
