@@ -15,7 +15,7 @@
 typedef struct{
 	uint64_t serial_number;
 	uint64_t software_version;
-
+	uint32_t timestamp_ms;
 	uint8_t flight_state;
 
 	int drouge_alt;
@@ -29,6 +29,8 @@ typedef struct{
 		uint8_t continuity;
 	} igniters[4];
 
+	float pressure;
+	uint8_t gps_fix;
 
 	uint8_t sysmgr_system_status;
 	uint8_t sysmgr_main_status;

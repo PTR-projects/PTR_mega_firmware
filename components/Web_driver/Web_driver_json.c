@@ -28,10 +28,11 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	cJSON_AddNumberToObject(configuration, "software_version", status.software_version);
 	cJSON_AddItemToObject(json, "configuration", configuration);
 
-	cJSON *logic = cJSON_CreateObject();
-	cJSON_AddNumberToObject(logic, "flight_state", status.flight_state);
-	cJSON_AddNumberToObject(logic, "battery_voltage", status.battery_voltage);
-	cJSON_AddItemToObject(json, "logic", logic);
+	cJSON *system = cJSON_CreateObject();
+	cJSON_AddNumberToObject(system, "timestamp_ms", status.timestamp_ms);
+	cJSON_AddNumberToObject(system, "flight_state", status.flight_state);
+	cJSON_AddNumberToObject(system, "battery_voltage", status.battery_voltage);
+	cJSON_AddItemToObject(json, "system", system);
 
 
 	cJSON *sysMgr = cJSON_CreateObject();
@@ -46,9 +47,10 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	cJSON_AddItemToObject(json, "sysMgr", sysMgr);
 
 	cJSON *sensors = cJSON_CreateObject();
+	cJSON_AddNumberToObject(sensors, "pressure", status.pressure);
 	cJSON_AddNumberToObject(sensors, "rocket_tilt", status.rocket_tilt);
+	cJSON_AddNumberToObject(sensors, "gpsfix", status.gps_fix);
 	cJSON_AddItemToObject(json, "sensors", sensors);
-
 
 	cJSON *igniters = cJSON_CreateArray();
 	for(int i=0;i<4;i++){
@@ -135,7 +137,7 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 	cJSON_AddNumberToObject(gps, "latitude", live.gps.latitude);
 	cJSON_AddNumberToObject(gps, "longitude",  live.gps.longitude);
 	cJSON_AddNumberToObject(gps, "fix", live.gps.fix);
-	cJSON_AddNumberToObject(gps, "statelites", live.gps.sats);
+	cJSON_AddNumberToObject(gps, "satellites", live.gps.sats);
 	cJSON_AddItemToObject(json, "gps", gps);
 
 

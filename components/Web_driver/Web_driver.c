@@ -743,15 +743,16 @@ esp_err_t Web_status_updateIgniters(uint8_t ign1_cont, uint8_t ign2_cont, uint8_
 
 
 esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog, uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage, uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web){
-    live_web.timestamp = timestamp_ms;
+    live_web.timestamp 					= timestamp_ms;
+    status_web.timestamp_ms 			= timestamp_ms;
     status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
     status_web.sysmgr_analog_status     = state_analog;
-    status_web.sysmgr_lora_status         = state_lora;
-    status_web.sysmgr_adcs_status         = state_adcs;        //zmiana nazwy z main; //ADCS = Attitude Determination and Control System
-    status_web.sysmgr_storage_status     = state_storage;
+    status_web.sysmgr_lora_status       = state_lora;
+    status_web.sysmgr_adcs_status       = state_adcs;        //zmiana nazwy z main; //ADCS = Attitude Determination and Control System
+    status_web.sysmgr_storage_status    = state_storage;
     status_web.sysmgr_sysmgr_status     = state_sysmgr;
-    status_web.sysmgr_utils_status         = state_utils;
-    status_web.sysmgr_web_status         = state_web;
+    status_web.sysmgr_utils_status      = state_utils;
+    status_web.sysmgr_web_status        = state_web;
 
     return ESP_OK;
 }

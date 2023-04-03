@@ -105,7 +105,7 @@ void task_kpptr_main(void *pvParameter){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
-			ESP_LOGI(TAG, "Loops per second = %i", loop_counter*2);
+			//ESP_LOGI(TAG, "Loops per second = %i", loop_counter*2);
 			loop_counter = 0;
 		}
 
@@ -162,9 +162,12 @@ void task_kpptr_storage(void *pvParameter){
 	ESP_LOGI(TAG, "Task Storage - ready!");
 	SysMgr_checkout(checkout_storage, check_ready);
 
+	int counter = 0;
+
 	while(1){
-		if(0){	//(flightstate >= Launch) && (flightstate < Landed_delay)
+		if(0 /*counter < 1000*/){	//(flightstate >= Launch) && (flightstate < Landed_delay)
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
+				counter++;
 				if(write_error_cnt < 1000){
 					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
 						ESP_LOGE(TAG, "Storage task - packet write fail");
@@ -325,6 +328,8 @@ void task_kpptr_sysmgr(void *pvParameter){
 		status_web.igniters[1].fired = false;
 		status_web.igniters[2].fired = false;
 		status_web.igniters[3].fired = false;	
+		status_web.gps_fix = 0;
+		status_web.pressure = 0.0f;
 		status_web.serial_number = 0;
 		status_web.flight_state = 0;
 		status_web.sysmgr_analog_status 	= SysMgr_getComponentState(checkout_analog);
@@ -335,6 +340,10 @@ void task_kpptr_sysmgr(void *pvParameter){
 		status_web.sysmgr_utils_status 		= SysMgr_getComponentState(checkout_utils);
 		status_web.sysmgr_web_status 		= SysMgr_getComponentState(checkout_web);
 
+		struct timeval tv_now;
+		gettimeofday(&tv_now, NULL);
+		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+		status_web.timestamp_ms = time_us/1000;
 		Web_status_exchange(status_web);
 
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz

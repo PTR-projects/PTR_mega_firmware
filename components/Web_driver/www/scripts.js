@@ -317,8 +317,55 @@ function POST_simple(url, data) {
   return fetch(url, {method: "POST", headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: data});
 }
 
+function SysMgr_statusToLabel(status, label_id){
+	if(status == 0x01){
+		document.getElementById(label_id).textContent = "OK";
+		document.getElementById(label_id).style.color = "green";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+		
+	if(status == 0x02){
+		document.getElementById(label_id).textContent = "WARNING";
+		document.getElementById(label_id).style.color = "red";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+	if(status == 0x04){
+		document.getElementById(label_id).textContent = "FAIL";
+		document.getElementById(label_id).style.color = "red";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+	
+	document.getElementById(label_id).textContent = "ERROR";
+	document.getElementById(label_id).style.color = "red";
+	document.getElementById(label_id).style.fontWeight = "bold"
+	return;
+}
+
+function GpsFix_fixToLabel(status, label_id){
+	if(status == 0){
+		document.getElementById(label_id).textContent = "No Fix";
+		document.getElementById(label_id).style.color = "red";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+	if(status == 1){
+		document.getElementById(label_id).textContent = "Fix OK";
+		document.getElementById(label_id).style.color = "green";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+		
+	document.getElementById(label_id).textContent = "ERROR";
+	document.getElementById(label_id).style.color = "red";
+	document.getElementById(label_id).style.fontWeight = "bold";
+	return;
+}
+
 /* Function to retrieve data from the remote server*/
-function getData() {
+function getDataStatus() {
   fetch("/status")
 	  .then(response => {
 		if (response.ok) {
@@ -332,14 +379,24 @@ function getData() {
 	  .then(data => {
 			/* Update the text label with the new data*/
 			console.log("Refresh Status OK");
-			document.getElementById("label-status-serial-number").textContent 	= data.configuration.serialNumber;
-			document.getElementById("label-status-software-version").textContent 	= data.configuration.softwareVersion;
-			document.getElementById("label-status-system-state").textContent 	= data.logic.state;
-			document.getElementById("label-status-timestamp").textContent 	= data.logic.timestamp;
-			document.getElementById("label-status-storage").textContent 	= data.sysMgr.Storage_driver;
-			document.getElementById("label-status-angle").textContent 	= data.sensors.angle;
-			document.getElementById("label-status-latitude").textContent 	= data.sensors.gps.latitude.direction + data.sensors.gps.latitude.value;
-			document.getElementById("label-status-longitude").textContent 	= data.sensors.gps.longitude.direction + data.sensors.gps.latitude.value;
+			document.getElementById("label-status-serial-number").textContent 		= data.configuration.serial_number;
+			document.getElementById("label-status-software-version").textContent 	= data.configuration.software_version;
+			
+			document.getElementById("label-status-flight-state").textContent 	= data.system.flight_state;
+			document.getElementById("label-status-timestamp_ms").textContent 	= data.system.timestamp_ms + " ms";
+			
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_system_status, "label-status-system");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_analog_status, "label-status-analog");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_lora_status, "label-status-lora");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_adcs_status, "label-status-adcs");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_storage_status, "label-status-storage");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_sysmgr_status, "label-status-sysmgr");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_utils_status, "label-status-utils");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_web_status, "label-status-web");
+			
+			document.getElementById("label-status-pressure").textContent 	= data.sensors.pressure;
+			document.getElementById("label-status-angle").textContent 		= data.sensors.rocket_tilt + " deg";
+			GpsFix_fixToLabel(data.sensors.gpsfix, "label-status-gpsfix");
 	  })
 	  .catch(error => {
 		/* Handle any errors that occurred*/
@@ -350,8 +407,9 @@ function getData() {
 function webInit(){
 	TabsInit();
 	/* Set an interval to retrieve new data every 10 second*/
-	setInterval(getData, 10000);
+	setInterval(getDataStatus, 10000);
 	initDataLive();
+	getDataStatus();
 }
 
 function createLiveTable(json) {

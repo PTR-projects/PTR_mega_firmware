@@ -8,9 +8,9 @@
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
 
-typedef struct{
+typedef struct __attribute__((__packed__)){
 	uint64_t sys_time;
-	struct{
+	struct __attribute__((__packed__)){
 		float accX;
 		float accY;
 		float accZ;
@@ -36,7 +36,7 @@ typedef struct{
 		int8_t gnss_fix;
 	} sensors;
 
-	struct{
+	struct __attribute__((__packed__)){
 		float altitude_press;
 
 		float posX;
@@ -52,7 +52,7 @@ typedef struct{
 
 	uint8_t flightstate;
 
-	struct{
+	struct __attribute__((__packed__)){
 		uint8_t ign1_cont : 1;
 		uint8_t ign2_cont : 1;
 		uint8_t ign3_cont : 1;
@@ -66,7 +66,7 @@ typedef struct{
 
 	uint32_t vbat_mV;
 
-	struct{
+	struct __attribute__((__packed__)){
 		float servo_1;
 		float servo_2;
 		float servo_3;
