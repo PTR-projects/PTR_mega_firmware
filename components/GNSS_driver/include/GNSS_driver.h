@@ -20,11 +20,11 @@
 #define NMEA_TX_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
 
 typedef enum {
-    GPS_MODE_NORMAL = 0,
-	GPS_MODE_FITNESS = 1,
-	GPS_MODE_AVIATION = 2,
-	GPS_MODE_BALLON = 3,
-	GPS_MODE_STATIONARY = 4
+    GPS_MODE_NORMAL = 0,    /*!< Typcial not dynamic use case */
+	GPS_MODE_FITNESS = 1,   /*!< Fitnes applications, low vertical velocity */
+	GPS_MODE_AVIATION = 2,  /*!< Airborne with high limit of 4G */
+	GPS_MODE_BALLON = 3,    /*!< Airborne with lower maximum acceleration */
+	GPS_MODE_STATIONARY = 4 /*!< Stationary module with highest accuracy  */
 } gps_nav_mode_t;
 
 /**
@@ -251,12 +251,67 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
  *  - Others: Fail
  */
 esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler);
+
+/**
+ * @brief Initialize GPS task
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t GPS_init();
+
+/**
+ * @brief Check size of GPS message received 
+ *
+ * @return uint8_t
+ *  - size of GPS message struct
+ */
 uint8_t GNSS_message_size(void);
+
+/**
+ * @brief Get GPS positional data
+ *
+ * @param data received data container
+ * @param ms 
+ * @return uint32_t
+ *  - 
+ */
 uint32_t GPS_getData(gps_t * data, uint16_t ms); // Send GPS DATA to
+
+/**
+ * @brief Test if GPS is responding by sending command to release software information
+ *
+ */
 void GPS_test(void);
+
+/**
+ * @brief Set GPS baud rate
+ *
+ * @param baud desired baudrate, default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t GPS_baud_rate_set(uint32_t baud);
+
+
 esp_err_t GPS_baud_rate_set_extra(uint32_t baud);
+
+/**
+ * @brief Set GPS fix interval
+ *
+ * @param time time in millis 100-10000
+ */
 void GPS_fix_interval_set(uint16_t time);
+
+
+/**
+ * @brief Set navigation mode for your specific use case
+ *
+ * @param mode mode of GPS to use
+ */
 void GPS_nav_mode_set(gps_nav_mode_t mode);
+
+
 void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV);
