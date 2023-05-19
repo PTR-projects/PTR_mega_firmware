@@ -147,6 +147,9 @@ void task_kpptr_telemetry(void *pvParameter){
 }
 
 void task_kpptr_storage(void *pvParameter){
+	struct timeval tv_tic;
+	struct timeval tv_toc;
+
 	while(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
 		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
@@ -167,7 +170,16 @@ void task_kpptr_storage(void *pvParameter){
 	while(1){
 		if(0 /*counter < 1000*/){	//(flightstate >= Launch) && (flightstate < Landed_delay)
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
+				if(counter == 0){
+					gettimeofday(&tv_tic, NULL);
+				}
 				counter++;
+				if(counter == 1000){
+					gettimeofday(&tv_toc, NULL);
+					int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
+												 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
+					ESP_LOGI(TAG, "1000 packet saved in %lli us", tic_toc_dt);
+				}
 				if(write_error_cnt < 1000){
 					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
 						ESP_LOGE(TAG, "Storage task - packet write fail");
@@ -269,7 +281,9 @@ void task_kpptr_analog(void *pvParameter){
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		Analog_update(&Analog_meas);
-
+		Web_status_updateAnalog(Analog_meas.vbat_mV/1000.0f,
+								Analog_meas.IGN1_det, Analog_meas.IGN2_det,
+								Analog_meas.IGN3_det, Analog_meas.IGN4_det);
 		xQueueOverwrite(queue_AnalogToMain, (void *)&Analog_meas);
 	}
 	vTaskDelete(NULL);
@@ -318,7 +332,6 @@ void task_kpptr_sysmgr(void *pvParameter){
 		}
 
 		Web_driver_status_t status_web;
-		status_web.battery_voltage = 0.0f;
 		status_web.drouge_alt = 0;
 		status_web.igniters[0].continuity = false;
 		status_web.igniters[1].continuity = false;
@@ -332,18 +345,15 @@ void task_kpptr_sysmgr(void *pvParameter){
 		status_web.pressure = 0.0f;
 		status_web.serial_number = 0;
 		status_web.flight_state = 0;
-		status_web.sysmgr_analog_status 	= SysMgr_getComponentState(checkout_analog);
-		status_web.sysmgr_lora_status 		= SysMgr_getComponentState(checkout_lora);
-		status_web.sysmgr_main_status 		= SysMgr_getComponentState(checkout_main);
-		status_web.sysmgr_storage_status 	= SysMgr_getComponentState(checkout_storage);
-		status_web.sysmgr_sysmgr_status 	= SysMgr_getComponentState(checkout_sysmgr);
-		status_web.sysmgr_utils_status 		= SysMgr_getComponentState(checkout_utils);
-		status_web.sysmgr_web_status 		= SysMgr_getComponentState(checkout_web);
+
 
 		struct timeval tv_now;
 		gettimeofday(&tv_now, NULL);
 		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-		status_web.timestamp_ms = time_us/1000;
+		Web_status_updateSysMgr(time_us/1000, 	SysMgr_getComponentState(checkout_sysmgr), 	SysMgr_getComponentState(checkout_analog),
+												SysMgr_getComponentState(checkout_lora), 	SysMgr_getComponentState(checkout_main),
+												SysMgr_getComponentState(checkout_storage), SysMgr_getComponentState(checkout_sysmgr),
+												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web));
 		Web_status_exchange(status_web);
 
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz

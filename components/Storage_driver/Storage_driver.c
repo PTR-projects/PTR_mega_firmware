@@ -9,6 +9,9 @@
 #include "esp_log.h"
 #include "Storage_driver.h"
 
+FILE* f_meas = NULL;
+uint8_t meas_file_lock = 0;
+
 esp_err_t Storage_init_Spiffs			();
 esp_err_t Storage_init_Littlefs			();
 esp_err_t Storage_initFile				();
@@ -151,8 +154,8 @@ esp_err_t Storage_initFile(){
 	if(FileStatus == -1){
 		ESP_LOGI(TAG, "File not present, created file successfully");
 
-		FILE* f = fopen(Storage_data_d.path, "w");
-		fclose(f);
+		f_meas = fopen(Storage_data_d.path, "a+");
+		//fclose(f_meas);
 
 		ret = ESP_OK;
 	}
@@ -160,8 +163,8 @@ esp_err_t Storage_initFile(){
 		ESP_LOGW(TAG, "File present but empty.");
 
 		Storage_erase(Storage_data_d.MasterKey);
-		FILE* f = fopen(Storage_data_d.path, "w");
-		fclose(f);
+		f_meas = fopen(Storage_data_d.path, "a+");
+		//fclose(f_meas);
 
 		ret = ESP_OK;
 
@@ -299,27 +302,45 @@ esp_err_t Storage_writePacket_Spiffs(void * buf, uint16_t len){
  * @return `ESP_ERR_NOT_FOUND` if file is not found
  */
 esp_err_t Storage_writePacket_Littlefs(void * buf, uint16_t len){
-    FILE* f = fopen(Storage_data_d.path, "a");
+    //f_meas = fopen(Storage_data_d.path, "a+");
 
-    if(f == NULL){
+	if(meas_file_lock)
+		return ESP_OK;
+
+    if(f_meas == NULL){
         ESP_LOGE(TAG, "Failed to open file for writing");
         return ESP_ERR_NOT_FOUND;
     }
 
-    if(fwrite(buf, len, 1, f) != 1){
+    if(fwrite(buf, len, 1, f_meas) != 1){
 		ESP_LOGE(TAG,"File write failed");
 		return ESP_FAIL;
 	}
     
-	if(fclose(f) != 0){
-		ESP_LOGE(TAG,"File write failed");
-		return ESP_FAIL;
-	}
-
+//	if(fclose(f_meas) != 0){
+//		ESP_LOGE(TAG,"File write failed");
+//		return ESP_FAIL;
+//	}
 
 	return ESP_OK;
 }
 
+esp_err_t Storage_blockMeasFile(){
+	meas_file_lock = 1;
+	if(fclose(f_meas) != 0){
+		ESP_LOGE(TAG,"File write failed");
+		return ESP_FAIL;
+	}
+
+	return ESP_OK;
+}
+
+esp_err_t Storage_unblockMeasFile(){
+	f_meas = fopen(Storage_data_d.path, "a+");
+	meas_file_lock = 0;
+
+	return ESP_OK;
+}
 
 /*!
  * @brief Read whole file by calling filesystem specific function

@@ -24,6 +24,7 @@
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
 #include "DataManager.h"
+#include "Storage_driver.h"
 
 static const char *TAG = "Web_driver";
 
@@ -265,7 +266,10 @@ static esp_err_t download_get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    if(strstr(filename, "meas.bin") != NULL)
+    	Storage_blockMeasFile();
     fd = fopen(filepath, "r");
+
     if(!fd){
         ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
         /* Respond with 500 Internal Server Error */
@@ -286,7 +290,8 @@ static esp_err_t download_get_handler(httpd_req_t *req)
         if (chunksize > 0) {
             /* Send the buffer contents as HTTP response chunk */
             if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
-                fclose(fd);
+            	fclose(fd);
+
                 ESP_LOGE(TAG, "File sending failed!");
                 /* Abort sending file */
                 httpd_resp_sendstr_chunk(req, NULL);
@@ -302,6 +307,9 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     /* Close file after sending complete */
     fclose(fd);
     ESP_LOGI(TAG, "File sending complete");
+
+    if(strstr(filename, "meas.bin") != NULL)
+        	Storage_unblockMeasFile();
 
     /* Respond with an empty chunk to signal HTTP response completion */
     httpd_resp_send_chunk(req, NULL, 0);
@@ -720,19 +728,18 @@ void Web_live_exchange(Web_driver_live_t EX_live){
 }
 
 
-esp_err_t Web_status_updateAnalog(float vbat){
+esp_err_t Web_status_updateAnalog(float vbat, uint8_t ign1_cont, uint8_t ign2_cont, uint8_t ign3_cont, uint8_t ign4_cont){
     status_web.battery_voltage = vbat;
+    status_web.igniters[0].continuity = ign1_cont;
+	status_web.igniters[1].continuity = ign2_cont;
+	status_web.igniters[2].continuity = ign3_cont;
+	status_web.igniters[3].continuity = ign4_cont;
 
     return ESP_OK;
 }
 
 
-esp_err_t Web_status_updateIgniters(uint8_t ign1_cont, uint8_t ign2_cont, uint8_t ign3_cont, uint8_t ign4_cont, uint8_t ign1_fired, uint8_t ign2_fired, uint8_t ign3_fired, uint8_t ign4_fired){
-    status_web.igniters[0].continuity = ign1_cont;
-    status_web.igniters[1].continuity = ign2_cont;
-    status_web.igniters[2].continuity = ign3_cont;
-    status_web.igniters[3].continuity = ign4_cont;
-
+esp_err_t Web_status_updateIgniters(uint8_t ign1_fired, uint8_t ign2_fired, uint8_t ign3_fired, uint8_t ign4_fired){
     status_web.igniters[0].fired = ign1_fired;
     status_web.igniters[1].fired = ign2_fired;
     status_web.igniters[2].fired = ign3_fired;
