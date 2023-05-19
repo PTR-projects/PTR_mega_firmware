@@ -83,7 +83,7 @@ esp_err_t LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1
 
 	if(status == SX126X_STATUS_OK)
 			status = sx126x_set_dio_irq_params(0, SX126X_IRQ_ALL,
-								(SX126X_IRQ_TX_DONE + SX126X_IRQ_TIMEOUT+ SX126X_IRQ_RX_DONE),
+								(SX126X_IRQ_TX_DONE + SX126X_IRQ_TIMEOUT+ SX126X_IRQ_RX_DONE + SX126X_IRQ_CAD_DONE + SX126X_IRQ_CAD_DETECTED),
 								 SX126X_IRQ_NONE, SX126X_IRQ_NONE);
 
 	if(status == SX126X_STATUS_OK)
@@ -158,4 +158,58 @@ esp_err_t LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeo
 	}
 
 	return ESP_OK;
+}
+
+esp_err_t LORA_CW(){
+	sx126x_set_tx_cw(0);
+
+	return ESP_OK;
+}
+
+esp_err_t LORA_setRx() {
+	sx126x_set_rx_with_timeout_in_rtc_step(0, 0xFFFFFF);
+	return ESP_OK;
+}
+
+esp_err_t LORA_performCAD(){
+	sx126x_irq_mask_t irq_status;
+	sx126x_cad_params_t par;
+	par.cad_detect_min 	= 10;
+	par.cad_detect_peak = 23;
+	par.cad_exit_mode 	= SX126X_CAD_LBT;
+	par.cad_symb_nb 	= SX126X_CAD_04_SYMB;
+	par.cad_timeout 	= 0;
+
+
+	sx126x_set_cad_params(0, &par);
+	sx126x_set_cad(0);
+	vTaskDelay(pdMS_TO_TICKS( 10 ));
+	sx126x_get_irq_status(0, &irq_status);
+
+	if(irq_status & SX126X_IRQ_CAD_DONE)
+		ESP_LOGI(TAG, "CAD done!");
+
+	if(irq_status & SX126X_IRQ_CAD_DETECTED)
+		ESP_LOGI(TAG, "CAD detected!");
+
+	sx126x_clear_irq_status(0, SX126X_IRQ_CAD_DONE | SX126X_IRQ_CAD_DETECTED);
+
+	return ESP_OK;
+}
+
+int16_t LORA_get_rssi() {
+    sx126x_status_t status = SX126X_STATUS_ERROR;
+    int16_t 		rssi_in_dbm = 0;
+    int16_t 		rssi_sum = 0;
+    int8_t			cnt = 0;
+
+    while (1) {
+            status = sx126x_get_rssi_inst(0, &rssi_in_dbm);
+            if (status == SX126X_STATUS_OK) {
+                return rssi_in_dbm;
+            }
+            vTaskDelay(2);
+        }
+
+    return rssi_sum / cnt;
 }
