@@ -99,11 +99,11 @@ esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number
 esp_err_t LED_setARM(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
-esp_err_t LED_setIGN1(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
-esp_err_t LED_setIGN2(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
-esp_err_t LED_setIGN3(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
-esp_err_t LED_setIGN4(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setIGN1(uint8_t brightness_percent, int8_t state);
+esp_err_t LED_setIGN2(uint8_t brightness_percent, int8_t state);
+esp_err_t LED_setIGN3(uint8_t brightness_percent, int8_t state);
+esp_err_t LED_setIGN4(uint8_t brightness_percent, int8_t state);
 esp_err_t LED_setRF(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
-
+esp_err_t LED_setBrigthnessGlobal(uint8_t percentage);
 
 #endif

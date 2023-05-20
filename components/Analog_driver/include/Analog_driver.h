@@ -1,10 +1,10 @@
 #pragma once
 
 typedef struct{
-	uint8_t IGN1_det;
-	uint8_t IGN2_det;
-	uint8_t IGN3_det;
-	uint8_t IGN4_det;
+	int8_t IGN1_det;
+	int8_t IGN2_det;
+	int8_t IGN3_det;
+	int8_t IGN4_det;
 	uint32_t vbat_mV;
 	float temp;
 } Analog_meas_t;

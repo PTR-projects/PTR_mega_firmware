@@ -41,6 +41,7 @@ typedef struct{
 	uint8_t sysmgr_sysmgr_status;
 	uint8_t	sysmgr_utils_status;
 	uint8_t	sysmgr_web_status;
+	uint8_t sysmgr_arm_state;
 
 } Web_driver_status_t;
 

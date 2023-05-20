@@ -34,6 +34,9 @@ static const char *TAG = "KP-PTR";
 QueueHandle_t queue_AnalogToMain;
 QueueHandle_t queue_MainToTelemetry;
 
+//----------- Global settings ----------
+Preferences_data_t Preferences_data_d;
+
 // periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
 
 void task_kpptr_main(void *pvParameter){
@@ -49,15 +52,15 @@ void task_kpptr_main(void *pvParameter){
 	struct timeval tv_comp;
 	gettimeofday(&tv_now, NULL);
 	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-	int loop_counter = 0;
 
 	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
 		status  = ESP_OK;
 		status |= Sensors_init();
 		status |= GPS_init();
-		//status |= Detector_init();
 		status |= AHRS_init(time_us);
+		status |= FSD_init(AHRS_getData());
+
 		if(status != ESP_OK){
 			ESP_LOGE(TAG, "Main task - failed to prepare main task");
 			SysMgr_checkout(checkout_main, check_fail);
@@ -70,7 +73,7 @@ void task_kpptr_main(void *pvParameter){
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 1 ));
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));
 
 		//----- Tic ----------
 //		gettimeofday(&tv_tic, NULL);
@@ -81,9 +84,8 @@ void task_kpptr_main(void *pvParameter){
 
 		Sensors_update();
 		AHRS_compute(time_us, Sensors_get());
-		//Detector_detect();
-
 		GPS_getData(&gps_d, 0);
+		FSD_detect(time_us/1000);
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
@@ -99,14 +101,21 @@ void task_kpptr_main(void *pvParameter){
 			ESP_LOGE(TAG, "Main RB error!");
 		}
 
-		loop_counter++;
 		//send data to RF every 500ms
 		if(((prevTickCountRF + pdMS_TO_TICKS( 500 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
-			//ESP_LOGI(TAG, "Loops per second = %i", loop_counter*2);
-			loop_counter = 0;
+		}
+
+		//--------------- Autoarming ----------------------------
+		if((FSD_checkArmed() == DISARMED)
+				&& (esp_timer_get_time() > 15000000UL)){
+			if(SysMgr_getCheckoutStatus() == check_ready){
+				FSD_arming();
+				if(FSD_checkArmed() == ARMED)
+					SysMgr_setArm(system_armed);
+			}
 		}
 
 		//------- Toc ---------
@@ -228,6 +237,10 @@ void task_kpptr_storage(void *pvParameter){
 					live_web.gps.longitude = DataPackage_ptr->sensors.longitude;
 					live_web.gps.sats = DataPackage_ptr->sensors.gnss_fix;
 					Web_live_exchange(live_web);
+
+					Web_status_updateGNSS(DataPackage_ptr->sensors.latitude, DataPackage_ptr->sensors.longitude,
+										DataPackage_ptr->sensors.gnss_fix >> 6, DataPackage_ptr->sensors.gnss_fix & 0x3F);
+					Web_status_updateADCS(0, 0);
 				}
 
 				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
@@ -284,6 +297,12 @@ void task_kpptr_analog(void *pvParameter){
 		Web_status_updateAnalog(Analog_meas.vbat_mV/1000.0f,
 								Analog_meas.IGN1_det, Analog_meas.IGN2_det,
 								Analog_meas.IGN3_det, Analog_meas.IGN4_det);
+
+		LED_setIGN1(20, Analog_meas.IGN1_det);
+		LED_setIGN2(20, Analog_meas.IGN2_det);
+		LED_setIGN3(20, Analog_meas.IGN3_det);
+		LED_setIGN4(20, Analog_meas.IGN4_det);
+
 		xQueueOverwrite(queue_AnalogToMain, (void *)&Analog_meas);
 	}
 	vTaskDelete(NULL);
@@ -331,30 +350,11 @@ void task_kpptr_sysmgr(void *pvParameter){
 			break;
 		}
 
-		Web_driver_status_t status_web;
-		status_web.drouge_alt = 0;
-		status_web.igniters[0].continuity = false;
-		status_web.igniters[1].continuity = false;
-		status_web.igniters[2].continuity = false;
-		status_web.igniters[3].continuity = false;
-		status_web.igniters[0].fired = false;
-		status_web.igniters[1].fired = false;
-		status_web.igniters[2].fired = false;
-		status_web.igniters[3].fired = false;	
-		status_web.gps_fix = 0;
-		status_web.pressure = 0.0f;
-		status_web.serial_number = 0;
-		status_web.flight_state = 0;
-
-
-		struct timeval tv_now;
-		gettimeofday(&tv_now, NULL);
-		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-		Web_status_updateSysMgr(time_us/1000, 	SysMgr_getComponentState(checkout_sysmgr), 	SysMgr_getComponentState(checkout_analog),
+		Web_status_updateSysMgr(esp_timer_get_time()/1000, 	SysMgr_getComponentState(checkout_sysmgr), 	SysMgr_getComponentState(checkout_analog),
 												SysMgr_getComponentState(checkout_lora), 	SysMgr_getComponentState(checkout_main),
 												SysMgr_getComponentState(checkout_storage), SysMgr_getComponentState(checkout_sysmgr),
-												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web));
-		Web_status_exchange(status_web);
+												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web),
+												SysMgr_getArm());
 
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
 	}
@@ -365,10 +365,15 @@ void app_main(void)
 {
     nvs_flash_init();
     SysMgr_init();
-    Web_init();
-	Preferences_init();
+    if(Web_init() == ESP_OK){
+    	SysMgr_checkout(checkout_web, check_ready);
+    }
+	Preferences_init(&Preferences_data_d);
     SPI_init();
     DM_init();
+
+    //-----
+    Web_status_updateconfig(0, 12345, Preferences_get().drouge_alt, Preferences_get().main_alt);
 
     //----- Create queues ----------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t ) );
@@ -388,6 +393,6 @@ void app_main(void)
 
 
     while (true) {
-    	vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
+    	vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz
     }
 }

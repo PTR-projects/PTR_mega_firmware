@@ -17,9 +17,9 @@ typedef enum{
 } sysmgr_checkout_state_t;
 
 typedef enum{
-	system_arming_error,
-	system_armed,
-	system_dissarmed
+	system_arming_error	= 0x04,
+	system_armed		= 0x01,
+	system_dissarmed	= 0x02
 } sysmgr_arming_state_t;
 
 typedef struct{
@@ -37,7 +37,7 @@ typedef union{
 		sysmgr_checkout_state_t utils;
 		sysmgr_checkout_state_t web;
 	};
-	sysmgr_checkout_state_t table[6];
+	sysmgr_checkout_state_t table[7];
 }sysmgr_checkout_status_t;
 
 esp_err_t SysMgr_init();

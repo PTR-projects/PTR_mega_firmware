@@ -36,7 +36,7 @@ Preferences_data_t Preferences_data_d;
 Preferences_data_t Preferences_default;
 
 
-esp_err_t Preferences_init(){
+esp_err_t Preferences_init(Preferences_data_t * data){
 	esp_err_t ret = ESP_FAIL;
 	char buf[200];
 
@@ -45,8 +45,10 @@ esp_err_t Preferences_init(){
 	Preferences_default.drouge_alt = 0;
 	Preferences_default.max_tilt = 45;
 	Preferences_default.staging_delay = 0;
-	Preferences_default.rail_height = 2
-	;
+	Preferences_default.rail_height = 2;
+	Preferences_default.auto_arming_time_s = -1;
+	*data = Preferences_default;
+
 	struct stat st;
 	int8_t FileStatus = stat(preferences_path, &st);
 
@@ -101,6 +103,7 @@ esp_err_t Preferences_init(){
 	Preferences_data_d.rail_height = cJSON_GetObjectItem(json, "rail_height")->valueint;
 	cJSON_Delete(json);
 
+	*data = Preferences_data_d;
 	return ret;
 }
 
@@ -128,6 +131,7 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	cJSON_AddNumberToObject(json, "max_tilt", Preferences_data_d.max_tilt);
 	cJSON_AddNumberToObject(json, "staging_delay", Preferences_data_d.staging_delay);
 	cJSON_AddNumberToObject(json, "rail_height", Preferences_data_d.rail_height);
+	cJSON_AddNumberToObject(json, "auto_arming_time_s", Preferences_data_d.auto_arming_time_s);
 
 	string = cJSON_Print(json);
 	if(string == NULL){

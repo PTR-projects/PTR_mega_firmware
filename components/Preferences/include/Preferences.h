@@ -16,10 +16,12 @@ typedef struct{
 	float staging_delay;
 	float staging_max_tilt;
 
+	int auto_arming_time_s;
+
 	uint32_t key;
 }Preferences_data_t;
 
-esp_err_t Preferences_init();
+esp_err_t Preferences_init(Preferences_data_t * data);
 esp_err_t Preferences_update(Preferences_data_t config);
 Preferences_data_t Preferences_get();
 esp_err_t Preferences_restore_dafaults();

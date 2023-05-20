@@ -344,6 +344,33 @@ function SysMgr_statusToLabel(status, label_id){
 	return;
 }
 
+function SysMgr_armingStatusToLabel(status, label_id){
+	if(status == 0x01){
+		document.getElementById(label_id).textContent = "ARMED!";
+		document.getElementById(label_id).style.color = "green";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+		
+	if(status == 0x02){
+		document.getElementById(label_id).textContent = "Disarmed!";
+		document.getElementById(label_id).style.color = "red";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+	if(status == 0x04){
+		document.getElementById(label_id).textContent = "ERROR :(";
+		document.getElementById(label_id).style.color = "red";
+		document.getElementById(label_id).style.fontWeight = "bold"
+		return;
+	}
+	
+	document.getElementById(label_id).textContent = "ERROR";
+	document.getElementById(label_id).style.color = "red";
+	document.getElementById(label_id).style.fontWeight = "bold"
+	return;
+}
+
 function GpsFix_fixToLabel(status, label_id){
 	if(status == 0){
 		document.getElementById(label_id).textContent = "No Fix";
@@ -382,7 +409,7 @@ function getDataStatus() {
 			document.getElementById("label-status-serial-number").textContent 		= data.configuration.serial_number;
 			document.getElementById("label-status-software-version").textContent 	= data.configuration.software_version;
 			
-			document.getElementById("label-status-flight-state").textContent 	= data.system.flight_state;
+			SysMgr_armingStatusToLabel(data.sysMgr.sysmgr_arm_state, "label-status-arming");
 			document.getElementById("label-status-timestamp_ms").textContent 	= data.system.timestamp_ms + " ms";
 			
 			SysMgr_statusToLabel(data.sysMgr.sysmgr_system_status, "label-status-system");
@@ -407,7 +434,7 @@ function getDataStatus() {
 function webInit(){
 	TabsInit();
 	/* Set an interval to retrieve new data every 10 second*/
-	setInterval(getDataStatus, 10000);
+	setInterval(getDataStatus, 1000);
 	initDataLive();
 	getDataStatus();
 }

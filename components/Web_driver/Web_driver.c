@@ -749,7 +749,10 @@ esp_err_t Web_status_updateIgniters(uint8_t ign1_fired, uint8_t ign2_fired, uint
 }
 
 
-esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog, uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage, uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web){
+esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog,
+								  uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage,
+								  uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web,
+								  uint8_t arm){
     live_web.timestamp 					= timestamp_ms;
     status_web.timestamp_ms 			= timestamp_ms;
     status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
@@ -760,6 +763,7 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
     status_web.sysmgr_sysmgr_status     = state_sysmgr;
     status_web.sysmgr_utils_status      = state_utils;
     status_web.sysmgr_web_status        = state_web;
+    status_web.sysmgr_arm_state			= arm;
 
     return ESP_OK;
 }

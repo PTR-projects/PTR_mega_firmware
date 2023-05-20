@@ -23,6 +23,7 @@ static const char *TAG = "LED";
 static uint32_t loop_interval_ms = 100;
 static SemaphoreHandle_t mutex_LED;
 static StaticSemaphore_t xMutexBuffer_LED;
+static uint8_t LED_brightness_percentage = 100;
 
 rmt_item32_t led_data_buffer[LED_WS_BUFFER_ITEMS]; 	//Strip LED set buffer
 static LED_t led_array[LED_ARRAY_SIZE]; 			//LED BUZZER STATUS ARRAY
@@ -233,9 +234,10 @@ esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t
 #endif
 }
 
-esp_err_t LED_setIGN1(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+esp_err_t LED_setIGN1(uint8_t brightness_percent, int8_t state){
 #if LED_CHECK_IF_WS(LED_POS_IGN1)
-	return LED_blinkWS(LED_POS_IGN1, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
+	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
+	return LED_blinkWS(LED_POS_IGN1, colour, brightness_percent, 100, 0, 0);
 #elif LED_CHECK_IF_STD(LED_POS_IGN1)
 	return LED_blinkSTD(LED_POS_IGN1, t_on_ms, t_off_ms, blinks_number);
 #elif (LED_POS_IGN1 == -1)
@@ -245,9 +247,10 @@ esp_err_t LED_setIGN1(led_colour_t colour, uint8_t brightness_percent, uint16_t 
 #endif
 }
 
-esp_err_t LED_setIGN2(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+esp_err_t LED_setIGN2(uint8_t brightness_percent, int8_t state){
 #if LED_CHECK_IF_WS(LED_POS_IGN2)
-	return LED_blinkWS(LED_POS_IGN2, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
+	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
+	return LED_blinkWS(LED_POS_IGN2, colour, brightness_percent, 100, 0, 0);
 #elif LED_CHECK_IF_STD(LED_POS_IGN2)
 	return LED_blinkSTD(LED_POS_IGN2, t_on_ms, t_off_ms, blinks_number);
 #elif (LED_POS_IGN2 == -1)
@@ -257,9 +260,10 @@ esp_err_t LED_setIGN2(led_colour_t colour, uint8_t brightness_percent, uint16_t 
 #endif
 }
 
-esp_err_t LED_setIGN3(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+esp_err_t LED_setIGN3(uint8_t brightness_percent, int8_t state){
 #if LED_CHECK_IF_WS(LED_POS_IGN3)
-	return LED_blinkWS(LED_POS_IGN3, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
+	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
+	return LED_blinkWS(LED_POS_IGN3, colour, brightness_percent, 100, 0, 0);
 #elif LED_CHECK_IF_STD(LED_POS_IGN3)
 	return LED_blinkSTD(LED_POS_IGN3, t_on_ms, t_off_ms, blinks_number);
 #elif (LED_POS_IGN3 == -1)
@@ -269,9 +273,10 @@ esp_err_t LED_setIGN3(led_colour_t colour, uint8_t brightness_percent, uint16_t 
 #endif
 }
 
-esp_err_t LED_setIGN4(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+esp_err_t LED_setIGN4(uint8_t brightness_percent, int8_t state){
 #if LED_CHECK_IF_WS(LED_POS_IGN4)
-	return LED_blinkWS(LED_POS_IGN4, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
+	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
+	return LED_blinkWS(LED_POS_IGN4, colour, brightness_percent, 100, 0, 0);
 #elif LED_CHECK_IF_STD(LED_POS_IGN4)
 	return LED_blinkSTD(LED_POS_IGN4, t_on_ms, t_off_ms, blinks_number);
 #elif (LED_POS_IGN4 == -1)
@@ -291,6 +296,14 @@ esp_err_t LED_setRF(led_colour_t colour, uint8_t brightness_percent, uint16_t t_
 #else
 #error "LED READY not found in configuration"
 #endif
+}
+
+esp_err_t LED_setBrigthnessGlobal(uint8_t percentage){
+	if(LED_brightness_percentage > 100)
+		LED_brightness_percentage = 100;
+
+	LED_brightness_percentage = percentage;
+	return ESP_OK;
 }
 
 //------------------------------------------------
@@ -340,7 +353,7 @@ static esp_err_t setup_rmt_data_buffer(void) {
 	uint8_t blank = 0;
 	for (uint32_t x = 0; x < LED_WS_COUNT * STRIP_LED_COLOURS; x++) {
 		uint8_t bits_to_send =
-				led_array[x].state ? led_array[x].bright : blank;
+				led_array[x].state ? (((uint16_t)led_array[x].bright * LED_brightness_percentage)/100) : blank;
 		uint8_t mask = 1 << (BITS_PER_LED_CMD - 1);
 		for (uint8_t bit = 0; bit < BITS_PER_LED_CMD; bit++) {
 			uint8_t bit_is_set = bits_to_send & mask;

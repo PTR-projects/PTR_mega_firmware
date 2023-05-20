@@ -24,9 +24,9 @@
 static const char* TAG = "Analog";
 
 static esp_adc_cal_characteristics_t  * adc_chars;
-static uint32_t ign_det_thr = 100;
+static uint32_t ign_det_thr = 50;
 
-static float    filter_coeff = 0.1f;
+static float    filter_coeff = 0.6f;
 static uint32_t voltage_ign1 = 0;
 static uint32_t voltage_ign2 = 0;
 static uint32_t voltage_ign3 = 0;
@@ -150,16 +150,17 @@ void Analog_update(Analog_meas_t * meas){
 	meas->vbat_mV = Analog_getVBAT();
 
 	//TODO support variable threshold and fuse check
-	if(meas->vbat_mV > 2000){
+	if(meas->vbat_mV > 3000){
+		ign_det_thr = (meas->vbat_mV*12 - 12619)/1000;
 		meas->IGN1_det = (Analog_getIGN1() < ign_det_thr);
 		meas->IGN2_det = (Analog_getIGN2() < ign_det_thr);
 		meas->IGN3_det = (Analog_getIGN3() < ign_det_thr);
 		meas->IGN4_det = (Analog_getIGN4() < ign_det_thr);
 	} else {
-		meas->IGN1_det = 0;
-		meas->IGN2_det = 0;
-		meas->IGN3_det = 0;
-		meas->IGN4_det = 0;
+		meas->IGN1_det = -1;
+		meas->IGN2_det = -1;
+		meas->IGN3_det = -1;
+		meas->IGN4_det = -1;
 	}
 
 	meas->temp = Analog_getTempMCU();

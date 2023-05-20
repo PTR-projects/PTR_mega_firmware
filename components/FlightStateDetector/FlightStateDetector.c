@@ -60,8 +60,10 @@ esp_err_t FSD_init(AHRS_t * ahrs){
 }
 
 esp_err_t FSD_detect(uint64_t time_ms){
-	if(FSD_checkArmed() == DISARMED)
+	if(FSD_checkArmed() == DISARMED){
 		flightState_d.state = FLIGHTSTATE_STARTUP;
+		return ESP_OK;
+	}
 
 	FlightState_t * currentState = &flightState_d;
 	AHRS_t * 		ahrs 		 = AHRS_ptr;

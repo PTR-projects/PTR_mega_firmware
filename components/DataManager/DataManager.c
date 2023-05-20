@@ -126,7 +126,7 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
 	package->sensors.latitude = gps->latitude;
 	package->sensors.longitude = gps->longitude;
 	package->sensors.altitude_gnss = gps->altitude;
-	package->sensors.gnss_fix = (int8_t)(gps->fix);
+	package->sensors.gnss_fix = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
 
 	package->ign.ign1_cont = analog->IGN1_det;
 	package->ign.ign2_cont = analog->IGN2_det;

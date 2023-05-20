@@ -23,3 +23,11 @@ typedef enum{
 	DISARMED,
 	ARMING_ERROR
 } armingstatus_t;
+
+esp_err_t FSD_init(AHRS_t * ahrs);
+esp_err_t FSD_detect(uint64_t time_ms);
+void FSD_forceState(flightstate_t new_state);
+flightstate_t FSD_getState();
+armingstatus_t FSD_checkArmed();
+void FSD_disarming();
+void FSD_arming();

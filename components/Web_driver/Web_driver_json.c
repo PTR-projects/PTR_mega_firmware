@@ -36,15 +36,16 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 
 	cJSON *sysMgr = cJSON_CreateObject();
-	cJSON_AddNumberToObject(sysMgr, "sysmgr_system_status", status.sysmgr_system_status);
-	cJSON_AddNumberToObject(sysMgr, "sysmgr_analog_status", status.sysmgr_analog_status);
-	cJSON_AddNumberToObject(sysMgr, "sysmgr_lora_status", status.sysmgr_lora_status);
-	cJSON_AddNumberToObject(sysMgr, "sysmgr_adcs_status", status.sysmgr_adcs_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_system_status",  status.sysmgr_system_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_analog_status",  status.sysmgr_analog_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_lora_status", 	 status.sysmgr_lora_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_adcs_status", 	 status.sysmgr_adcs_status);
 	cJSON_AddNumberToObject(sysMgr, "sysmgr_storage_status", status.sysmgr_storage_status);
-	cJSON_AddNumberToObject(sysMgr, "sysmgr_sysmgr_status", status.sysmgr_sysmgr_status);
-	cJSON_AddNumberToObject(sysMgr, "sysmgr_utils_status", status.sysmgr_utils_status);
-	cJSON_AddNumberToObject(sysMgr, "sysmgr_web_status", status.sysmgr_web_status);
-	cJSON_AddItemToObject(json, "sysMgr", sysMgr);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_sysmgr_status",  status.sysmgr_sysmgr_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_utils_status", 	 status.sysmgr_utils_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_web_status", 	 status.sysmgr_web_status);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_arm_state", 	 status.sysmgr_arm_state);
+	cJSON_AddItemToObject  (json,   "sysMgr", 			     sysMgr);
 
 	cJSON *sensors = cJSON_CreateObject();
 	cJSON_AddNumberToObject(sensors, "pressure", status.pressure);
