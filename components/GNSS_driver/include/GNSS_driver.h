@@ -273,7 +273,7 @@ uint8_t GNSS_message_size(void);
  * @brief Get GPS positional data
  *
  * @param data received data container
- * @param ms 
+ * @param ms waiting for receive timeout
  * @return uint32_t
  *  - 
  */
@@ -295,7 +295,14 @@ void GPS_test(void);
  */
 esp_err_t GPS_baud_rate_set(uint32_t baud);
 
-
+/**
+ * @brief Set GPS baud rate and set ESP UART baudrate to same value
+ *
+ * @param baud desired baudrate, default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t GPS_baud_rate_set_extra(uint32_t baud);
 
 /**
@@ -313,5 +320,14 @@ void GPS_fix_interval_set(uint16_t time);
  */
 void GPS_nav_mode_set(gps_nav_mode_t mode);
 
-
+/**
+ * @brief Set GPS fix interval for specified messages
+ *
+ * @param GLL 
+ * @param RMC 
+ * @param VTG 
+ * @param GGA 
+ * @param GSA 
+ * @param GSV 
+ */
 void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV);
