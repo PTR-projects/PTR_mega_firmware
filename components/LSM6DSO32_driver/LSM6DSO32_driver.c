@@ -33,7 +33,7 @@ esp_err_t LSM6DSO32_init(){
 	LSM6DSO32_Write(LSM6DS_CTRL6_C,  LSM6DS_CTRL6_GYRO_LPF1_0);
 	LSM6DSO32_Write(LSM6DS_CTRL7_G, 0);	//default
 	LSM6DSO32_Write(LSM6DS_CTRL8_XL, LSM6DS_CTRL8_ACC_LPF | LSM6DS_CTRL8_FILTER_ODR_4);
-
+	LSM6DSO32_WhoAmI();
 	return ESP_OK;
 }
 
@@ -42,11 +42,11 @@ uint8_t LSM6DSO32_WhoAmI(){
 	LSM6DSO32_Read(0x0F, rxBuff, 1);
 	if(LSM6DS_WHOAMI_RESPONSE == rxBuff[0])
 		{
-			ESP_LOGD(TAG, "LSM6DSO32 correct response");
+			ESP_LOGI(TAG, "LSM6DSO32 correct response");
 		}
 		else
 		{
-			ESP_LOGE(TAG, "LSM6DSO32 wrong response: %x\n", rxBuff[0]);
+			ESP_LOGI(TAG, "LSM6DSO32 wrong response: %x\n", rxBuff[0]);
 		}
 	return rxBuff[0];
 }
