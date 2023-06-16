@@ -49,6 +49,8 @@ typedef struct{
 } LSM6DSO32_t;
 
 
+#define LSM6DS_WHOAMI_RESPONSE	0x6C	///< Fixed response value
+
 #define LSM6DS_FUNC_CFG_ACCESS 	0x1     ///< Enable embedded functions register
 #define LSM6DS_INT1_CTRL 		0x0D    ///< Interrupt control for INT 1
 #define LSM6DS_INT2_CTRL 		0x0E    ///< Interrupt control for INT 2

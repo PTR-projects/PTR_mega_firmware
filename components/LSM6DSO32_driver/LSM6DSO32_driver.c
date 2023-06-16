@@ -38,13 +38,20 @@ esp_err_t LSM6DSO32_init(){
 }
 
 uint8_t LSM6DSO32_WhoAmI(){
-	uint8_t rxBuff[2] = {0U};
+	uint8_t rxBuff[1] = {0U};
 	LSM6DSO32_Read(0x0F, rxBuff, 1);
-
-	printf("ID: 0x%x\n", rxBuff[1]);
-
-	return rxBuff[1];
+	if(LSM6DS_WHOAMI_RESPONSE == rxBuff[0])
+		{
+			ESP_LOGD(TAG, "LSM6DSO32 correct response");
+		}
+		else
+		{
+			ESP_LOGE(TAG, "LSM6DSO32 wrong response: %x\n", rxBuff[0]);
+		}
+	return rxBuff[0];
 }
+
+
 
 esp_err_t LSM6DSO32_readMeas(){
 	LSM6DSO32_Read(0x20, LSM6DSO32_d.raw, 14);
