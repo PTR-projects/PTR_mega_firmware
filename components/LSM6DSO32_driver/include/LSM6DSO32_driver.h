@@ -9,6 +9,14 @@
 #include "SPI_driver.h"
 #include "esp_log.h"
 
+#ifdef SPI_SLAVE_LSM6DSO32_2_PIN
+#define LSM6DSO32_COUNT			 2
+#else
+#define LSM6DSO32_COUNT			 1
+#endif
+
+
+
 typedef struct{
 	float temp;
 
@@ -20,6 +28,70 @@ typedef struct{
 	float gyroY;
 	float gyroZ;
 } LSM6DS_meas_t;
+
+
+
+
+typedef enum {
+	LSM6DS_WHOAMI_RESPONSE_ADDR = 0x6C,   ///< Fixed response value
+	LSM6DS_FUNC_CFG_ACCESS_ADDR = 0x1,    ///< Enable embedded functions register
+	LSM6DS_INT1_CTRL_ADDR = 0x0D,         ///< Interrupt control for INT 1
+	LSM6DS_INT2_CTRL_ADDR = 0x0E,         ///< Interrupt control for INT 2
+	LSM6DS_WHOAMI_ADDR = 0x0,             ///< Chip ID register
+	LSM6DS_CTRL1_XL_ADDR = 0x10,          ///< Main accelerometer config register
+	LSM6DS_CTRL2_G_ADDR = 0x11,           ///< Main gyro config register
+	LSM6DS_CTRL3_C_ADDR = 0x12,           ///< Main configuration register
+	LSM6DS_CTRL4_C_ADDR = 0x13,
+	LSM6DS_CTRL5_C_ADDR = 0x14,
+	LSM6DS_CTRL6_C_ADDR = 0x15,
+	LSM6DS_CTRL7_G_ADDR = 0x16,
+	LSM6DS_CTRL8_XL_ADDR = 0x17,          ///< High and low pass for accel
+	LSM6DS_CTRL9_XL_ADDR = 0x18,          ///< Data Enable Configuration
+	LSM6DS_CTRL10_C_ADDR = 0x19,          ///< Main configuration register
+	LSM6DS_WAKEUP_SRC_ADDR = 0x1B,        ///< Why we woke up
+	LSM6DS_STATUS_REG_ADDR = 0X1E,        ///< Status register
+	LSM6DS_OUT_TEMP_L_ADDR = 0x20,        ///< First data register (temperature low)
+	LSM6DS_OUTX_L_G_ADDR = 0x22,          ///< First gyro data register
+	LSM6DS_OUTX_L_A_ADDR = 0x28,          ///< First accel data register
+	LSM6DS_STEPCOUNTER_ADDR = 0x4B,       ///< 16-bit step counter
+	LSM6DS_TAP_CFG_ADDR = 0x58,           ///< Tap/pedometer configuration
+
+} LSM6DSO32_register_addr_t;
+
+typedef enum {
+	LSM6DS_WHOAMI_RESPONSE,  ///< Fixed response value
+	LSM6DS_FUNC_CFG_ACCESS,  ///< Enable embedded functions register
+	LSM6DS_INT1_CTRL,       ///< Interrupt control for INT 1
+	LSM6DS_INT2_CTRL,   ///< Interrupt control for INT 2
+	LSM6DS_WHOAMI,             ///< Chip ID register
+	LSM6DS_CTRL1_XL,          ///< Main accelerometer config register
+	LSM6DS_CTRL2_G,           ///< Main gyro config register
+	LSM6DS_CTRL3_C,         ///< Main configuration register
+	LSM6DS_CTRL4_C,
+	LSM6DS_CTRL5_C,
+	LSM6DS_CTRL6_C,
+	LSM6DS_CTRL7_G,
+	LSM6DS_CTRL8_XL,
+	LSM6DS_CTRL9_XL,
+	LSM6DS_CTRL10_C,
+	LSM6DS_WAKEUP_SRC,
+	LSM6DS_STATUS_REG,
+	LSM6DS_OUT_TEMP_L,
+	LSM6DS_OUTX_L_G,
+	LSM6DS_OUTX_L_A,
+	LSM6DS_STEPCOUNTER,
+	LSM6DS_TAP_CFG,
+
+	LSM6DS_NUMBER_OF_REGISTERS
+} LSM6DSO32_register_t;
+
+
+typedef struct
+{
+	spi_dev_handle_t spi_dev_handle_LSM6DSO32;
+	uint8_t LSM6DSO32_register_value[LSM6DS_NUMBER_OF_REGISTERS];
+
+} LSM6DS_config_t;
 
 typedef struct{
 	union{
@@ -38,7 +110,7 @@ typedef struct{
 	};
 
 	LSM6DS_meas_t meas;
-
+	LSM6DS_config_t config;
 	float accXoffset;
 	float accYoffset;
 	float accZoffset;
@@ -47,30 +119,6 @@ typedef struct{
 	float gyroYoffset;
 	float gyroZoffset;
 } LSM6DSO32_t;
-
-
-#define LSM6DS_WHOAMI_RESPONSE	0x6C	///< Fixed response value
-
-#define LSM6DS_FUNC_CFG_ACCESS 	0x1     ///< Enable embedded functions register
-#define LSM6DS_INT1_CTRL 		0x0D    ///< Interrupt control for INT 1
-#define LSM6DS_INT2_CTRL 		0x0E    ///< Interrupt control for INT 2
-#define LSM6DS_WHOAMI 			0x0     ///< Chip ID register
-#define LSM6DS_CTRL1_XL 		0x10    ///< Main accelerometer config register
-#define LSM6DS_CTRL2_G 			0x11    ///< Main gyro config register
-#define LSM6DS_CTRL3_C 			0x12    ///< Main configuration register
-#define LSM6DS_CTRL4_C			0x13
-#define LSM6DS_CTRL5_C			0x14
-#define LSM6DS_CTRL6_C			0x15
-#define LSM6DS_CTRL7_G			0x16
-#define LSM6DS_CTRL8_XL 		0x17    ///< High and low pass for accel
-#define LSM6DS_CTRL10_C 		0x19    ///< Main configuration register
-#define LSM6DS_WAKEUP_SRC 		0x1B    ///< Why we woke up
-#define LSM6DS_STATUS_REG 		0X1E    ///< Status register
-#define LSM6DS_OUT_TEMP_L 		0x20    ///< First data register (temperature low)
-#define LSM6DS_OUTX_L_G 		0x22    ///< First gyro data register
-#define LSM6DS_OUTX_L_A 		0x28    ///< First accel data register
-#define LSM6DS_STEPCOUNTER 		0x4B    ///< 16-bit step counter
-#define LSM6DS_TAP_CFG 			0x58    ///< Tap/pedometer configuration
 
 // CTRL1_XL
 #define LSM6DS_CTRL1_XL_ACC_RATE_SHUTDOWN	(0  << 4)
@@ -181,6 +229,8 @@ typedef struct{
 // CTRL10_C
 
 esp_err_t LSM6DSO32_init();
-uint8_t LSM6DSO32_WhoAmI();
-esp_err_t LSM6DSO32_readMeas();
-esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas);
+uint8_t LSM6DSO32_WhoAmI(uint8_t sensor);
+esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
+esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas);
+esp_err_t LSM6DSO32_readMeasAll();
+esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t * meas);
