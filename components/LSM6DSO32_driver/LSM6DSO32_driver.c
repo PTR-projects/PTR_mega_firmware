@@ -5,13 +5,16 @@ static const char *TAG = "LSM6DSO32";
 #define INIT_LSM6DS_CTRL1_XL (LSM6DS_CTRL1_XL_ACC_RATE_104_HZ | LSM6DS_CTRL1_XL_ACC_FS_32G | LSM6DS_CTRL1_ACC_LPF2_EN)
 #define INIT_LSM6DS_CTRL2_G (LSM6DS_CTRL2_G_GYRO_RATE_104_HZ | LSM6DS_CTRL2_G_GYRO_FS_1000_DPS)
 
-esp_err_t LSM6DSO32_Write(uint8_t sensor, uint8_t address, uint8_t val);
-esp_err_t LSM6DSO32_Read (uint8_t sensor, uint8_t address, uint8_t * rx, uint8_t length);
+esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t val);
+esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_t reg, uint8_t * rx, uint8_t length);
 esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_t, uint8_t val);
 
 
-
+#ifdef SPI_SLAVE_LSM6DSO32_2_PIN
 #define SPI_SLAVE_LSM6DSO32_PIN_NUM(x) ((x==0) ? SPI_SLAVE_LSM6DSO32_PIN:SPI_SLAVE_LSM6DSO32_2_PIN)
+#else
+#define SPI_SLAVE_LSM6DSO32_PIN_NUM(x) SPI_SLAVE_LSM6DSO32_PIN
+#endif
 
 static LSM6DSO32_t LSM6DSO32_d[LSM6DSO32_COUNT];
 
@@ -157,10 +160,10 @@ esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_t eRegisterTo
 	return ESP_OK;
 }
 
-esp_err_t LSM6DSO32_Write(uint8_t sensor, uint8_t address, uint8_t val){
-	return SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 0, address, &val, NULL, 1);
+esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t val){
+	return SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 0, LSM6DSO32_register_addr[reg], &val, NULL, 1);
 }
 
-esp_err_t LSM6DSO32_Read(uint8_t sensor, uint8_t address, uint8_t * rx, uint8_t length){
-	return SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 1, address, NULL, rx, length);
+esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t * rx, uint8_t length){
+	return SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 1, LSM6DSO32_register_addr[reg], NULL, rx, length);
 }
