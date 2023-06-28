@@ -9,18 +9,24 @@
 #include "SPI_driver.h"
 #include "esp_log.h"
 
+/**
+ * @brief IMU measurement data
+ */
 typedef struct{
-	float temp;
+	float temp;		/*!< Temperature */
 
-	float accX;
-	float accY;
-	float accZ;
+	float accX;		/*!< X axis acceleration */
+	float accY;		/*!< Y axis acceleration */
+	float accZ;		/*!< Z axis acceleration */
 
-	float gyroX;
-	float gyroY;
-	float gyroZ;
+	float gyroX;	/*!< X axis angular velocity */
+	float gyroY;	/*!< Y axis angular velocity */
+	float gyroZ;	/*!< Z axis angular velocity */
 } LSM6DS_meas_t;
 
+/**
+ * @brief Full IMU data with offsets
+ */
 typedef struct{
 	union{
 		uint8_t raw[14];
@@ -39,13 +45,13 @@ typedef struct{
 
 	LSM6DS_meas_t meas;
 
-	float accXoffset;
-	float accYoffset;
-	float accZoffset;
+	float accXoffset;	/*!< X axis acceleration offset */
+	float accYoffset;	/*!< Y axis acceleration offset */
+	float accZoffset;	/*!< Z axis acceleration offset */
 
-	float gyroXoffset;
-	float gyroYoffset;
-	float gyroZoffset;
+	float gyroXoffset;	/*!< X axis angular velocity offset*/
+	float gyroYoffset;	/*!< Y axis angular velocity offset*/	
+	float gyroZoffset;	/*!< Z axis angular velocity offset*/
 } LSM6DSO32_t;
 
 
@@ -58,7 +64,7 @@ typedef struct{
 #define LSM6DS_CTRL3_C 			0x12    ///< Main configuration register
 #define LSM6DS_CTRL4_C			0x13
 #define LSM6DS_CTRL5_C			0x14
-#define LSM6DS_CTRL6_C			0x15
+#define LSM6DS_CTRL6_C			0x15 
 #define LSM6DS_CTRL7_G			0x16
 #define LSM6DS_CTRL8_XL 		0x17    ///< High and low pass for accel
 #define LSM6DS_CTRL10_C 		0x19    ///< Main configuration register
@@ -178,7 +184,37 @@ typedef struct{
 
 // CTRL10_C
 
+**
+ * @brief Initialize LSM6DSO32 IMU
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t LSM6DSO32_init();
+
+**
+ * @brief Read WhoAmI register
+ *
+ * @return uint8_t 
+ * - register value
+ */
 uint8_t LSM6DSO32_WhoAmI();
+
+**
+ * @brief Read IMU data and apply offset data
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t LSM6DSO32_readMeas();
+
+**
+ * @brief Get computed IMU sensor data
+ *
+ * @param meas struct to wchich we need to write data
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ */
 esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas);

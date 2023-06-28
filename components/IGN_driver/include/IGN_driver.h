@@ -46,5 +46,9 @@ int8_t IGN_getState(uint8_t ign_no);
  */
 esp_err_t IGN_set(uint8_t ign_no, uint8_t state);
 
-
+/**
+ * @brief Placeholder
+ *
+ * @param ign_no igniter ID
+ */
 uint8_t IGN_check(uint8_t ign_no);

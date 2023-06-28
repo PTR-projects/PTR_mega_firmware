@@ -4,24 +4,30 @@
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 
+/**
+ * @brief MAG measurement data
+ */
 typedef struct{
-	float magX;
-	float magY;
-	float magZ;
+	float magX;	/*!< X axis magnetic field */
+	float magY;	/*!< Y axis magnetic field */
+	float magZ;	/*!< Z axis magnetic field */
 } MMC5983MA_meas_t;
 
+/**
+ * @brief Full MAG data with offsets
+ */
 typedef struct {
 	int32_t Xraw;
 	int32_t Yraw;
 	int32_t Zraw;
 
-	float gainX;
-	float gainY;
-	float gainZ;
+	float gainX;	/*!< X axis magnetic gain */
+	float gainY;	/*!< Y axis magnetic gain */
+	float gainZ;	/*!< Z axis magnetic gain */
 
-	float offsetX;
-	float offsetY;
-	float offsetZ;
+	float offsetX;	/*!< X axis magnetic offset */
+	float offsetY;	/*!< Y axis magnetic offset */
+	float offsetZ;	/*!< Z axis magnetic offset */
 
 	MMC5983MA_meas_t meas;
 } MMC5983MA_t;
@@ -35,7 +41,15 @@ typedef struct
     uint8_t internalControl3;
   } controlBitMemory_t;
 
+/**
+ * @brief Initialise MMC magnetic sensor
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_Fail: Fail
+ */
 esp_err_t MMC5983MA_init();
+
 esp_err_t MMC5983MA_readMeas();
 esp_err_t MMC5983MA_getMeas(MMC5983MA_meas_t * meas);
 
@@ -101,6 +115,8 @@ typedef enum SF_MMC5983MA_ERROR
 
 }SF_MMC5983MA_ERROR;
 */
+
+
 typedef enum mmc5983ma_cm_freq
 {
 	MMC5983MA_FREQ_1HZ = 1,

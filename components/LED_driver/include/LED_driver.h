@@ -16,7 +16,7 @@ typedef enum{
 } led_mode_t;
 
 /**
- * @brief Enumeration of possible LED colours.
+ * @brief Enumeration of possible LED colours in GRB NOT RGB.
  */
 typedef enum{
     COLOUR_RED = 0x00FF00,
@@ -28,7 +28,7 @@ typedef enum{
 	COLOUR_PURPLE = 0x0055AB,
 	COLOUR_PINK = 0x00AB55,
 	COLOUR_ORANGE = 0x55AB00
-} led_colour_t; //Colours in GRB NOT RGB
+} led_colour_t; 
 
 
 typedef enum{

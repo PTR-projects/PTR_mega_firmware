@@ -1,7 +1,7 @@
 #pragma once
 
 #include "esp_types.h"
-#include "esp_event.h"
+#include "esp_event.h" 
 #include "esp_err.h"
 #include "driver/uart.h"
 #include "freertos/message_buffer.h"
@@ -274,8 +274,7 @@ uint8_t GNSS_message_size(void);
  *
  * @param data received data container
  * @param ms waiting for receive timeout
- * @return uint32_t
- *  - 
+ * @return uint32_t GPS data
  */
 uint32_t GPS_getData(gps_t * data, uint16_t ms); // Send GPS DATA to
 
@@ -296,7 +295,7 @@ void GPS_test(void);
 esp_err_t GPS_baud_rate_set(uint32_t baud);
 
 /**
- * @brief Set GPS baud rate and set ESP UART baudrate to same value
+ * @brief Set GPS baud rate and ESP UART baudrate to same value
  *
  * @param baud desired baudrate, default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
  * @return esp_err_t
@@ -316,18 +315,18 @@ void GPS_fix_interval_set(uint16_t time);
 /**
  * @brief Set navigation mode for your specific use case
  *
- * @param mode mode of GPS to use
+ * @param mode mode of GPS to use 
  */
 void GPS_nav_mode_set(gps_nav_mode_t mode);
 
 /**
  * @brief Set GPS fix interval for specified messages
  *
- * @param GLL 
- * @param RMC 
- * @param VTG 
- * @param GGA 
- * @param GSA 
- * @param GSV 
+ * @param GLL Geographic position – latitude and longitude
+ * @param RMC Recommended minimum specific GPS/Transit data
+ * @param VTG Course Over Ground and Ground Speed
+ * @param GGA Global Positioning System Fix Data
+ * @param GSA GNSS DOP and Active Satellites
+ * @param GSV GNSS Satellites in View
  */
 void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV);
