@@ -145,6 +145,8 @@ esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t *meas){
 }
 
 
+
+
 esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_t eRegisterToSet, uint8_t val){
 	esp_err_t retval = ESP_FAIL;
 	retval = LSM6DSO32_Write(sensor, eRegisterToSet, val);
@@ -167,3 +169,11 @@ esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t val)
 esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t * rx, uint8_t length){
 	return SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 1, LSM6DSO32_register_addr[reg], NULL, rx, length);
 }
+
+esp_err_t LSM6DSO32_SetBitInRegister(uint8_t sensor, LSM6DSO32_register_t eRegisterToSet, uint8_t bitPos, bool bit){
+	uint8_t val;
+	LSM6DSO32_Read(sensor, eRegisterToSet, &val, 1);
+	val = ((val & ~(1 << bitPos)) | (bit << bitPos));
+	return LSM6DSO32_SetRegister(sensor, eRegisterToSet, val);
+}
+
