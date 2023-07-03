@@ -8,7 +8,7 @@
 #include "BOARD.h"
 #include "SPI_driver.h"
 #include "esp_log.h"
-
+ 
 /**
  * @brief IMU measurement data
  */
@@ -211,10 +211,11 @@ uint8_t LSM6DSO32_WhoAmI();
 esp_err_t LSM6DSO32_readMeas();
 
 **
- * @brief Get computed IMU sensor data
+ * @brief Get computed IMU sensor data into pointed struct
  *
  * @param meas struct to wchich we need to write data
  * @return esp_err_t
  *  - ESP_OK: Success
  */
 esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas);
+ 

@@ -27,7 +27,52 @@ typedef enum {
 	SPI_SCK_20MHZ = 20
 } SPI_sck_freq_t;
 
+/**
+ * @brief Initialize SPI component
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - Others: Fail
+ */
 esp_err_t SPI_init();
+
+/**
+ * @brief Configure new SPI device
+ *
+ * @param handle 
+ * @param CS_pin Chip select pin for given device
+ * @param clock_mhz Device SPI clock speed
+ * @param queue_size Queue size for given SPI peripherial device
+ * @param cmd_bits Number of command bits sent to device
+ * @param addr_bits Number of address  bits sent to device
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - Others: Fail
+ */
 esp_err_t SPI_registerDevice(spi_dev_handle_t *handle, int CS_pin, int clock_mhz, int queue_size, int cmd_bits, int addr_bits);
+
+
+/**
+ * @brief Check if SPI initialized properly 
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - Others: Fail
+ */
 esp_err_t SPI_checkInit();
+
+/**
+ * @brief Perform SPI transaction with selected devic
+ *
+ * @param handle 
+ * @param cmd Command sent to the device
+ * @param addr SPI peripheral device address 
+ * @param tx_buf Transmitted buffer
+ * @param rx_buf Received buffer
+ * @param payload_len Length of payload sent
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - Others: Fail
+ */
 esp_err_t SPI_transfer(spi_dev_handle_t handle, uint8_t cmd, uint8_t addr, uint8_t * tx_buf, uint8_t * rx_buf, int payload_len);
+ 

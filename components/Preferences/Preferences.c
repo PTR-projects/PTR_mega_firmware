@@ -5,7 +5,7 @@
 #include <sys/param.h>
 #include <sys/unistd.h>
 #include <sys/stat.h>
-#include <dirent.h>
+#include <dirent.h> 
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -109,13 +109,6 @@ Preferences_data_t Preferences_get(){
 }
 
 
-/*!
- * @brief Update configuration, firstly update in RAM then copy to file to prevent reading errors
- * @param config
- * Struct with new config data
- * @return `ESP_OK` if
- * @return `ESP_ERR_NOT_FOUND`
- */
 esp_err_t Preferences_update(Preferences_data_t config){
 	char *string = NULL;
 	cJSON *json = cJSON_CreateObject();

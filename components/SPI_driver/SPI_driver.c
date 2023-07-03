@@ -10,7 +10,7 @@
 
 static const char *TAG = "SPI_driver";
 static esp_err_t SPI_init_done = ESP_ERR_NOT_FINISHED;
-
+ 
 esp_err_t SPI_init(){
 	// -------------- SPI init --------------------------------------------
 	spi_bus_config_t buscfg = {

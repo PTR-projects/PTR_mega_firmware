@@ -41,14 +41,7 @@ esp_vfs_littlefs_conf_t conf_littlefs = {
 static const char *TAG = "Storage_driver";
 
 
-/*!
- * @brief Initialize storage component by calling init functions for specified filesystem.
- * @param filesystem
- * @param key
- * Master key for unwanted data access prevention.
- * @return `ESP_OK` if initialized
- * @return `ESP_FAIL` otherwise.
- */
+
 esp_err_t Storage_init(Storage_filesystem_t filesys , uint32_t key){
 
 	esp_err_t ret = ESP_FAIL;
@@ -178,13 +171,6 @@ esp_err_t Storage_initFile(){
 }
 
 
-
-/*!
- * @brief Erase memory by calling filesystem specific function
- * @param key
- * @return `ESP_OK` if initialized
- * @return `ESP_FAIL` otherwise.
- */
 esp_err_t Storage_erase(uint32_t key){
 
 	if(!Storage_data_d.ReadyFlag){
@@ -226,17 +212,7 @@ esp_err_t Storage_erase_Littlefs(uint32_t key){
 //													WRITING FILES
 //######################################################################################################################
 
-/*!
- * @brief Write packet of given size by calling filesystem specific function
- * @param buff
- * Pointer to a buffer
- * @param len
- * Length of buffer in Bytes
- * @return `ESP_OK` if initialized
- * @return `ESP_ERR_NOT_FOUND` if file is not found
- * @return `ESP_FAIL` otherwise
- */
-esp_err_t Storage_writePacket(void * buf, uint16_t len){
+rr_t Storage_writePacket(void * buf, uint16_t len){
 
 	esp_err_t res = ESP_FAIL;
 
@@ -321,14 +297,7 @@ esp_err_t Storage_writePacket_Littlefs(void * buf, uint16_t len){
 }
 
 
-/*!
- * @brief Read whole file by calling filesystem specific function
- * @param buff
- * Pointer to an output buffer
- * @return `ESP_OK` if initialized
- * @return `ESP_ERR_NOT_FOUND` if file is not found
- * @return `ESP_FAIL` otherwise
- */
+
 esp_err_t Storage_readFile(void * buf){
 
 	if(!Storage_data_d.ReadyFlag){
