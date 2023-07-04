@@ -167,7 +167,7 @@ typedef enum LIS331_FDS
 	LIS331_FDS_OUTPUT = 	(1 << 4),
 
 
-}LIS331_FDS_t;
+}LIS331_FDS_t; 
 
 typedef enum LIS331_hp_cutoff
 {
@@ -350,21 +350,21 @@ bool 				LIS331_bdu_get(void);
 esp_err_t 			LIS331_ble_set(bool val);
 
 /**
-@brief Gets the status of the Bluetooth Low Energy (BLE) feature of the LIS331 sensor.
-@return True if BLE is enabled, false if disabled.
+* @brief Gets the status of the Bluetooth Low Energy (BLE) feature of the LIS331 sensor.
+* @return True if BLE is enabled, false if disabled.
 */
 bool 				LIS331_ble_get(void);
 
 /**
-@brief Sets the measurement range of the LIS331 sensor.
-@param[in] val The range to set.
-@return ESP_OK if the operation was successful, ESP_FAIL otherwise.
+* @brief Sets the measurement range of the LIS331 sensor.
+* @param[in] val The range to set.
+* @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
 esp_err_t 			LIS331_range_set(LIS331_range_t val);
 
 
 /**
-@brief Gets the current measurement range of the LIS331 sensor.
-@return The current measurement range.
+* @brief Gets the current measurement range of the LIS331 sensor.
+* @return The current measurement range.
 */
 LIS331_range_t 		LIS331_range_get(void);

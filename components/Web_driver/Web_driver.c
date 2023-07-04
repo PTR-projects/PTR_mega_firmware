@@ -67,12 +67,7 @@ typedef struct rest_server_context {
     char scratch[SCRATCH_BUFSIZE];
 } rest_server_context_t;
 
-/*!
- * @brief Initialize web component by calling init functions for wifi and http server.
- * @return `ESP_OK` if initialized
- * @return `ESP_ERR_NOT_FOUND` if partition is not present
- * @return `ESP_FAIL` otherwise.
- */
+
 esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
 
