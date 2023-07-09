@@ -31,6 +31,7 @@ typedef struct{
 
 	float pressure;
 	uint8_t gps_fix;
+	uint8_t gps_sats;
 
 	uint8_t sysmgr_system_status;
 	uint8_t sysmgr_main_status;

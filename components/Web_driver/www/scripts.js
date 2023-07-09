@@ -1,6 +1,6 @@
 var getDataIntervalID;
 var getDataLiveIntervalID;
-
+var current_tab = 1;
 
 function SelectSection_Home() {
 	window.scrollTo(0, 0);
@@ -92,6 +92,92 @@ function SelectSection_Live() {
 	getDataLiveIntervalID = setInterval(getDataLive, 1000);
 }
 
+let touchstartX = 0;
+let touchendX = 0;
+let touchstartY = 0;
+let touchendY = 0;
+    
+function checkDirection() {
+  /* Ignore if user wants to refresh page */
+  // Get the absolute vertical distance
+  let verticalDistance = Math.abs(touchstartY - touchendY);  
+  
+  /* Calculate the difference between start and end positions */
+  let swipeDistance = touchendX - touchstartX;
+  
+  console.log("dX = " + swipeDistance + "   dY = " + verticalDistance);
+  
+  /* Check if the swipe distance meets your desired threshold */
+  if ((Math.abs(swipeDistance) > 80) && (verticalDistance < 50)) {
+  	// Perform the action for the swipe gesture
+    if (swipeDistance > 0) {
+      // Right swipe
+      Tab_swipeRight();
+    } else {
+      // Left swipe
+      Tab_swipeLeft();
+    }
+  }
+}
+
+document.addEventListener('touchstart', e => {
+  touchstartX = e.changedTouches[0].screenX;
+  touchstartY = e.changedTouches[0].screenY;
+});
+
+document.addEventListener('touchend', e => {
+  touchendX = e.changedTouches[0].screenX;
+  touchendY = e.changedTouches[0].screenY;
+  checkDirection();
+});
+
+function Tab_swipeRight() {
+	switch(current_tab){
+		case 1:
+		break;
+		
+		case 2:
+		SelectSection_Home();
+		break;
+		
+		case 3:
+		SelectSection_Storage();
+		break;
+		
+		case 4:
+		SelectSection_Ign();
+		break;
+		
+		case 5:
+		SelectSection_Settings();
+		break;
+	}
+}
+
+function Tab_swipeLeft() {
+	switch(current_tab){
+		case 1:
+		SelectSection_Storage();
+		break;
+		
+		case 2:
+		SelectSection_Ign();
+		break;
+		
+		case 3:
+		SelectSection_Settings();
+		break;
+		
+		case 4:
+		SelectSection_Live();
+		break;
+		
+		case 5:
+		
+		break;
+	}
+}
+
 function TabsInit() {
 	console.log("Tabs init");
 	window.scrollTo(0, 0);
@@ -123,6 +209,8 @@ function TabsSelect(num){
 	var igniters_td = document.getElementById('menu_ign_td');
 	var settings_td = document.getElementById('menu_settings_td');
 	var live_td 	= document.getElementById('menu_live_td');
+	
+	current_tab = num;
 	
 	switch(num){
 		case 0:
@@ -235,6 +323,21 @@ function TabsSelect(num){
 	}
 }
 
+/*-------------------- Main tab -------------------------------*/
+function main_arming_handler () {
+	console.log("Main - Arming button pressed");
+	if(confirm('Do you want to Arm?\n\nAfter that command Flight Computer will be ready to flight and igniters will be armed!\n\nUse with caution!')) { 
+		/*POST_simple("/delete/storage/meas.bin", '');*/
+	}
+}
+
+function main_disarming_handler () {
+	console.log("Main - Arming button pressed");
+	if(confirm('Do you want to Disarm?\n\nAfter that command Flight Computer will be disarmed and will not work during flight!\n\nIt will be safe to approach :)')) { 
+		/*POST_simple("/delete/storage/meas.bin", '');*/
+	}
+}
+
 /*-------------------- Storage tab -------------------------------*/
 function storage_download_handler () {
 	console.log("Storage - Download pressed");
@@ -248,68 +351,171 @@ function storage_remove_handler () {
 	}
 }
 
+function vibrate(time){
+	// Check if the Vibration API is supported
+	if ('vibrate' in navigator) {
+	  // Vibrate for 200ms
+	  navigator.vibrate(time);
+	}
+}
+
 /*--------------------- Igniters tab ------------------------------*/
 function ign_ign1_unlock_handler () {
-	navigator.vibrate(200); 
-	if(confirm('Are you sure? Igniter 1 will be unlocked!')) {
-		document.getElementById('button-ign1-unlock').disabled = true;   
-		document.getElementById('button-ign1-fire').disabled = false;                 
-		document.getElementById('label-igniter1-lock-status').textContent = "Unlocked!";
-		document.getElementById('label-igniter1-lock-status').style.color = "red";
+	if(document.getElementById('button-ign1-fire').disabled == false){
+		/*document.getElementById('button-ign1-unlock').disabled = true;*/
+		document.getElementById('button-ign1-unlock').textContent = "UNLOCK"   
+		
+		/* Enable the fire button */
+		document.getElementById('button-ign1-fire').disabled = true;  
+		
+        /* Update the lock status label */ 
+		var lockStatusLabel = document.getElementById('label-igniter1-lock-status');             
+		lockStatusLabel.textContent = "Status Locked";
+		lockStatusLabel.style.color = "black";
+		return;
 	}
+	
+	vibrate(200); 
+	
+	/* Set a timeout to execute the code after 200ms */
+	setTimeout(function (){
+			if(confirm('Are you sure? Igniter 1 will be unlocked!')) {
+				/* Rename the unlock button */
+				document.getElementById('button-ign1-unlock').textContent = "SECURE"   
+				
+				/* Enable the fire button */
+				document.getElementById('button-ign1-fire').disabled = false;  
+				
+		        /* Update the lock status label */ 
+				var lockStatusLabel = document.getElementById('label-igniter1-lock-status');             
+				lockStatusLabel.textContent = "Unlocked!";
+				lockStatusLabel.style.color = "red";
+			}
+		}, 200);
+	
 }
 
 function ign_ign2_unlock_handler () {
-	navigator.vibrate(200); 
-	if(confirm('Are you sure? Igniter 2 will be unlocked!')) {
-		document.getElementById('button-ign2-unlock').disabled = true;   
-		document.getElementById('button-ign2-fire').disabled = false;                 
-		document.getElementById('label-igniter2-lock-status').textContent = "Unlocked!";
-		document.getElementById('label-igniter2-lock-status').style.color = "red";
+	if(document.getElementById('button-ign2-fire').disabled == false){
+		/*document.getElementById('button-ign2-unlock').disabled = true;*/
+		document.getElementById('button-ign2-unlock').textContent = "UNLOCK"   
+		
+		/* Enable the fire button */
+		document.getElementById('button-ign2-fire').disabled = true;  
+		
+        /* Update the lock status label */ 
+		var lockStatusLabel = document.getElementById('label-igniter2-lock-status');             
+		lockStatusLabel.textContent = "Status Locked";
+		lockStatusLabel.style.color = "black";
+		return;
 	}
+	
+	vibrate(200);
+	
+	/* Set a timeout to execute the code after 200ms */
+	setTimeout(function() {
+			if(confirm('Are you sure? Igniter 2 will be unlocked!')) {
+				/* Rename the unlock button */
+				document.getElementById('button-ign2-unlock').textContent = "SECURE"   
+				
+				/* Enable the fire button */
+				document.getElementById('button-ign2-fire').disabled = false;  
+				
+				/* Update the lock status label */
+				var lockStatusLabel = document.getElementById('label-igniter2-lock-status');             
+				lockStatusLabel.textContent = "Unlocked!";
+				lockStatusLabel.style.color = "red";
+			}
+		}, 200);
 }
 
 function ign_ign3_unlock_handler ()  {
-	navigator.vibrate(200); 
-	if(confirm('Are you sure? Igniter 3 will be unlocked!')) {
-		document.getElementById('button-ign3-unlock').disabled = true;   
-		document.getElementById('button-ign3-fire').disabled = false;                 
-		document.getElementById('label-igniter3-lock-status').textContent = "Unlocked!";
-		document.getElementById('label-igniter3-lock-status').style.color = "red";
+	if(document.getElementById('button-ign3-fire').disabled == false){
+		/*document.getElementById('button-ign3-unlock').disabled = true;*/
+		document.getElementById('button-ign3-unlock').textContent = "UNLOCK"   
+		
+		/* Enable the fire button */
+		document.getElementById('button-ign3-fire').disabled = true;  
+		
+        /* Update the lock status label */ 
+		var lockStatusLabel = document.getElementById('label-igniter3-lock-status');             
+		lockStatusLabel.textContent = "Status Locked";
+		lockStatusLabel.style.color = "black";
+		return;
 	}
+	vibrate(200); 
+	
+	/* Set a timeout to execute the code after 200ms */
+	setTimeout(function() {
+			if(confirm('Are you sure? Igniter 3 will be unlocked!')) {
+				/* Rename the unlock button */
+				document.getElementById('button-ign3-unlock').textContent = "SECURE" 
+				
+				/* Enable the fire button */ 
+				document.getElementById('button-ign3-fire').disabled = false;   
+				
+				/* Update the lock status label */              
+				var lockStatusLabel = document.getElementById('label-igniter3-lock-status');
+				lockStatusLabel.textContent = "Unlocked!";
+				lockStatusLabel.style.color = "red";
+			}
+		}, 200);
 }
 
 function ign_ign4_unlock_handler ()  {
-	navigator.vibrate(200); 
-	if(confirm('Are you sure? Igniter 4 will be unlocked!')) {
-		document.getElementById('button-ign4-unlock').disabled = true;   
-		document.getElementById('button-ign4-fire').disabled = false;                 
-		document.getElementById('label-igniter4-lock-status').textContent = "Unlocked!";
-		document.getElementById('label-igniter4-lock-status').style.color = "red";
+	if(document.getElementById('button-ign4-fire').disabled == false){
+		/*document.getElementById('button-ign4-unlock').disabled = true;*/
+		document.getElementById('button-ign4-unlock').textContent = "UNLOCK"   
+		
+		/* Enable the fire button */
+		document.getElementById('button-ign4-fire').disabled = true;  
+		
+        /* Update the lock status label */ 
+		var lockStatusLabel = document.getElementById('label-igniter4-lock-status');             
+		lockStatusLabel.textContent = "Status Locked";
+		lockStatusLabel.style.color = "black";
+		return;
 	}
+	vibrate(200); 
+	
+	/* Set a timeout to execute the code after 200ms */
+	setTimeout(function() {
+		if (confirm('Are you sure? Igniter 4 will be unlocked!')) {
+			/* Rename the unlock button */
+				document.getElementById('button-ign4-unlock').textContent = "SECURE" 
+
+			/* Enable the fire button */
+			document.getElementById('button-ign4-fire').disabled = false;
+
+			/* Update the lock status label */
+			var lockStatusLabel = document.getElementById('label-igniter4-lock-status');
+			lockStatusLabel.textContent = 'Unlocked!';
+			lockStatusLabel.style.color = 'red';
+		}
+	  }, 200);
 }
 
 function ign_ign1_fire_handler() {
 	console.log("Igniters - Fire ign 1");
-	navigator.vibrate(200); 
+	vibrate(200); 
 	POST_simple("/cmd", '{"cmd":"ign_set","arg1":1,"key":2137}');
 }
 
 function ign_ign2_fire_handler() {
 	console.log("Igniters - Fire ign 2");
-	navigator.vibrate(200); 
+	vibrate(200); 
 	POST_simple("/cmd", '{"cmd":"ign_set","arg1":2,"key":2137}');
 }
 
 function ign_ign3_fire_handler() {
 	console.log("Igniters - Fire ign 3");
-	navigator.vibrate(200); 
+	vibrate(200); 
 	POST_simple("/cmd", '{"cmd":"ign_set","arg1":3,"key":2137}');
 }
 
 function ign_ign4_fire_handler() {
 	console.log("Igniters - Fire ign 4");
-	navigator.vibrate(200); 
+	vibrate(200); 
 	POST_simple("/cmd", '{"cmd":"ign_set","arg1":4,"key":2137}');
 }
 
@@ -422,8 +628,14 @@ function getDataStatus() {
 			SysMgr_statusToLabel(data.sysMgr.sysmgr_web_status, "label-status-web");
 			
 			document.getElementById("label-status-pressure").textContent 	= data.sensors.pressure;
-			document.getElementById("label-status-angle").textContent 		= data.sensors.rocket_tilt + " deg";
-			GpsFix_fixToLabel(data.sensors.gpsfix, "label-status-gpsfix");
+			document.getElementById("label-status-angle").textContent 		= data.sensors.rocket_tilt.toFixed(2) + " deg";
+			GpsFix_fixToLabel(data.sensors.gpsfix, "label-status-gpsstat");
+			document.getElementById("label-status-gpssats").textContent 		= data.sensors.gpssats;
+			
+			if(data.system.battery_voltage > 3.0)
+				document.getElementById("label-status-vbat").textContent 		= data.system.battery_voltage.toFixed(2) + " V";
+			else 
+				document.getElementById("label-status-vbat").textContent 		= "LOW!";
 	  })
 	  .catch(error => {
 		/* Handle any errors that occurred*/

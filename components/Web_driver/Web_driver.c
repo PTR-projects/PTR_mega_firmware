@@ -785,6 +785,9 @@ esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats)
     live_web.gps.fix  = fix;
     live_web.gps.sats = sats;
 
+    status_web.gps_fix = fix;
+	status_web.gps_sats = sats;
+
     return ESP_OK;
 }
 

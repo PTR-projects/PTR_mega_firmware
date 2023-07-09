@@ -51,6 +51,7 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	cJSON_AddNumberToObject(sensors, "pressure", status.pressure);
 	cJSON_AddNumberToObject(sensors, "rocket_tilt", status.rocket_tilt);
 	cJSON_AddNumberToObject(sensors, "gpsfix", status.gps_fix);
+	cJSON_AddNumberToObject(sensors, "gpssats", status.gps_sats);
 	cJSON_AddItemToObject(json, "sensors", sensors);
 
 	cJSON *igniters = cJSON_CreateArray();

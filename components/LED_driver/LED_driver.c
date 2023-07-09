@@ -143,7 +143,7 @@ esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number
 		else{
 			led_mode		(BUZZER_ARRAY_POS, LED_MODE_PULSE);
 			led_blink_rate	(BUZZER_ARRAY_POS, t_on_ms/loop_interval_ms, t_off_ms/loop_interval_ms);
-			led_array[BUZZER_ARRAY_POS].counter = beeps_number;
+			led_array[BUZZER_ARRAY_POS].pulses = beeps_number;
 		}
 		xSemaphoreGive(mutex_LED);
 	}

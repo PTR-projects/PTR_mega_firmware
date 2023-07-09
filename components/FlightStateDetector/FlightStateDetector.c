@@ -10,9 +10,7 @@
 //------ Private fun -----
 static void FlightState_STARTUP				(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_PREFLIGHT			(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
-static void FlightState_PREFLIGHT_ERROR		(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_ME_ACCELERATING		(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
-static void FlightState_ME_ERROR			(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_FREEFLIGHT			(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_FREEFALL			(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_DRAGCHUTE_FALL		(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
@@ -77,16 +75,8 @@ esp_err_t FSD_detect(uint64_t time_ms){
 		FlightState_PREFLIGHT(time_ms, currentState, ahrs);
 		break;
 
-	case FLIGHTSTATE_PREFLIGHT_ERROR:
-		FlightState_PREFLIGHT_ERROR(time_ms, currentState, ahrs);
-		break;
-
 	case FLIGHTSTATE_ME_ACCELERATING:
 		FlightState_ME_ACCELERATING(time_ms, currentState, ahrs);
-		break;
-
-	case FLIGHTSTATE_ME_ERROR:
-		FlightState_ME_ERROR(time_ms, currentState, ahrs);
 		break;
 
 	case FLIGHTSTATE_FREEFLIGHT:
@@ -133,13 +123,6 @@ static void FlightState_STARTUP	(uint64_t time_ms, FlightState_t * currentState,
 		currentState->state = FLIGHTSTATE_PREFLIGHT;
 		currentState->state_ready = false;
 	}
-
-
-	//------ Warunki wykrycia awarii ------
-	if(0 /* && (SysManager_checkStartupDone() != ESP_OK) */) {
-		currentState->state = FLIGHTSTATE_PREFLIGHT_ERROR;
-		currentState->state_ready = false;
-	}
 }
 
 static void FlightState_PREFLIGHT (uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
@@ -157,17 +140,6 @@ static void FlightState_PREFLIGHT (uint64_t time_ms, FlightState_t * currentStat
 		currentState->state = FLIGHTSTATE_ME_ACCELERATING;
 		currentState->state_ready = false;
 	}
-
-
-	//------ Warunki wykrycia awarii ------
-	if(0 /* && (SysManager_checkCriticalError() != ESP_OK) */) {
-		currentState->state = FLIGHTSTATE_PREFLIGHT_ERROR;
-		currentState->state_ready = false;
-	}
-}
-
-static void FlightState_PREFLIGHT_ERROR	(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
-
 }
 
 static void FlightState_ME_ACCELERATING	(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
@@ -185,17 +157,6 @@ static void FlightState_ME_ACCELERATING	(uint64_t time_ms, FlightState_t * curre
 		currentState->state = FLIGHTSTATE_FREEFLIGHT;
 		currentState->state_ready = false;
 	}
-
-
-	//------ Warunki wykrycia awarii ------
-	if(0 /* && (SysManager_checkCriticalError() != ESP_OK) */) {
-		currentState->state = FLIGHTSTATE_ME_ERROR;
-		currentState->state_ready = false;
-	}
-}
-
-static void FlightState_ME_ERROR	(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
-
 }
 
 static void FlightState_FREEFLIGHT			(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){

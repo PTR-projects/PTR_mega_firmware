@@ -69,7 +69,7 @@ typedef struct{
 #define LED_ARRAY_SIZE 			(LED_WS_RGB_COUNT + LED_STD_COUNT + BUZZER_COUNT)
 #define BUZZER_ARRAY_POS 		(LED_WS_RGB_COUNT + LED_STD_COUNT)
 
-#define LED_CHECK_IF_WS(x)  ((x >= LED_WS_POS0) && (x < (LED_WS_POS0+LED_WS_COUNT)) && (x != -1))
+#define LED_CHECK_IF_WS(x)  ((x >= LED_WS_POS0)  && (x < (LED_WS_POS0+LED_WS_COUNT))  && (x != -1))
 #define LED_CHECK_IF_STD(x) ((x >= LED_STD_POS0) && (x < (LED_STD_POS0+LED_STD_COUNT)) && (x != -1))
 
 // HIGH/LOW times for StripLED

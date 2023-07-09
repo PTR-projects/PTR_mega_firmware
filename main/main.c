@@ -92,7 +92,6 @@ void task_kpptr_main(void *pvParameter){
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
 				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL, &Analog_meas);
-//				ESP_LOGV(TAG, "Added T=%lli", time_us);
 				DM_addToMainRB(&DataPackage_ptr);
 			} else {
 				ESP_LOGE(TAG, "Main RB pointer = NULL!");
@@ -102,20 +101,10 @@ void task_kpptr_main(void *pvParameter){
 		}
 
 		//send data to RF every 500ms
-		if(((prevTickCountRF + pdMS_TO_TICKS( 500 )) <= xLastWakeTime)){
+		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
-		}
-
-		//--------------- Autoarming ----------------------------
-		if((FSD_checkArmed() == DISARMED)
-				&& (esp_timer_get_time() > 15000000UL)){
-			if(SysMgr_getCheckoutStatus() == check_ready){
-				FSD_arming();
-				if(FSD_checkArmed() == ARMED)
-					SysMgr_setArm(system_armed);
-			}
 		}
 
 		//------- Toc ---------
@@ -241,8 +230,20 @@ void task_kpptr_storage(void *pvParameter){
 					Web_status_updateGNSS(DataPackage_ptr->sensors.latitude, DataPackage_ptr->sensors.longitude,
 										DataPackage_ptr->sensors.gnss_fix >> 6, DataPackage_ptr->sensors.gnss_fix & 0x3F);
 					Web_status_updateADCS(0, 0);
-				}
 
+					// change GNSS component status if fix is OK
+					if(GPS_checkStatus() == ESP_OK){
+						static sysmgr_checkout_state_t gnss_ready_check = check_void;
+						if((gnss_ready_check == check_void)
+								&& (DataPackage_ptr->sensors.gnss_fix)){
+							gnss_ready_check = check_ready;
+							SysMgr_checkout(checkout_gnss, check_ready);
+						}
+					} else {
+						SysMgr_checkout(checkout_gnss, check_fail);
+					}
+
+				}
 				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			}
 		}
@@ -279,7 +280,7 @@ void task_kpptr_utils(void *pvParameter){
 void task_kpptr_analog(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	uint32_t interval_ms = 100;
-
+	sysmgr_checkout_state_t vbat_ok = check_void;
 	Analog_meas_t Analog_meas;
 
 	while(Analog_init(100, 0.1f) != ESP_OK){
@@ -289,7 +290,6 @@ void task_kpptr_analog(void *pvParameter){
 	}
 	ESP_LOGI(TAG, "Task Analog - ready!");
 
-	SysMgr_checkout(checkout_analog, check_ready);
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
@@ -297,6 +297,11 @@ void task_kpptr_analog(void *pvParameter){
 		Web_status_updateAnalog(Analog_meas.vbat_mV/1000.0f,
 								Analog_meas.IGN1_det, Analog_meas.IGN2_det,
 								Analog_meas.IGN3_det, Analog_meas.IGN4_det);
+
+		if((vbat_ok != check_ready) && (Analog_meas.vbat_mV > 3700.0f)){
+			vbat_ok = check_ready;
+			SysMgr_checkout(checkout_analog, check_ready);
+		}
 
 		LED_setIGN1(20, Analog_meas.IGN1_det);
 		LED_setIGN2(20, Analog_meas.IGN2_det);
@@ -309,7 +314,7 @@ void task_kpptr_analog(void *pvParameter){
 }
 
 void task_kpptr_sysmgr(void *pvParameter){
-
+	int64_t ready_to_arm_time = 0;
 	ESP_LOGI(TAG, "SysMgr ready");
 	SysMgr_checkout(checkout_sysmgr, check_ready);
 
@@ -355,6 +360,23 @@ void task_kpptr_sysmgr(void *pvParameter){
 												SysMgr_getComponentState(checkout_storage), SysMgr_getComponentState(checkout_sysmgr),
 												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web),
 												SysMgr_getArm());
+
+		//--------------- Autoarming ----------------------------
+		if(FSD_checkArmed() == DISARMED){
+			if(SysMgr_getCheckoutStatus() == check_ready){
+				if(ready_to_arm_time == 0){
+					ready_to_arm_time = esp_timer_get_time();
+				}
+				if((esp_timer_get_time() - ready_to_arm_time) > 15000000UL){
+					FSD_arming();
+					if(FSD_checkArmed() == ARMED){
+						SysMgr_setArm(system_armed);
+						BUZZER_beep(70, 70, 5);
+					}
+				}
+			}
+		}
+
 
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
 	}

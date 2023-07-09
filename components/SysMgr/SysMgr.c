@@ -20,6 +20,7 @@ esp_err_t SysMgr_init(){
 	sysmgr_checkout_status_d.analog  = check_void;
 	sysmgr_checkout_status_d.utils 	 = check_void;
 	sysmgr_checkout_status_d.web 	 = check_void;
+	sysmgr_checkout_status_d.gnss 	 = check_void;
 
 	queue_SysMgrCheckout = xQueueCreate( 100, sizeof( sysmgr_checkout_msg_t ) );
 	if(queue_SysMgrCheckout == 0){

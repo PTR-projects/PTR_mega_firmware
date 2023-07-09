@@ -254,6 +254,7 @@ esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_ha
 esp_err_t GPS_init();
 uint8_t GNSS_message_size(void);
 uint32_t GPS_getData(gps_t * data, uint16_t ms); // Send GPS DATA to
+esp_err_t GPS_checkStatus();
 void GPS_test(void);
 esp_err_t GPS_baud_rate_set(uint32_t baud);
 esp_err_t GPS_baud_rate_set_extra(uint32_t baud);

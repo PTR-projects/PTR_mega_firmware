@@ -15,6 +15,7 @@ static MessageBufferHandle_t xMessageBuffer_GNSS2Storage;
 static uint8_t xMessageBuffer_GNSS2Storage_buffer[1 + (4 + sizeof(gps_t)) * 10];
 static StaticMessageBuffer_t  xMessageBuffer_GNSS2Storage_struct;
 static char txMessageBuffer[64];
+static uint64_t last_msg_timestamp = 0;
 
 ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
@@ -63,6 +64,13 @@ uint32_t GPS_getData(gps_t * data, uint16_t ms){
 								 pdMS_TO_TICKS( ms ));
 }
 
+
+esp_err_t GPS_checkStatus(){
+	if((esp_timer_get_time() - last_msg_timestamp) > 5000000UL)
+		return ESP_FAIL;
+
+	return ESP_OK;
+}
 //---------------------------------------------
 //	Low Level
 //---------------------------------------------
@@ -556,6 +564,8 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
 					/*esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UPDATE,
 									  &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
 				   */
+					last_msg_timestamp = esp_timer_get_time();	//store current timestamp
+
 					ESP_LOGV(TAG, "New data parsed! Add to queue");
 					if(xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage) < (4+sizeof(gps_t))){
 						ESP_LOGV(TAG, "Oldest packet removed");
@@ -563,8 +573,6 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
 						xMessageBufferReceive( xMessageBuffer_GNSS2Storage, (void*) &tmp_gps, sizeof( gps_t ), 0);
 					}
 					xMessageBufferSend(xMessageBuffer_GNSS2Storage, (void *)&(esp_gps->parent), sizeof(gps_t), 0);
-//					ESP_LOGI(TAG, "free space %i B, %i packets", xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage),
-//																 xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage)/(4+sizeof(gps_t)));
 					ESP_LOGV(TAG, "%f, %f, %i", esp_gps->parent.latitude, esp_gps->parent.longitude, esp_gps->parent.fix);
 				}
             } else {
@@ -593,6 +601,7 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, int len)
     }
     return ESP_OK;
 }
+
 
 /**
  * @brief Handle when a pattern has been detected by uart
