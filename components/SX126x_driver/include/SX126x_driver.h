@@ -43,6 +43,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "SX126x_hal.h"
 
 /*
  * -----------------------------------------------------------------------------
