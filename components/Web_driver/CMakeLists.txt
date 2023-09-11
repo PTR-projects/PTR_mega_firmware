@@ -1,4 +1,4 @@
-idf_component_register(SRCS "Web_driver.c" "web_driver.c" "Web_driver_json.c" "Web_driver_cmd.c"
+idf_component_register(SRCS "Web_driver.c" "Web_driver.c" "Web_driver_json.c" "Web_driver_cmd.c"
                     INCLUDE_DIRS "include"
                     PRIV_REQUIRES  nvs_flash esp_http_server spiffs esp_littlefs json IGN_driver Preferences DataManager Storage_driver
                     #EMBED_FILES "data/index.html" "data/styles.css" "data/scripts.js"
