@@ -16,5 +16,4 @@ jobs:
       with:
         esp_idf_version: v4.4.5
         target: esp32s3
-        path: 'PTR_mega_firmware'
         path: '.'
