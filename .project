@@ -6084,6 +6084,21 @@
 			<location>D:/Espressif/frameworks/esp-idf-v5.1.1/components/ulp/ulp_common/ulp_common.c</location>
 		</link>
 		<link>
+			<name>build/ide/esp_idf_components/ulp/ulp_riscv/ulp_riscv.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v5.1.1/components/ulp/ulp_riscv/ulp_riscv.c</location>
+		</link>
+		<link>
+			<name>build/ide/esp_idf_components/ulp/ulp_riscv/ulp_riscv_i2c.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v5.1.1/components/ulp/ulp_riscv/ulp_riscv_i2c.c</location>
+		</link>
+		<link>
+			<name>build/ide/esp_idf_components/ulp/ulp_riscv/ulp_riscv_lock.c</name>
+			<type>1</type>
+			<location>D:/Espressif/frameworks/esp-idf-v5.1.1/components/ulp/ulp_riscv/ulp_riscv_lock.c</location>
+		</link>
+		<link>
 			<name>build/ide/esp_idf_components/wifi_provisioning/proto-c/wifi_config.pb-c.c</name>
 			<type>1</type>
 			<location>D:/Espressif/frameworks/esp-idf-v5.1.1/components/wifi_provisioning/proto-c/wifi_config.pb-c.c</location>
