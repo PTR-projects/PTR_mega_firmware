@@ -19,6 +19,7 @@ static StaticQueue_t  queue_StorageUsed_struct;
 static uint8_t queue_StorageFree_buf[ DA_MAIN_QUEUE_SIZE * sizeof(&DataPackage_rb) ];
 static uint8_t queue_StorageUsed_buf[ DA_MAIN_QUEUE_SIZE * sizeof(&DataPackage_rb) ];
 
+
 //--------------- Misc variables ----------------------
 static const char *TAG = "Data ag.";
 static uint16_t packet_counter = 0;
@@ -50,13 +51,17 @@ esp_err_t DM_init(){
 	for(uint8_t i=0; i<DA_MAIN_QUEUE_SIZE; i++){
 		DataPackage_t * DataPackage_ptr = &(DataPackage_rb[i]);
 		if(xQueueSend(queue_StorageFree, &DataPackage_ptr, 100) != pdTRUE){
-			ESP_LOGE(TAG, "Faild to add to Main RB!");
+			ESP_LOGE(TAG, "Failed to add to Main RB!");
 			return ESP_FAIL;
 		}
 	}
 
 	ESP_LOGI(TAG, "RB init done");
 	return ESP_OK;
+}
+
+uint16_t DM_checkWaitingElementsNumber(){
+	return DA_MAIN_QUEUE_SIZE-uxQueueSpacesAvailable(queue_StorageUsed);
 }
 
 //-------------------------- Unload from Main RB ---------------------------
@@ -104,43 +109,48 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
 
 	package->sys_time = time_us;
 
-	package->sensors.accHX = sensors->LIS331.accX;
-	package->sensors.accHY = sensors->LIS331.accY;
-	package->sensors.accHZ = sensors->LIS331.accZ;
+	package->sensors.accHX 		= sensors->LIS331.accX;
+	package->sensors.accHY 		= sensors->LIS331.accY;
+	package->sensors.accHZ 		= sensors->LIS331.accZ;
 
-	package->sensors.accX = sensors->LSM6DSO32.accX;
-	package->sensors.accY = sensors->LSM6DSO32.accY;
-	package->sensors.accZ = sensors->LSM6DSO32.accZ;
+	package->sensors.accX 		= sensors->LSM6DSO32.accX;
+	package->sensors.accY 		= sensors->LSM6DSO32.accY;
+	package->sensors.accZ 		= sensors->LSM6DSO32.accZ;
 
-	package->sensors.gyroX = sensors->LSM6DSO32.gyroX;
-	package->sensors.gyroY = sensors->LSM6DSO32.gyroY;
-	package->sensors.gyroZ = sensors->LSM6DSO32.gyroZ;
+	package->sensors.gyroX 		= sensors->LSM6DSO32.gyroX;
+	package->sensors.gyroY 		= sensors->LSM6DSO32.gyroY;
+	package->sensors.gyroZ 		= sensors->LSM6DSO32.gyroZ;
 
-	package->sensors.magX = sensors->MMC5983MA.magX;
-	package->sensors.magY = sensors->MMC5983MA.magY;
-	package->sensors.magZ = sensors->MMC5983MA.magZ;
+	package->sensors.magX 		= sensors->MMC5983MA.magX;
+	package->sensors.magY 		= sensors->MMC5983MA.magY;
+	package->sensors.magZ 		= sensors->MMC5983MA.magZ;
 
-	package->sensors.pressure = sensors->MS5607.press;
-	package->sensors.temp = sensors->MS5607.temp;
+	package->sensors.pressure 	= sensors->MS5607.press;
+	package->sensors.temp 		= (int8_t)sensors->MS5607.temp;
 
-	package->sensors.latitude = gps->latitude;
-	package->sensors.longitude = gps->longitude;
+	package->sensors.latitude 	= gps->latitude;
+	package->sensors.longitude 	= gps->longitude;
 	package->sensors.altitude_gnss = gps->altitude;
-	package->sensors.gnss_fix = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
+	package->sensors.gnss_fix 	= ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
 
-	package->ign.ign1_cont = analog->IGN1_det;
-	package->ign.ign2_cont = analog->IGN2_det;
-	package->ign.ign3_cont = analog->IGN3_det;
-	package->ign.ign4_cont = analog->IGN4_det;
+	package->ign.ign1_cont 		= analog->IGN1_det;
+	package->ign.ign2_cont 		= analog->IGN2_det;
+	package->ign.ign3_cont 		= analog->IGN3_det;
+	package->ign.ign4_cont 		= analog->IGN4_det;
 
-	package->vbat_mV = analog->vbat_mV;
+	package->vbat_mV 			= (uint16_t)analog->vbat_mV;
 
+	package->blank[0]			= 0;
+	package->blank[1]			= 0;
+	package->blank[2]			= 0;
+	package->blank[3]			= 0;
+	package->blank[4]			= 0;
 
-	//package->flightstate = (uint8_t)(flightstate->state);
+	package->flightstate = (uint8_t)(flightstate->state);
 }
 
 void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
-	package->id           = 0xAAAA;
+	package->id           = 1024;
 	package->packet_no    = packet_counter++;
 	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
 	package->timestamp_ms = (uint32_t)(time_us/1000);
