@@ -1,10 +1,14 @@
 #include "LED_driver.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "BOARD.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_err.h"
+#include "driver/rmt.h"
 
 static esp_err_t ws2812_control_init(void);
 static esp_err_t ws2812_control_deinit(void);

@@ -105,6 +105,7 @@ typedef struct __attribute__((__packed__)){
 } DataPackageRF_t;
 
 esp_err_t DM_init();
+uint16_t DM_checkWaitingElementsNumber();
 esp_err_t DM_getUsedPointerFromMainRB(DataPackage_t ** ptr);
 esp_err_t DM_getUsedPointerFromMainRB_wait(DataPackage_t ** ptr);
 esp_err_t DM_returnUsedPointerToMainRB(DataPackage_t ** ptr);

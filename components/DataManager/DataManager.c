@@ -19,6 +19,7 @@ static StaticQueue_t  queue_StorageUsed_struct;
 static uint8_t queue_StorageFree_buf[ DA_MAIN_QUEUE_SIZE * sizeof(&DataPackage_rb) ];
 static uint8_t queue_StorageUsed_buf[ DA_MAIN_QUEUE_SIZE * sizeof(&DataPackage_rb) ];
 
+
 //--------------- Misc variables ----------------------
 static const char *TAG = "Data ag.";
 static uint16_t packet_counter = 0;
@@ -50,13 +51,17 @@ esp_err_t DM_init(){
 	for(uint8_t i=0; i<DA_MAIN_QUEUE_SIZE; i++){
 		DataPackage_t * DataPackage_ptr = &(DataPackage_rb[i]);
 		if(xQueueSend(queue_StorageFree, &DataPackage_ptr, 100) != pdTRUE){
-			ESP_LOGE(TAG, "Faild to add to Main RB!");
+			ESP_LOGE(TAG, "Failed to add to Main RB!");
 			return ESP_FAIL;
 		}
 	}
 
 	ESP_LOGI(TAG, "RB init done");
 	return ESP_OK;
+}
+
+uint16_t DM_checkWaitingElementsNumber(){
+	return DA_MAIN_QUEUE_SIZE-uxQueueSpacesAvailable(queue_StorageUsed);
 }
 
 //-------------------------- Unload from Main RB ---------------------------
@@ -140,7 +145,7 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
 }
 
 void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
-	package->id           = 0xAAAA;
+	package->id           = 1024;
 	package->packet_no    = packet_counter++;
 	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
 	package->timestamp_ms = (uint32_t)(time_us/1000);

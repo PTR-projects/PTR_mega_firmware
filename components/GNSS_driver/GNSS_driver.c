@@ -3,6 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "GNSS_driver.h"
 #include <string.h>
 #include <ctype.h>
@@ -882,12 +883,12 @@ esp_err_t GPS_baud_rate_set(uint32_t baud){ // default:9600, 4800, 9600, 14400, 
 		ESP_LOGE(TAG, "WRONG BAUDRATE");
 		return ESP_FAIL;
 	}
-	sprintf(message, "PMTK251,%i", baud);
+	sprintf(message, "PMTK251,%lu", baud);
 
 	if(GPS_send_cmd(message) != ESP_OK){
 		return ESP_FAIL;
 	}
-	ESP_LOGI(TAG, "GPS baudrate set to %d", baud);
+	ESP_LOGI(TAG, "GPS baudrate set to %lu", baud);
 
 	return ESP_OK;
 }
@@ -902,7 +903,7 @@ esp_err_t GPS_baud_rate_set_extra(uint32_t baud){ // default:9600, 4800, 9600, 1
 		return ESP_ERR_INVALID_ARG;
 	}
 
-	sprintf(message, "PMTK251,%i", baud);
+	sprintf(message, "PMTK251,%lu", baud);
 	status = GPS_send_cmd(message);
 
 	if(status == ESP_OK){
@@ -914,7 +915,7 @@ esp_err_t GPS_baud_rate_set_extra(uint32_t baud){ // default:9600, 4800, 9600, 1
 	}
 
 	if(status == ESP_OK){
-		ESP_LOGI(TAG, "GPS and UARTPORT %d baudrate set to %d", GNSS_UART, baud);
+		ESP_LOGI(TAG, "GPS and UARTPORT %d baudrate set to %lu", GNSS_UART, baud);
 	}
 
 	return status;

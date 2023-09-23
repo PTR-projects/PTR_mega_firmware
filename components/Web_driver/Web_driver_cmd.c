@@ -64,10 +64,10 @@ esp_err_t Web_cmd_handler(char *buf){
 	}
 
 	uint32_t key =  cJSON_GetObjectItem(json, "key")->valueint;
-	ESP_LOGV(TAG, "Key: %d", key);
+	ESP_LOGV(TAG, "Key: %lu", key);
 
 	if(key != Web_driver_cmd_d.key){
-		ESP_LOGE(TAG, "Wrong key, given value was: %d", key);
+		ESP_LOGE(TAG, "Wrong key, given value was: %lu", key);
 		return ESP_FAIL;
 	}
 

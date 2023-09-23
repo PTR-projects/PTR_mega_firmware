@@ -45,6 +45,7 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	cJSON_AddNumberToObject(sysMgr, "sysmgr_utils_status", 	 status.sysmgr_utils_status);
 	cJSON_AddNumberToObject(sysMgr, "sysmgr_web_status", 	 status.sysmgr_web_status);
 	cJSON_AddNumberToObject(sysMgr, "sysmgr_arm_state", 	 status.sysmgr_arm_state);
+	cJSON_AddNumberToObject(sysMgr, "sysmgr_gnss_status", 	 status.sysmgr_gnss_status);
 	cJSON_AddItemToObject  (json,   "sysMgr", 			     sysMgr);
 
 	cJSON *sensors = cJSON_CreateObject();
@@ -73,7 +74,7 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 
 	cJSON_Delete(json);
-	ESP_LOGI(TAG, "%s", string);
+	ESP_LOGV(TAG, "%s", string);
 	return string;
 }
 
@@ -160,7 +161,7 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 
 
 	cJSON_Delete(json);
-	ESP_LOGI(TAG, "%s", string);
+	ESP_LOGV(TAG, "%s", string);
 	return string;
 }
 

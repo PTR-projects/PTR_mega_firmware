@@ -44,7 +44,7 @@ Feel free to explore the individual components and tasks within the firmware to 
 To start using the KPPTR-firmware and exploring its capabilities, follow these steps:
 
 1. Clone the repository to your local machine.
-2. Download the ESP-IDF 4.4 framework from [here](https://dl.espressif.com/dl/esp-idf/?idf=4.4).
+2. Download the ESP-IDF 4.4.5 framework from [here](https://dl.espressif.com/dl/esp-idf/?idf=4.4.5).
 3. Use the ESP-IDF tools to compile and flash the firmware onto your ESP32-S3 SoC.
 
 Please check [ESP-IDF docs](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for getting started instructions.

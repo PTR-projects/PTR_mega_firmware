@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "AHRS_driver.h"
+#include "LED_driver.h"
 #include "FlightStateDetector.h"
 
 #define TIME_ELAPSED(start_ms, now_ms, wait_ms) (start_ms <= (now_ms - wait_ms))
@@ -119,7 +120,7 @@ static void FlightState_STARTUP	(uint64_t time_ms, FlightState_t * currentState,
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 5000)) /* && (SysManager_checkStartupDone() == ESP_OK) */) {
+	if (TIME_ELAPSED(stateChangeTime, time_ms, 1000) && (armstatus_d == ARMED)) {
 		currentState->state = FLIGHTSTATE_PREFLIGHT;
 		currentState->state_ready = false;
 	}
@@ -136,9 +137,10 @@ static void FlightState_PREFLIGHT (uint64_t time_ms, FlightState_t * currentStat
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= 2.0f) ) {
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= 12.0f) ) {
 		currentState->state = FLIGHTSTATE_ME_ACCELERATING;
 		currentState->state_ready = false;
+		BUZZER_beep(200, 80, 2);
 	}
 }
 

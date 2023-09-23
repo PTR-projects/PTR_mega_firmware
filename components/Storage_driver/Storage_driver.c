@@ -331,6 +331,7 @@ esp_err_t Storage_blockMeasFile(){
 		ESP_LOGE(TAG,"File write failed");
 		return ESP_FAIL;
 	}
+	ESP_LOGI(TAG,"Meas locked");
 
 	return ESP_OK;
 }
@@ -339,6 +340,7 @@ esp_err_t Storage_unblockMeasFile(){
 	f_meas = fopen(Storage_data_d.path, "a+");
 	meas_file_lock = 0;
 
+	ESP_LOGI(TAG,"Meas unlocked");
 	return ESP_OK;
 }
 

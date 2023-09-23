@@ -1,7 +1,10 @@
 #include <stdio.h>
-//#include "freertos/FreeRTOS.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #include "esp_log.h"
 #include "LED_driver.h"
+#include "esp_err.h"
 #include "SysMgr.h"
 
 static const char *TAG = "SysMgr";

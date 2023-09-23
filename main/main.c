@@ -8,6 +8,7 @@
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
+#include "esp_timer.h"
 
 //----------- Our includes --------------
 #include "SPI_driver.h"
@@ -31,11 +32,11 @@
 static const char *TAG = "KP-PTR";
 
 //----------- Queues etc ---------------
-QueueHandle_t queue_AnalogToMain;
-QueueHandle_t queue_MainToTelemetry;
+static QueueHandle_t queue_AnalogToMain;
+static QueueHandle_t queue_MainToTelemetry;
 
 //----------- Global settings ----------
-Preferences_data_t Preferences_data_d;
+static Preferences_data_t Preferences_data_d;
 
 // periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
 
@@ -46,12 +47,7 @@ void task_kpptr_main(void *pvParameter){
 	DataPackageRF_t  DataPackageRF_d;
 	gps_t gps_d;
 	Analog_meas_t Analog_meas;
-	struct timeval tv_now;
-	struct timeval tv_tic;
-	struct timeval tv_toc;
-	struct timeval tv_comp;
-	gettimeofday(&tv_now, NULL);
-	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+	int64_t time_us = esp_timer_get_time();
 
 	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
@@ -75,12 +71,7 @@ void task_kpptr_main(void *pvParameter){
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));
 
-		//----- Tic ----------
-//		gettimeofday(&tv_tic, NULL);
-		//--------------------
-
-		gettimeofday(&tv_now, NULL);
-		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+		int64_t time_us = esp_timer_get_time();
 
 		Sensors_update();
 		AHRS_compute(time_us, Sensors_get());
@@ -101,28 +92,11 @@ void task_kpptr_main(void *pvParameter){
 		}
 
 		//send data to RF every 500ms
-		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
+		if(((prevTickCountRF + pdMS_TO_TICKS( 2000 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
 		}
-
-		//------- Toc ---------
-//		gettimeofday(&tv_toc, NULL);
-		//---------------------
-
-		//------- Comp ---------
-//		gettimeofday(&tv_comp, NULL);
-		//---------------------
-
-		//---------- Tic Toc analysis --------------
-//		int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
-//							 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
-//		int64_t tic_toc_comp = ((int64_t)tv_comp.tv_sec * 1000000L + (int64_t)tv_comp.tv_usec)
-//							 - ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec);
-//		ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
-		//------------------------------------
-
 	}
 	vTaskDelete(NULL);
 }
@@ -145,9 +119,6 @@ void task_kpptr_telemetry(void *pvParameter){
 }
 
 void task_kpptr_storage(void *pvParameter){
-	struct timeval tv_tic;
-	struct timeval tv_toc;
-
 	while(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
 		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
@@ -163,32 +134,29 @@ void task_kpptr_storage(void *pvParameter){
 	ESP_LOGI(TAG, "Task Storage - ready!");
 	SysMgr_checkout(checkout_storage, check_ready);
 
-	int counter = 0;
-
 	while(1){
-		if(0 /*counter < 1000*/){	//(flightstate >= Launch) && (flightstate < Landed_delay)
-			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
-				if(counter == 0){
-					gettimeofday(&tv_tic, NULL);
-				}
-				counter++;
-				if(counter == 1000){
-					gettimeofday(&tv_toc, NULL);
-					int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
-												 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
-					ESP_LOGI(TAG, "1000 packet saved in %lli us", tic_toc_dt);
-				}
-				if(write_error_cnt < 1000){
-					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
-						ESP_LOGE(TAG, "Storage task - packet write fail");
-						write_error_cnt++;
+		if((FSD_getState() >= FLIGHTSTATE_ME_ACCELERATING) && (FSD_getState() < FLIGHTSTATE_SHUTDOWN)){
+			if(DM_checkWaitingElementsNumber() > 50) {
+				Storage_unblockMeasFile();
+				for(uint16_t i=0;i<DM_checkWaitingElementsNumber();i++){
+					if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
+						if(write_error_cnt < 1000){
+							if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
+								ESP_LOGE(TAG, "Storage task - packet write fail");
+								write_error_cnt++;
+							} else {
+								write_error_cnt = 0;	// Reset error counter if write successful
+							}
+
+						}
+						DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 					} else {
-						write_error_cnt = 0;	// Reset error counter if write successful
+						ESP_LOGI(TAG, "Storage timeout");
 					}
 				}
-				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
+				Storage_blockMeasFile();
 			} else {
-				//ESP_LOGI(TAG, "Storage timeout");
+				vTaskDelay(pdMS_TO_TICKS( 100 ));
 			}
 		} else {
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){
@@ -290,6 +258,9 @@ void task_kpptr_analog(void *pvParameter){
 	}
 	ESP_LOGI(TAG, "Task Analog - ready!");
 
+//#warning "zakomentowac ta linijke!!!"
+//	SysMgr_checkout(checkout_analog, check_ready);
+
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
@@ -298,6 +269,7 @@ void task_kpptr_analog(void *pvParameter){
 								Analog_meas.IGN1_det, Analog_meas.IGN2_det,
 								Analog_meas.IGN3_det, Analog_meas.IGN4_det);
 
+//#warning "Odkomentowac sprawdzanie napiecia aku!!!"
 		if((vbat_ok != check_ready) && (Analog_meas.vbat_mV > 3700.0f)){
 			vbat_ok = check_ready;
 			SysMgr_checkout(checkout_analog, check_ready);
@@ -318,6 +290,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 	ESP_LOGI(TAG, "SysMgr ready");
 	SysMgr_checkout(checkout_sysmgr, check_ready);
 
+	SysMgr_checkout(checkout_gnss, check_ready);	//-------------------------- wywalić!!!!
 	while(1){
 		SysMgr_update();	//Process new messages
 
@@ -359,6 +332,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 												SysMgr_getComponentState(checkout_lora), 	SysMgr_getComponentState(checkout_main),
 												SysMgr_getComponentState(checkout_storage), SysMgr_getComponentState(checkout_sysmgr),
 												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web),
+												SysMgr_getComponentState(checkout_gnss),
 												SysMgr_getArm());
 
 		//--------------- Autoarming ----------------------------
@@ -366,6 +340,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 			if(SysMgr_getCheckoutStatus() == check_ready){
 				if(ready_to_arm_time == 0){
 					ready_to_arm_time = esp_timer_get_time();
+					BUZZER_beep(70, 70, 2);
 				}
 				if((esp_timer_get_time() - ready_to_arm_time) > 15000000UL){
 					FSD_arming();

@@ -1,8 +1,9 @@
 #ifndef WS2812_CONTROL_H
 #define WS2812_CONTROL_H
 #include <stdint.h>
+#include "esp_err.h"
 #include "sdkconfig.h"
-#include "driver/rmt.h"
+
 
 //Pulse mode names
 typedef enum{

@@ -626,6 +626,7 @@ function getDataStatus() {
 			SysMgr_statusToLabel(data.sysMgr.sysmgr_sysmgr_status, "label-status-sysmgr");
 			SysMgr_statusToLabel(data.sysMgr.sysmgr_utils_status, "label-status-utils");
 			SysMgr_statusToLabel(data.sysMgr.sysmgr_web_status, "label-status-web");
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_gnss_status, "label-status-gnss");
 			
 			document.getElementById("label-status-pressure").textContent 	= data.sensors.pressure;
 			document.getElementById("label-status-angle").textContent 		= data.sensors.rocket_tilt.toFixed(2) + " deg";

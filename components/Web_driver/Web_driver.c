@@ -140,12 +140,12 @@ esp_err_t Web_wifi_init(void){
 
     ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD, WIFI_CHANNEL);
 
-    tcpip_adapter_ip_info_t ip_info;
-    ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
-
-    ESP_LOGI(TAG,"IP Address:  %s", ip4addr_ntoa(&ip_info.ip));
-    ESP_LOGI(TAG,"Subnet mask: %s", ip4addr_ntoa(&ip_info.netmask));
-    ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
+//    tcpip_adapter_ip_info_t ip_info;
+//    ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
+//
+//    ESP_LOGI(TAG,"IP Address:  %s", ip4addr_ntoa(&ip_info.ip));
+//    ESP_LOGI(TAG,"Subnet mask: %s", ip4addr_ntoa(&ip_info.netmask));
+//    ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
 
     return ESP_OK;
 }
@@ -752,6 +752,7 @@ esp_err_t Web_status_updateIgniters(uint8_t ign1_fired, uint8_t ign2_fired, uint
 esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog,
 								  uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage,
 								  uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web,
+								  uint8_t state_gnss,
 								  uint8_t arm){
     live_web.timestamp 					= timestamp_ms;
     status_web.timestamp_ms 			= timestamp_ms;
@@ -763,6 +764,7 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
     status_web.sysmgr_sysmgr_status     = state_sysmgr;
     status_web.sysmgr_utils_status      = state_utils;
     status_web.sysmgr_web_status        = state_web;
+    status_web.sysmgr_gnss_status       = state_gnss;
     status_web.sysmgr_arm_state			= arm;
 
     return ESP_OK;
