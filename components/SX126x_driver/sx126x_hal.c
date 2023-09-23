@@ -16,7 +16,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "SPI_driver.h"
-#include "SX126x_hal.h"
+#include "sx126x_hal.h"
 
 esp_err_t SX126X_spi_init(void);
 uint32_t SX126X_getBUSY();

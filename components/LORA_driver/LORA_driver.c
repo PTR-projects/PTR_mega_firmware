@@ -5,7 +5,6 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
-#include "SX126x_hal.h"
 #include "SX126x_driver.h"
 #include "LORA_driver.h"
 
