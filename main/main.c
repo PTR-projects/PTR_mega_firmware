@@ -166,18 +166,8 @@ void task_kpptr_storage(void *pvParameter){
 	int counter = 0;
 
 	while(1){
-		if(0 /*counter < 1000*/){	//(flightstate >= Launch) && (flightstate < Landed_delay)
+		if((FSD_getState() >= FLIGHTSTATE_ME_ACCELERATING) && (FSD_getState() < FLIGHTSTATE_SHUTDOWN)){
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
-				if(counter == 0){
-					gettimeofday(&tv_tic, NULL);
-				}
-				counter++;
-				if(counter == 1000){
-					gettimeofday(&tv_toc, NULL);
-					int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
-												 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
-					ESP_LOGI(TAG, "1000 packet saved in %lli us", tic_toc_dt);
-				}
 				if(write_error_cnt < 1000){
 					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
 						ESP_LOGE(TAG, "Storage task - packet write fail");
@@ -188,7 +178,7 @@ void task_kpptr_storage(void *pvParameter){
 				}
 				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			} else {
-				//ESP_LOGI(TAG, "Storage timeout");
+				ESP_LOGI(TAG, "Storage timeout");
 			}
 		} else {
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){

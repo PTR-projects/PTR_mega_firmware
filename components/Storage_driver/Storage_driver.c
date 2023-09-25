@@ -6,6 +6,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_err.h"
+#include "esp_check.h"
 #include "esp_log.h"
 #include "Storage_driver.h"
 
@@ -240,6 +241,8 @@ esp_err_t Storage_erase_Littlefs(uint32_t key){
  * @return `ESP_FAIL` otherwise
  */
 esp_err_t Storage_writePacket(void * buf, uint16_t len){
+	ESP_RETURN_ON_FALSE(!(len % CONFIG_LITTLEFS_WRITE_SIZE), ESP_ERR_INVALID_SIZE,
+			TAG, "Wrong packet size. Must be multiple of %i", CONFIG_LITTLEFS_WRITE_SIZE);
 
 	esp_err_t res = ESP_FAIL;
 
