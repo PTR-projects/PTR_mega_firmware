@@ -35,6 +35,8 @@ esp_vfs_spiffs_conf_t conf_preferences = {
 Preferences_data_t Preferences_data_d;
 Preferences_data_t Preferences_default;
 
+uint32_t calculate_crc32(char *buf);
+
 
 esp_err_t Preferences_init(Preferences_data_t * data){
 	esp_err_t ret = ESP_FAIL;
@@ -46,6 +48,7 @@ esp_err_t Preferences_init(Preferences_data_t * data){
 	Preferences_default.max_tilt = 45;
 	Preferences_default.staging_delay = 0;
 	Preferences_default.rail_height = 2;
+	Preferences_default.auto_arming = false;
 	Preferences_default.auto_arming_time_s = -1;
 	*data = Preferences_default;
 
@@ -123,21 +126,42 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	char *string = NULL;
 	cJSON *json = cJSON_CreateObject();
 
-	//Update current config store in RAM
-	Preferences_data_d = config;
 
+	//Check if all data is legit
+	if(config.main_alt < 0){
+		config.main_alt = 0;	//deploy on apogee
+	}
+
+	if(config.drouge_alt < 0 || config.drouge_alt < config.main_alt){
+		config.drouge_alt = 0;	//deploy on apogee
+	}
+
+	if(config.rail_height > 20.0){
+		config.rail_height = 20.0;	//prevent launch detection lockout
+	}
+
+	
+
+
+
+	//Update current config stored in RAM
+	Preferences_data_d = config;
+	cJSON_AddStringToObject(json, "wifi_pass", Preferences_data_d.wifi_pass);
 	cJSON_AddNumberToObject(json, "main_alt", Preferences_data_d.main_alt);
 	cJSON_AddNumberToObject(json, "drouge_alt", Preferences_data_d.drouge_alt);
+	cJSON_AddNumberToObject(json, "rail_height", Preferences_data_d.rail_height);
 	cJSON_AddNumberToObject(json, "max_tilt", Preferences_data_d.max_tilt);
 	cJSON_AddNumberToObject(json, "staging_delay", Preferences_data_d.staging_delay);
-	cJSON_AddNumberToObject(json, "rail_height", Preferences_data_d.rail_height);
+	cJSON_AddNumberToObject(json, "staging_max_tilt", Preferences_data_d.staging_max_tilt);
 	cJSON_AddNumberToObject(json, "auto_arming_time_s", Preferences_data_d.auto_arming_time_s);
+	cJSON_AddNumberToObject(json, "auto_arming", Preferences_data_d.auto_arming);
+	
 
 	string = cJSON_Print(json);
 	if(string == NULL){
 		ESP_LOGE(TAG, "Cannot create JSON string");
 	}
-	cJSON_Delete(json);
+	cJSON_Delete(json); 
 	ESP_LOGI(TAG, "Config file: %s", string);
 
 	FILE* f = fopen(preferences_path, "w");
@@ -161,10 +185,124 @@ esp_err_t Preferences_restore_dafaults(){
 }
 
 
+esp_err_t Prefences_update_web(char *buf){
+	Preferences_data_t temp;
+
+	cJSON *json = cJSON_Parse(buf); 
+	ESP_LOGI(TAG, "%s", buf);
+
+	if(json == NULL){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
 
 
+	if(NULL == cJSON_GetObjectItem(json, "cmd")){
+		ESP_LOGE(TAG, "Cannot read cmd!");
+		return ESP_FAIL;
+	}
+	uint32_t crc32_received = cJSON_GetObjectItem(json, "crc32")->valueint;
+	cJSON_AddNumberToObject(json, "crc32", 0);
+
+	char *string = NULL;
+	string = cJSON_Print(json);
+	if(string == NULL){
+		ESP_LOGE(TAG, "Cannot create JSON string");
+	}
+	uint32_t crc32_local = calculate_crc32(string);
+
+	if(crc32_local != crc32_received){
+		ESP_LOGE(TAG, "CRC is not matching!");
+		return ESP_FAIL;
+	}
+
+	if(NULL == cJSON_GetObjectItem(json, "wifi_pass")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.wifi_pass = cJSON_GetObjectItem(json, "cmd")->valuestring;
+
+	if(NULL == cJSON_GetObjectItem(json, "main_alt")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.main_alt = cJSON_GetObjectItem(json, "main_alt")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "drouge_alt")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.drouge_alt = cJSON_GetObjectItem(json, "drouge_alt")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "rail_height")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.rail_height = cJSON_GetObjectItem(json, "rail_height")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "max_tilt")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.max_tilt = cJSON_GetObjectItem(json, "max_tilt")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "staging_delay")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.staging_delay = cJSON_GetObjectItem(json, "staging_delay")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "staging_max_tilt")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.staging_max_tilt = cJSON_GetObjectItem(json, "staging_max_tilt")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "auto_arming_time_s")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.auto_arming_time_s = cJSON_GetObjectItem(json, "auto_arming_time_s")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "auto_arming")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.auto_arming = cJSON_GetObjectItem(json, "auto_arming")->valueint;
+
+	if(NULL == cJSON_GetObjectItem(json, "key")){
+		ESP_LOGE(TAG, "Cannot read json!");
+		return ESP_FAIL;
+	}
+	temp.key = cJSON_GetObjectItem(json, "key")->valueint;
 
 
+	Preferences_update(temp);
+	
+	return ESP_OK;
+}
+
+
+uint32_t calculate_crc32(char *buf){
+
+	int i, j;
+	unsigned int byte, crc, mask;
+
+	i = 0;
+	crc = 0xFFFFFFFF;
+	while (buf[i] != 0) {
+		byte = buf[i];            // Get next byte.
+		crc = crc ^ byte;
+		for (j = 7; j >= 0; j--) {    // Do eight times.
+			mask = -(crc & 1);
+			crc = (crc >> 1) ^ (0xEDB88320 & mask);
+		}
+		i = i + 1;
+	}
+	return ~crc;
+
+
+}
 
 
 

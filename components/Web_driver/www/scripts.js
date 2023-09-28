@@ -2,6 +2,20 @@ var getDataIntervalID;
 var getDataLiveIntervalID;
 var current_tab = 1;
 
+const preferencesData = {
+	wifi_pass: "your_wifi_password",
+	main_alt: 1000,
+	drouge_alt: 500,
+	rail_height: 2.5,
+	max_tilt: 30.0,
+	staging_delay: 5.0,
+	staging_max_tilt: 45.0,
+	auto_arming_time_s: 60,
+	auto_arming: true,
+	key: 12345678, // Replace with your key value
+	crc32: 0, // Initialize CRC32 to 0
+};
+
 function SelectSection_Home() {
 	window.scrollTo(0, 0);
 	TabsSelect(1);
@@ -791,3 +805,67 @@ function initDataLive() {
 		  console.error(error);
 		});
   }
+
+
+  // Function to calculate CRC32 checksum
+  function calculateCRC32(input) {
+	let crc = 0;
+	const table = new Uint32Array(256);
+
+	for (let i = 0; i < 256; i++) {
+		let c = i;
+		for (let j = 0; j < 8; j++) {
+			if (c & 1) {
+				c = 0xedb88320 ^ (c >>> 1);
+			} else {
+				c >>>= 1;
+			}
+		}
+		table[i] = c;
+	}
+
+	for (let i = 0; i < input.length; i++) {
+		crc = (crc >>> 8) ^ table[(crc ^ input.charCodeAt(i)) & 0xff];
+	}
+
+	return crc ^ 0xffffffff;
+}
+
+// Function to send the JSON data as a POST request
+function sendPreferencesData(preferencesData) {
+	// Calculate CRC32 checksum for the JSON data
+	const jsonData = JSON.stringify(preferencesData);
+	const crc32 = calculateCRC32(jsonData);
+
+	preferencesData.crc32 = crc32;
+
+	// Convert the JavaScript object with CRC32 to a JSON string
+	const finalJsonData = JSON.stringify(preferencesData);
+
+	// Define the URL to which you want to send the POST request
+	const apiUrl = 'https://example.com/api'; // Replace with your API URL
+
+	// Send the JSON data as a POST request
+	fetch(apiUrl, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: finalJsonData,
+	})
+	.then(response => response.json())
+	.then(data => {
+		console.log('Response:', data);
+	})
+	.catch(error => {
+		console.error('Error:', error);
+	});
+}
+
+function formatWifiPass(wifiPass) {
+	if (wifiPass.length > 12) {
+		return wifiPass.substring(0, 12);
+	} else {
+		return wifiPass;
+	}
+}
