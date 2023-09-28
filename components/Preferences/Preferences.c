@@ -35,7 +35,7 @@ esp_vfs_spiffs_conf_t conf_preferences = {
 Preferences_data_t Preferences_data_d;
 Preferences_data_t Preferences_default;
 
-uint32_t calculate_crc32(char *buf);
+uint32_t calculate_CRC32(const char* input);
 
 
 esp_err_t Preferences_init(Preferences_data_t * data){
@@ -283,25 +283,27 @@ esp_err_t Prefences_update_web(char *buf){
 }
 
 
-uint32_t calculate_crc32(char *buf){
+uint32_t calculate_CRC32(const char* input) {
+    uint32_t crc = 0;
+    uint32_t table[256];
 
-	int i, j;
-	unsigned int byte, crc, mask;
+    for (int i = 0; i < 256; i++) {
+        uint32_t c = i;
+        for (int j = 0; j < 8; j++) {
+            if (c & 1) {
+                c = 0xEDB88320 ^ (c >> 1);
+            } else {
+                c >>= 1;
+            }
+        }
+        table[i] = c;
+    }
 
-	i = 0;
-	crc = 0xFFFFFFFF;
-	while (buf[i] != 0) {
-		byte = buf[i];            // Get next byte.
-		crc = crc ^ byte;
-		for (j = 7; j >= 0; j--) {    // Do eight times.
-			mask = -(crc & 1);
-			crc = (crc >> 1) ^ (0xEDB88320 & mask);
-		}
-		i = i + 1;
-	}
-	return ~crc;
+    for (int i = 0; input[i] != '\0'; i++) {
+        crc = (crc >> 8) ^ table[(crc ^ input[i]) & 0xFF];
+    }
 
-
+    return crc ^ 0xFFFFFFFF;
 }
 
 
