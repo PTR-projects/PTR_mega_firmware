@@ -39,7 +39,7 @@ esp_err_t Web_cmd_init(uint32_t key){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Web_cmd_handler(char *buf){
-	cJSON *json = cJSON_Parse(buf);
+	cJSON *json = cJSON_Parse(buf); 
 	ESP_LOGI(TAG, "%s", buf);
 
 	if(json == NULL){
