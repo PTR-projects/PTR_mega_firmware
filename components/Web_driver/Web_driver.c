@@ -23,6 +23,7 @@
 #include "Web_driver.h"
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
+#include "Preferences.h"
 #include "DataManager.h"
 #include "Storage_driver.h"
 
@@ -563,7 +564,40 @@ esp_err_t cmd_post_handler(httpd_req_t *req){
     return ESP_OK;
 }
 
+/*!
+ * @brief Handler responsible for sending config file  through wifi.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t config_post_handler(httpd_req_t *req){
+	int total_len = req->content_len;
+	    int cur_len = 0;
+	    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	    int received = 0;
+	    if (total_len >= SCRATCH_BUFSIZE) {
+	        /* Respond with 500 Internal Server Error */
+	        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+	        return ESP_FAIL;
+	    }
+	    while (cur_len < total_len) {
+	        received = httpd_req_recv(req, buf + cur_len, total_len);
+	        if (received <= 0) {
+	            /* Respond with 500 Internal Server Error */
+	            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+	            return ESP_FAIL;
+	        }
+	        cur_len += received;
+	    }
+	    buf[total_len] = '\0';
 
+	    Prefences_update_web(buf);
+
+	    httpd_resp_sendstr(req, "Post control value successfully");
+
+    return ESP_OK;
+}
 
 /*!
  * @brief Initialize HTTP server, create soft access point.
@@ -628,6 +662,14 @@ esp_err_t Web_http_init(const char *base_path){
 			    .uri      = "/cmd",
 			    .method   = HTTP_POST,
 			    .handler  = cmd_post_handler,
+			    .user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &cmd_send);
+
+    httpd_uri_t config_send = {
+			    .uri      = "/config",
+			    .method   = HTTP_POST,
+			    .handler  = config_post_handler,
 			    .user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &cmd_send);
