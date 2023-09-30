@@ -869,3 +869,20 @@ function formatWifiPass(wifiPass) {
 		return wifiPass;
 	}
 }
+
+
+function updatePreferencesData() {
+	preferencesData.rail_height = parseFloat(document.getElementById("pref-launchpad-height").value);
+	preferencesData.main_alt = parseFloat(document.getElementById("pref-main-alt").value);
+	preferencesData.drouge_alt = parseFloat(document.getElementById("pref_drouge_alt").value);
+	preferencesData.staging_delay = parseFloat(document.getElementById("pref-staging-delay").value);
+	preferencesData.staging_max_tilt = parseFloat(document.getElementById("pref-staging-tilt").value);
+	preferencesData.auto_arming_time_s = parseFloat(document.getElementById("pref-autoarm_delay").value);
+	
+	preferencesData.wifi_pass = document.getElementById("pref-wifi-pass").value;
+	
+
+	// Add similar lines for other properties as needed
+
+	console.log("Updated preferencesData:", preferencesData);
+}
