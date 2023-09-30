@@ -108,64 +108,6 @@ esp_err_t Web_cmd_handler(char *buf){
 		}
 	}
 
-
-	//Replikacja funkcji programu Areconfig
-	if(strcmp(cmd,"main_alt_set") == 0){
-		if(NULL == cJSON_GetObjectItem(json, "arg1")){
-			ESP_LOGE(TAG, "Cannot read arg1!");
-			return ESP_FAIL;
-		}
-
-		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
-		Preferences_data_t temp = Preferences_get();
-		temp.main_alt = arg1;
-		Preferences_update(temp);
-		return ESP_OK;
-		//switch main parachute altidude to given value
-	}
-
-	if(strcmp(cmd,"drouge_alt_set") == 0){
-		if(NULL == cJSON_GetObjectItem(json, "arg1")){
-			ESP_LOGE(TAG, "Cannot read arg1!");
-			return ESP_FAIL;
-		}
-
-		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
-		Preferences_data_t temp = Preferences_get();
-		temp.drouge_alt = arg1;
-		Preferences_update(temp);
-		return ESP_OK;
-		//switch drouge parachute altidude to given value
-	}
-
-	if(strcmp(cmd,"rail_height_set") == 0){
-		if(NULL == cJSON_GetObjectItem(json, "arg1")){
-			ESP_LOGE(TAG, "Cannot read arg1!");
-			return ESP_FAIL;
-		}
-
-		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
-		Preferences_data_t temp = Preferences_get();
-		temp.rail_height = arg1;
-		Preferences_update(temp);
-		return ESP_OK;
-		//Set launch rail height to given value
-	}
-
-	if(strcmp(cmd,"max_tilt_set") == 0){
-		if(NULL == cJSON_GetObjectItem(json, "arg1")){
-			ESP_LOGE(TAG, "Cannot read arg1!");
-			return ESP_FAIL;
-		}
-
-		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
-		Preferences_data_t temp = Preferences_get();
-		temp.max_tilt = arg1;
-		Preferences_update(temp);
-		return ESP_OK;
-		//Set angle at which failsafe triggers
-	}
-
 	if(strcmp(cmd,"config_default") == 0){
 		Preferences_restore_dafaults();
 		return ESP_OK;
