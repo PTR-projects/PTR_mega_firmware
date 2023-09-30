@@ -209,7 +209,7 @@ esp_err_t Prefences_update_web(char *buf){
 	if(string == NULL){
 		ESP_LOGE(TAG, "Cannot create JSON string");
 	}
-	uint32_t crc32_local = calculate_crc32(string);
+	uint32_t crc32_local = calculate_CRC32(string);
 
 	if(crc32_local != crc32_received){
 		ESP_LOGE(TAG, "CRC is not matching!");
