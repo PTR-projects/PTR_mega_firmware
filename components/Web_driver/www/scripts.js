@@ -863,6 +863,7 @@ function sendPreferencesData(preferencesData) {
 
 	preferencesData.crc32 = crc32;
 
+	console.log("Sending preferencesData:", preferencesData);
 	// Convert the JavaScript object with CRC32 to a JSON string
 	const finalJsonData = JSON.stringify(preferencesData);
 
@@ -898,7 +899,7 @@ function formatWifiPass(wifiPass) {
 function updatePreferencesData() {
 	preferencesData.rail_height = parseFloat(document.getElementById("pref-launchpad-height").value);
 	preferencesData.main_alt = parseFloat(document.getElementById("pref-main-alt").value);
-	preferencesData.drouge_alt = parseFloat(document.getElementById("pref_drouge_alt").value);
+	preferencesData.drouge_alt = parseFloat(document.getElementById("pref-drouge-alt").value);
 	preferencesData.staging_delay = parseFloat(document.getElementById("pref-staging-delay").value);
 	preferencesData.staging_max_tilt = parseFloat(document.getElementById("pref-staging-tilt").value);
 	preferencesData.auto_arming_time_s = parseFloat(document.getElementById("pref-autoarm_delay").value);
