@@ -13,6 +13,8 @@ const preferencesData = {
 	auto_arming_time_s: 60,
 	auto_arming: true,
 	key: 12345678, // Replace with your key value
+	lora_freq: 433,
+	lora_network_mode: true, //true for network, false for exclusive
 	crc32: 0, // Initialize CRC32 to 0
 };
 
@@ -910,4 +912,12 @@ function updatePreferencesData() {
 	// Add similar lines for other properties as needed
 
 	console.log("Updated preferencesData:", preferencesData);
+}
+
+function preferencesDataLoraMode(state) {
+	preferencesData.lora_network_mode = state;
+}
+
+function preferencesDataAutoarming(state) {
+	preferencesData.auto_arming = state;
 }

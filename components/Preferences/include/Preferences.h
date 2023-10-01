@@ -17,8 +17,12 @@ typedef struct{
 	float staging_delay;
 	float staging_max_tilt;
 
-	u_int8_t auto_arming;
+	bool auto_arming;
 	int auto_arming_time_s;
+
+	float lora_freq;
+	bool lora_network_mode;
+
 
 	uint32_t key;
 

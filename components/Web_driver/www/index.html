@@ -335,7 +335,7 @@
             <label>Launchpad height [m]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-launchpad-height" min="2" max="10" value="-1" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-launchpad-height" min="2" max="10" value="4" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -343,7 +343,7 @@
             <label>Main parachute altitude [m]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-main-alt" min="20" max="10000" value="-1" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-main-alt" min="0" max="10000" value="200" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -351,7 +351,7 @@
             <label>Drouge parachute altitude [m]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-drouge-alt" min="20" max="100000" value="-1" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-drouge-alt" min="0" max="100000" value="0" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -359,7 +359,7 @@
             <label>Staging delay [s]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-staging-delay" min="0" max="60" value="-1" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-staging-delay" min="0" max="60" value="0" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -367,7 +367,7 @@
             <label>Staging max tilt [deg]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-staging-tilt" min="0" max="90" value="-1" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-staging-tilt" min="0" max="90" value="0" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -375,9 +375,9 @@
             <label>Autoarming</label>
           </td>
           <td>
-            <select class="tab-settings-input" disabled="true" id="pref-autoarm-enable">
-              <option value="enable">Enable</option>
+            <select class="tab-settings-input" id="pref-autoarm-enable">
               <option value="disable">Disable</option>
+              <option value="enable">Enable</option>
             </select>
           </td>
         </tr>
@@ -386,7 +386,7 @@
             <label>Auto arming time [s]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-autoarm_delay" min="0" max="600" value="-1" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-autoarm_delay" min="0" max="600" value="30" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -394,7 +394,7 @@
             <label>WiFi password</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="text" id="pref-wifi-pass" minlength="6" maxlength="10" size="12" oninput="updatePreferencesData()">
+            <input class="tab-settings-input" type="text" id="pref-wifi-pass" minlength="6" maxlength="10" size="12" value="Meteor" oninput="updatePreferencesData()">
           </td>
         </tr>
 		<tr>
@@ -402,10 +402,9 @@
             <label>LoRa mode</label>
           </td>
           <td>
-			<select class="tab-settings-input" disabled="true" id="pref-lora-mode">
-			  <option value="disable">Disable</option>
-              <option value="network">Network</option>
-              <option value="exclusive">Exclusive</option>
+			<select class="tab-settings-input" id="pref-lora-mode">
+          <option value="network">Network</option>
+          <option value="exclusive">Exclusive</option>
             </select>
           </td>
         </tr>
