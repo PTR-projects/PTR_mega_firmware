@@ -92,6 +92,7 @@ void task_kpptr_main(void *pvParameter){
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
 				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL, &Analog_meas);
+				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
 				DM_addToMainRB(&DataPackage_ptr);
 			} else {
 				ESP_LOGE(TAG, "Main RB pointer = NULL!");

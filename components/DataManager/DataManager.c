@@ -105,7 +105,7 @@ esp_err_t DM_addToMainRB(DataPackage_t ** ptr){
 }
 
 void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
-		FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog){
+		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
 
 	package->sys_time = time_us;
 
@@ -146,7 +146,7 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
 	package->blank[3]			= 0;
 	package->blank[4]			= 0;
 
-	package->flightstate = (uint8_t)(flightstate->state);
+	package->flightstate = (uint8_t)flightstate;
 }
 
 void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
