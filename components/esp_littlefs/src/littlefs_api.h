@@ -55,6 +55,7 @@ typedef struct {
     vfs_littlefs_file_t **cache;              /*!< A cache of pointers to the opened files */
     uint16_t             cache_size;          /*!< The cache allocated size (in pointers) */
     uint16_t             fd_count;            /*!< The count of opened file descriptor used to speed up computation */
+    bool                 read_only;           /*!< Filesystem is read-only */
 } esp_littlefs_t;
 
 /**
@@ -64,8 +65,8 @@ typedef struct {
  *
  * @return errorcode. 0 on success.
  */
-int littlefs_api_read(const struct lfs_config *c, lfs_block_t block,
-        lfs_off_t off, void *buffer, lfs_size_t size);
+int littlefs_api_read(const struct lfs_config *c, uint32_t block,
+		uint32_t off, void *buffer, lfs_size_t size);
 
 /**
  * @brief Program a region in a block.
@@ -76,8 +77,8 @@ int littlefs_api_read(const struct lfs_config *c, lfs_block_t block,
  *
  * @return errorcode. 0 on success.
  */
-int littlefs_api_prog(const struct lfs_config *c, lfs_block_t block,
-        lfs_off_t off, const void *buffer, lfs_size_t size);
+int littlefs_api_prog(const struct lfs_config *c, uint32_t block,
+		uint32_t off, const void *buffer, uint32_t size);
 
 /**
  * @brief Erase a block.
@@ -88,7 +89,7 @@ int littlefs_api_prog(const struct lfs_config *c, lfs_block_t block,
  * May return LFS_ERR_CORRUPT if the block should be considered bad.
  * @return errorcode. 0 on success.
  */
-int littlefs_api_erase(const struct lfs_config *c, lfs_block_t block);
+int littlefs_api_erase(const struct lfs_config *c, uint32_t block);
 
 /**
  * @brief Sync the state of the underlying block device.
