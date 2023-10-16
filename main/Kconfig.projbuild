@@ -17,6 +17,20 @@ menu "KP-PTR Configuration"
         config BOARD_KPPTR_VER_1_REV_0
             bool "Version 1 revision 0"
     endchoice
+    
+    choice KPPTR_FS
+        prompt "File system for data logging"
+        default FS_SIMPLEFS
+        help
+            Select file system to be used in data logging. Default is SimpleFS - custom simplified file system.
+
+        config FS_SIMPLEFS
+            bool "SimpleFS"
+        config FS_LITTLEFS
+            bool "LittleFS"
+        config FS_SPIFFS
+            bool "SPIFFS"
+    endchoice
 			
 	config ESP_WIFI_SSID
 	    string "WiFi SSID"

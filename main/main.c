@@ -150,6 +150,7 @@ void task_kpptr_storage(void *pvParameter){
 	struct timeval tv_toc;
 
 	while(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
+	while(Storage_init() != ESP_OK){
 		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
