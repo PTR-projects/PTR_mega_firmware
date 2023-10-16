@@ -50,7 +50,7 @@ esp_err_t IRAM_ATTR simplefs_api_read(uint32_t position, void *buffer, uint32_t 
 	}
 
 	if((size == 0) || (size > (partition_size_B - position))){
-		ESP_LOGE(ESP_SFS_TAG, "Storage read invalid size");
+		ESP_LOGE(ESP_SFS_TAG, "Storage read invalid size. Partition size: %i, read ptr: %i, size: %i", partition_size_B, position, size);
 		return ESP_FAIL;
 	}
 

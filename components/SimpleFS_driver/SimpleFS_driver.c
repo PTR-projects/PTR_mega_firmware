@@ -10,16 +10,45 @@ static sfs_info_t partition_info;
 static uint8_t curr_filename = 0;
 static uint32_t read_ptr = 0;
 static uint32_t write_ptr = 0;
+static bool access_locked = false;
 
 static uint16_t crc16(uint8_t *buf, uint32_t len);
 static bool component_init_done = false;
 
 const char ESP_SIMPLEFS_TAG[] = "SimpleFS";
 
-esp_err_t SimpleFS_init(const char * label){
-	esp_err_t err = simplefs_api_init(&partition_info, label);
+static void SimpleFS_findDataEnd();
 
-	component_init_done = true;
+esp_err_t SimpleFS_init(const char * label){
+	esp_err_t err = ESP_OK;
+
+	if(access_locked == true){
+		return ESP_FAIL;
+	}
+
+	if(component_init_done == false){
+		err = simplefs_api_init(&partition_info, label);
+		component_init_done = true;
+
+		// Reset Read and Write Pointers
+		read_ptr  = 0;
+		write_ptr = 0;
+
+	} else {
+		ESP_LOGI(ESP_SIMPLEFS_TAG, "SimpleFS already mounted. Skip API init.");
+	}
+
+	// Check if any data present in memory
+	uint8_t tmp_buff = 0x00;
+
+	if(SimpleFS_readMemoryLL(0, sizeof(tmp_buff), &tmp_buff) > 0){
+		if(tmp_buff != 0xFF){
+			ESP_LOGE(ESP_SIMPLEFS_TAG, "File present and not empty!");
+			SimpleFS_findDataEnd();
+			err = ESP_FAIL;
+		}
+	}
+
 	return err;
 }
 
@@ -32,8 +61,15 @@ esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key){
 		return ESP_FAIL;
 	}
 
+	if(access_locked == true){
+		return ESP_FAIL;
+	}
+
+	access_locked = true;
+
 	esp_err_t err = simplefs_api_erase();
 
+	access_locked = false;
 	if(err == ESP_OK){
 		write_ptr = 0;
 	}
@@ -43,6 +79,10 @@ esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key){
 esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
 	if(!component_init_done){
 		ESP_LOGE(ESP_SIMPLEFS_TAG, "SimpleFS not initialized");
+		return ESP_FAIL;
+	}
+
+	if(access_locked == true){
 		return ESP_FAIL;
 	}
 
@@ -83,26 +123,30 @@ esp_err_t SimpleFS_writeMode(){
 	return ESP_OK;
 }
 
-uint32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
+int32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
 	if((chunk_size == 0)
 			|| ((chunk_size + read_ptr) > partition_info.partition_size_B)
-			|| (chunk_size > SFS_MAX_CHUNK_SIZE_B)){
-		return ESP_ERR_INVALID_SIZE;
+			|| (chunk_size > SFS_MAX_CHUNK_SIZE_B)
+			|| (chunk_size < sizeof(sfs_packet_t))){
+		return -1;
 	}
 
-	// Check if read pointer is aligned to page
-	if(read_ptr % sizeof(sfs_packet_t)){
-		return ESP_ERR_INVALID_STATE;
+	if(access_locked == true){
+		return ESP_FAIL;
 	}
 
 	// Align chunk size to SFS packet size
-	chunk_size = chunk_size - chunk_size % sizeof(sfs_packet_t);
+	if(chunk_size > sizeof(sfs_packet_t)){
+		chunk_size = chunk_size - chunk_size % sizeof(sfs_packet_t);
+	}
 
 	// Create tmp buffer to store raw read
 	uint8_t tmp_buffer[chunk_size];
 
 	// Read raw data from memory
-	simplefs_api_read(read_ptr, tmp_buffer, chunk_size);
+	if(simplefs_api_read(read_ptr, tmp_buffer, chunk_size) != ESP_OK){
+		return -1;
+	}
 
 	// Trim data
 	// First check if last read Byte is empty (FF)
@@ -120,12 +164,51 @@ uint32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
 
 	read_ptr += chunk_size;
 
-	ESP_LOGV(ESP_SIMPLEFS_TAG, "Read chun len = %i", chunk_size);
+	return chunk_size;
+}
+
+int32_t IRAM_ATTR SimpleFS_readMemoryLL(uint32_t position, uint32_t chunk_size, void * buffer){
+	if((chunk_size == 0)
+			|| ((chunk_size + read_ptr) > partition_info.partition_size_B)
+			|| (chunk_size > SFS_MAX_CHUNK_SIZE_B)){
+		return -1;
+	}
+
+	if(access_locked == true){
+		return ESP_FAIL;
+	}
+
+	// Create tmp buffer to store raw read
+	uint8_t tmp_buffer[chunk_size];
+
+	// Read raw data from memory
+	if(simplefs_api_read(read_ptr, tmp_buffer, chunk_size) != ESP_OK){
+		return -1;
+	}
+
+	memcpy(buffer, tmp_buffer, chunk_size);
+
 	return chunk_size;
 }
 
 void SimpleFS_resetReadPointer(){
 	read_ptr = 0;
+}
+
+uint32_t SimpleFS_getFileSize(){
+	return write_ptr;
+}
+
+static void SimpleFS_findDataEnd(){
+	ESP_LOGE(ESP_SIMPLEFS_TAG, "Find Data End not implemented yet!");
+
+	if(access_locked == true){
+		return;
+	}
+
+	write_ptr = 0;
+
+	ESP_LOGI(ESP_SIMPLEFS_TAG, "Data size: %iB", write_ptr);
 }
 
 static uint16_t IRAM_ATTR crc16(uint8_t *buf, uint32_t len){
