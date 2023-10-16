@@ -39,25 +39,21 @@ Preferences_data_t Preferences_data_d;
 
 // periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
 
-void task_kpptr_main(void *pvParameter){
+void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	TickType_t prevTickCountRF = 0;
 	DataPackage_t *  DataPackage_ptr = NULL;
 	DataPackageRF_t  DataPackageRF_d;
 	gps_t gps_d;
 	Analog_meas_t Analog_meas;
-	struct timeval tv_now;
-	struct timeval tv_tic;
-	struct timeval tv_toc;
-	struct timeval tv_comp;
-	gettimeofday(&tv_now, NULL);
-	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+
+	int64_t time_us = esp_timer_get_time();
 
 	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
 		status  = ESP_OK;
 		status |= Sensors_init();
-		status |= GPS_init();
+		//status |= GPS_init();
 		status |= AHRS_init(time_us);
 		status |= FSD_init(AHRS_getData());
 
@@ -75,23 +71,17 @@ void task_kpptr_main(void *pvParameter){
 	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));
 
-		//----- Tic ----------
-//		gettimeofday(&tv_tic, NULL);
-		//--------------------
-
-		gettimeofday(&tv_now, NULL);
-		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+		int64_t time_us = esp_timer_get_time();
 
 		Sensors_update();
 		AHRS_compute(time_us, Sensors_get());
-		GPS_getData(&gps_d, 0);
+		//GPS_getData(&gps_d, 0);
 		FSD_detect(time_us/1000);
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
-				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL, &Analog_meas);
 				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
 				DM_addToMainRB(&DataPackage_ptr);
 			} else {
@@ -107,23 +97,6 @@ void task_kpptr_main(void *pvParameter){
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
 		}
-
-		//------- Toc ---------
-//		gettimeofday(&tv_toc, NULL);
-		//---------------------
-
-		//------- Comp ---------
-//		gettimeofday(&tv_comp, NULL);
-		//---------------------
-
-		//---------- Tic Toc analysis --------------
-//		int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
-//							 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
-//		int64_t tic_toc_comp = ((int64_t)tv_comp.tv_sec * 1000000L + (int64_t)tv_comp.tv_usec)
-//							 - ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec);
-//		ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
-		//------------------------------------
-
 	}
 	vTaskDelete(NULL);
 }
@@ -146,10 +119,10 @@ void task_kpptr_telemetry(void *pvParameter){
 }
 
 void task_kpptr_storage(void *pvParameter){
+	TickType_t xLastWakeTime = 0;
 	struct timeval tv_tic;
 	struct timeval tv_toc;
 
-	while(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
 	while(Storage_init() != ESP_OK){
 		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
@@ -167,7 +140,10 @@ void task_kpptr_storage(void *pvParameter){
 
 	int counter = 0;
 
+	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
+		vTaskDelayUntil(&xLastWakeTime, 2);	// Minimum 2 Ticks for 1 loop - avoid blocking Flash memory for too long
+
 		if((FSD_getState() >= FLIGHTSTATE_ME_ACCELERATING) && (FSD_getState() < FLIGHTSTATE_SHUTDOWN)){
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
 				if(write_error_cnt < 1000){
@@ -184,8 +160,10 @@ void task_kpptr_storage(void *pvParameter){
 			}
 		} else {
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){
+				Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t));
 				web_live_cnt++;
-				if(web_live_cnt > 10){
+				if(web_live_cnt > 100){
+					ESP_LOGI(TAG, "Press1 %f", DataPackage_ptr->sensors.pressure);
 					web_live_cnt = 0;
 					live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
 					live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
@@ -227,7 +205,7 @@ void task_kpptr_storage(void *pvParameter){
 					if(GPS_checkStatus() == ESP_OK){
 						static sysmgr_checkout_state_t gnss_ready_check = check_void;
 						if((gnss_ready_check == check_void)
-								&& (DataPackage_ptr->sensors.gnss_fix)){
+								/*&& (DataPackage_ptr->sensors.gnss_fix)*/){
 							gnss_ready_check = check_ready;
 							SysMgr_checkout(checkout_gnss, check_ready);
 						}
