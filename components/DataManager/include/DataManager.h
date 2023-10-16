@@ -38,13 +38,7 @@ typedef struct __attribute__((__packed__)){
 
 	struct __attribute__((__packed__)){
 		float altitude_press;
-
-		float posX;
-		float posY;
 		float posZ;
-
-		float veloX;
-		float veloY;
 		float veloZ;
 
 		float q1, q2, q3, q4;
