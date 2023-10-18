@@ -103,11 +103,27 @@ esp_err_t IRAM_ATTR simplefs_api_prog(uint32_t position, void *buffer, uint32_t 
 }
 
 esp_err_t IRAM_ATTR simplefs_api_erase() {
-    esp_err_t err = esp_partition_erase_range(partition, 0, partition_size_B);
+    esp_err_t err = ESP_OK;
+
+    uint32_t chunk = 512*1024;
+    uint32_t N     = partition_size_B / chunk;
+
+    for(uint8_t i=0; i<N; i++){
+    	uint32_t start = i*chunk;
+    	esp_partition_erase_range(partition, start, chunk);
+    	ESP_LOGI(ESP_SFS_TAG, "Erase progress: %i %%", (100*i)/N);
+    	vTaskDelay(50);
+    }
+
+    esp_partition_erase_range(partition, N*chunk, partition_size_B % chunk);
+
+    vTaskDelay(20);
 
     if (err) {
         ESP_LOGE(ESP_SFS_TAG, "Storage formating error = %i", err);
         return ESP_FAIL;
     }
+
+    ESP_LOGI(ESP_SFS_TAG, "Erased memory successfuly");
     return 0;
 }
