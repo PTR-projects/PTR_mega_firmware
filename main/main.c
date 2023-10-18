@@ -53,7 +53,7 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	while(status != ESP_OK){
 		status  = ESP_OK;
 		status |= Sensors_init();
-		//status |= GPS_init();
+		status |= GPS_init();
 		status |= AHRS_init(time_us);
 		status |= FSD_init(AHRS_getData());
 
@@ -75,7 +75,7 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 
 		Sensors_update();
 		AHRS_compute(time_us, Sensors_get());
-		//GPS_getData(&gps_d, 0);
+		GPS_getData(&gps_d, 0);
 		FSD_detect(time_us/1000);
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
@@ -120,8 +120,6 @@ void task_kpptr_telemetry(void *pvParameter){
 
 void task_kpptr_storage(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
-	struct timeval tv_tic;
-	struct timeval tv_toc;
 
 	while(Storage_init() != ESP_OK){
 		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
@@ -138,7 +136,6 @@ void task_kpptr_storage(void *pvParameter){
 	ESP_LOGI(TAG, "Task Storage - ready!");
 	SysMgr_checkout(checkout_storage, check_ready);
 
-	int counter = 0;
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -163,7 +160,7 @@ void task_kpptr_storage(void *pvParameter){
 				Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t));
 				web_live_cnt++;
 				if(web_live_cnt > 100){
-					ESP_LOGI(TAG, "Press1 %f", DataPackage_ptr->sensors.pressure);
+					//ESP_LOGI(TAG, "Press1 %f", DataPackage_ptr->sensors.pressure);
 					web_live_cnt = 0;
 					live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
 					live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
