@@ -32,7 +32,7 @@ typedef struct{
 
 
 
-typedef enum {
+const typedef enum LSM6DSO32_register_addr_t{
 	LSM6DS_WHOAMI_RESPONSE_ADDR = 0x6C,   ///< Fixed response value
 	LSM6DS_FUNC_CFG_ACCESS_ADDR = 0x1,    ///< Enable embedded functions register
 	LSM6DS_INT1_CTRL_ADDR = 0x0D,         ///< Interrupt control for INT 1
@@ -58,7 +58,7 @@ typedef enum {
 
 } LSM6DSO32_register_addr_t;
 
-typedef enum {
+const typedef enum LSM6DSO32_register_t{
 	LSM6DS_WHOAMI_RESPONSE,  ///< Fixed response value
 	LSM6DS_FUNC_CFG_ACCESS,  ///< Enable embedded functions register
 	LSM6DS_INT1_CTRL,       ///< Interrupt control for INT 1
@@ -86,15 +86,28 @@ typedef enum {
 } LSM6DSO32_register_t;
 
 
-typedef struct
-{
-	spi_dev_handle_t spi_dev_handle_LSM6DSO32;
-	uint8_t LSM6DSO32_register_value[LSM6DS_NUMBER_OF_REGISTERS];
+const typedef enum LSM6DS_acc_sens_setting_t{
+LSM6DS_ACC_FS_4G,	
+LSM6DS_ACC_FS_8G,	
+LSM6DS_ACC_FS_16G,			
+LSM6DS_ACC_FS_32G,	
 
-} LSM6DS_config_t;
+LSM6DS_ACC_FS_LIST_SIZE
+}LSM6DS_acc_sens_setting_t;
 
-typedef struct{
-	union{
+
+const typedef enum LSM6DS_gyr_dps_setting_t{
+LSM6DS_GYRO_FS_125_DPS,
+LSM6DS_GYRO_FS_250_DPS,
+LSM6DS_GYRO_FS_500_DPS,
+LSM6DS_GYRO_FS_1000_DPS,
+LSM6DS_GYRO_FS_2000_DPS,
+
+LSM6DS_GYRO_DPS_LIST_SIZE
+}LSM6DS_gyr_dps_setting_t;
+
+
+typedef union{
 		uint8_t raw[14];
 		struct{
 			int16_t temp_raw;
@@ -107,18 +120,9 @@ typedef struct{
 			int16_t accY_raw;
 			int16_t accZ_raw;
 		};
-	};
+	} LSM6DSO32_raw_data_t;
 
-	LSM6DS_meas_t meas;
-	LSM6DS_config_t config;
-	float accXoffset;
-	float accYoffset;
-	float accZoffset;
 
-	float gyroXoffset;
-	float gyroYoffset;
-	float gyroZoffset;
-} LSM6DSO32_t;
 
 // CTRL1_XL
 #define LSM6DS_CTRL1_XL_ACC_RATE_SHUTDOWN	(0  << 4)
