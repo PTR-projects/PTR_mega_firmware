@@ -182,7 +182,7 @@ int32_t IRAM_ATTR SimpleFS_readMemoryLL(uint32_t position, uint32_t chunk_size, 
 	uint8_t tmp_buffer[chunk_size];
 
 	// Read raw data from memory
-	if(simplefs_api_read(read_ptr, tmp_buffer, chunk_size) != ESP_OK){
+	if(simplefs_api_read(position, tmp_buffer, chunk_size) != ESP_OK){
 		return -1;
 	}
 
