@@ -24,7 +24,7 @@ esp_err_t Sensors_init(){
 	return ESP_OK; 	//ESP_FAIL
 }
 
-esp_err_t Sensors_update(){
+esp_err_t  Sensors_update(){
 	//get new data from sensors
 
 	MS5607_getReloadSmart();

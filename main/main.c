@@ -39,7 +39,7 @@ Preferences_data_t Preferences_data_d;
 
 // periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
 
-void IRAM_ATTR task_kpptr_main(void *pvParameter){
+void task_kpptr_main(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	TickType_t prevTickCountRF = 0;
 	DataPackage_t *  DataPackage_ptr = NULL;
@@ -58,7 +58,7 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		status |= FSD_init(AHRS_getData());
 
 		if(status != ESP_OK){
-			ESP_LOGE(TAG, "Main task - failed to prepare main task");
+			ESP_LOGW(TAG, "Main task - failed to prepare main task");
 			SysMgr_checkout(checkout_main, check_fail);
 			vTaskDelay(pdMS_TO_TICKS( 1000 ));
 		}
@@ -105,7 +105,7 @@ void task_kpptr_telemetry(void *pvParameter){
 	DataPackageRF_t DataPackageRF_d;
 
 	while(LORA_init() != ESP_OK){
-		ESP_LOGE(TAG, "Telemetry task - failed to prepare Lora");
+		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
@@ -120,11 +120,10 @@ void task_kpptr_telemetry(void *pvParameter){
 
 void task_kpptr_storage(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
-
 	while(Storage_init() != ESP_OK){
-		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
+		ESP_LOGW(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		vTaskDelay(pdMS_TO_TICKS( 10000 ));
 	}
 
 	DataPackage_t * DataPackage_ptr;
@@ -135,7 +134,6 @@ void task_kpptr_storage(void *pvParameter){
 	vTaskDelay(pdMS_TO_TICKS( 2000 ));
 	ESP_LOGI(TAG, "Task Storage - ready!");
 	SysMgr_checkout(checkout_storage, check_ready);
-
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -227,7 +225,7 @@ void task_kpptr_utils(void *pvParameter){
 		status |= LED_init(interval_ms);
 		status |= BUZZER_init();
 		status |= IGN_init();
-		ESP_LOGI(TAG, "Task Utils - failed to init!");
+		ESP_LOGW(TAG, "Task Utils - failed to init!");
 		SysMgr_checkout(checkout_utils, check_fail);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
@@ -245,13 +243,13 @@ void task_kpptr_utils(void *pvParameter){
 }
 
 void task_kpptr_analog(void *pvParameter){
-	TickType_t xLastWakeTime = 0;
-	uint32_t interval_ms = 100;
+	TickType_t 				xLastWakeTime = 0;
+	uint32_t 				interval_ms = 100;
 	sysmgr_checkout_state_t vbat_ok = check_void;
-	Analog_meas_t Analog_meas;
+	Analog_meas_t 			Analog_meas;
 
-	while(Analog_init(100, 0.1f) != ESP_OK){
-		ESP_LOGI(TAG, "Task Analog - failed to init!");
+	while(Analog_init(100, 0.2f) != ESP_OK){
+		ESP_LOGW(TAG, "Task Analog - failed to init!");
 		SysMgr_checkout(checkout_analog, check_fail);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
@@ -372,9 +370,9 @@ void app_main(void)
     if(queue_AnalogToMain == 0)
     	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
 
-    xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 12, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 14, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));

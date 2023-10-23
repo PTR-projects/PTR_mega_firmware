@@ -5,6 +5,7 @@
  *      Author: bartek
  */
 #include <stdio.h>
+#include "esp_attr.h"
 #include <math.h>
 #include "common.h"
 #include "quaternion.h"

@@ -7,7 +7,7 @@
 #define DA_MAIN_QUEUE_SIZE 100
 
 //--------------- Main Data Buffer ----------------
-static DataPackage_t DataPackage_rb[DA_MAIN_QUEUE_SIZE];
+static DataPackage_t DataPackage_rb[DA_MAIN_QUEUE_SIZE] __attribute__((aligned(4)));
 
 //--------------- QUEUE variables ------------------
 QueueHandle_t  queue_StorageFree;
@@ -87,7 +87,7 @@ esp_err_t DM_returnUsedPointerToMainRB(DataPackage_t ** ptr){
 }
 
 //--------------------------- Loading to Main RB --------------------------
-esp_err_t DM_getFreePointerToMainRB(DataPackage_t ** ptr){
+esp_err_t IRAM_ATTR DM_getFreePointerToMainRB(DataPackage_t ** ptr){
 	if(xQueueReceive(queue_StorageFree, ptr, 0) != pdTRUE){
 		//no free item in Free Queue get oldest from Used Queue
 		if(xQueueReceive(queue_StorageUsed, ptr, 0) != pdTRUE)
@@ -104,7 +104,7 @@ esp_err_t DM_addToMainRB(DataPackage_t ** ptr){
 	return ESP_OK;
 }
 
-void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
+void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
 		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
 
 	package->sys_time = time_us;
@@ -149,7 +149,7 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
 	package->flightstate = (uint8_t)flightstate;
 }
 
-void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
+void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
 	package->id           = 1024;
 	package->packet_no    = packet_counter++;
 	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
