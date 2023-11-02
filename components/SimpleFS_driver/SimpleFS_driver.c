@@ -53,7 +53,7 @@ esp_err_t SimpleFS_init(const char * label){
 	return err;
 }
 
-esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key){
+esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key, sfs_format_type_e type){
 	if(!component_init_done){
 		return ESP_FAIL;
 	}
@@ -69,7 +69,17 @@ esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key){
 	access_locked_r = true;
 	access_locked_w = true;
 
-	esp_err_t err = simplefs_api_erase();
+	esp_err_t err = ESP_OK;
+
+	if(type == SFS_FORMAT_ALL){
+		err = simplefs_api_erase(0);
+	}
+	else if(type == SFS_FORMAT_RANGE) {
+		err = simplefs_api_erase(write_ptr);
+	}
+	else {
+		err = ESP_FAIL;
+	}
 
 	access_locked_r = false;
 	access_locked_w = false;

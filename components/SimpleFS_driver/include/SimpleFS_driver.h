@@ -23,9 +23,13 @@ typedef struct{
 	uint32_t size;
 } sfs_file_stat_t;
 
+typedef enum{
+	SFS_FORMAT_ALL,
+	SFS_FORMAT_RANGE
+} sfs_format_type_e;
 
 esp_err_t SimpleFS_init(const char * label);
-esp_err_t SimpleFS_formatMemory(uint32_t key);
+esp_err_t SimpleFS_formatMemory(uint32_t key, sfs_format_type_e type);
 esp_err_t SimpleFS_appendPacket(void * buffer, uint32_t size);
 uint8_t SimpleFS_memoryUsedPercentage();
 esp_err_t SimpleFS_readMode();

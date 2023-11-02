@@ -55,7 +55,7 @@ esp_err_t simplefs_api_prog(uint32_t position, void *buffer, uint32_t size);
  * May return LFS_ERR_CORRUPT if the block should be considered bad.
  * @return errorcode. 0 on success.
  */
-esp_err_t simplefs_api_erase();
+esp_err_t simplefs_api_erase(uint32_t range_end_B);
 
 #ifdef __cplusplus
 }

@@ -88,7 +88,7 @@ esp_err_t IRAM_ATTR simplefs_api_prog(uint32_t position, void *buffer, uint32_t 
 	// Check if buffer is aligned to 32B
 	uintptr_t address = (uintptr_t)buffer;
 	if (address % 32 != 0) {
-		ESP_LOGW(ESP_SFS_TAG, "The buffer is not aligned to a 32-byte boundary.\n");
+		ESP_LOGV(ESP_SFS_TAG, "The buffer is not aligned to a 32-byte boundary.\n");
 		//return ESP_FAIL;
 	}
 
@@ -102,20 +102,40 @@ esp_err_t IRAM_ATTR simplefs_api_prog(uint32_t position, void *buffer, uint32_t 
     return ESP_OK;
 }
 
-esp_err_t IRAM_ATTR simplefs_api_erase() {
+esp_err_t IRAM_ATTR simplefs_api_erase(uint32_t range_end_B) {
     esp_err_t err = ESP_OK;
 
-    uint32_t chunk = 512*1024;
-    uint32_t N     = partition_size_B / chunk;
-
-    for(uint8_t i=0; i<N; i++){
-    	uint32_t start = i*chunk;
-    	esp_partition_erase_range(partition, start, chunk);
-    	ESP_LOGI(ESP_SFS_TAG, "Erase progress: %i %%", (100*i)/N);
-    	vTaskDelay(50);
+    if((range_end_B == 0) || (range_end_B > partition_size_B)){
+    	range_end_B = partition_size_B;
     }
 
-    esp_partition_erase_range(partition, N*chunk, partition_size_B % chunk);
+    uint32_t chunk = 512*1024;	// must be divisible by 4kB (4096B)
+    uint32_t N     = 0;
+
+    ESP_LOGI(ESP_SFS_TAG, "Erase progress: %i %%", 0);
+    if(chunk < range_end_B){
+    	N = range_end_B / chunk;
+
+    	for(uint8_t i=0; i<N; i++){
+			uint32_t start = i*chunk;
+			esp_partition_erase_range(partition, start, chunk);
+			ESP_LOGI(ESP_SFS_TAG, "Erase progress: %i %%", (100*(i+1))/(N+1));
+			vTaskDelay(50);
+		}
+    }
+
+
+	uint32_t last_chunk = 0;
+	if(((range_end_B % chunk) - (range_end_B % 4096) + 4096 + N*chunk) < partition_size_B){
+		last_chunk = (range_end_B % chunk) - (range_end_B % 4096) + 4096;	//Extend erase range
+	}
+	else {
+		last_chunk = (range_end_B % chunk) - (range_end_B % 4096);	//Trim erase range
+	}
+
+	esp_partition_erase_range(partition, N*chunk, last_chunk);
+
+    ESP_LOGI(ESP_SFS_TAG, "Erase progress: %i %%", 100);
 
     vTaskDelay(20);
 

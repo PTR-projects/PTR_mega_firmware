@@ -433,7 +433,7 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
 	ESP_LOGI(TAG, "Deleting file : %s", filename);
 
 	/* Delete file */
-	if(SimpleFS_formatMemory(SFS_MAGIC_KEY) != ESP_OK){
+	if(SimpleFS_formatMemory(SFS_MAGIC_KEY, SFS_FORMAT_RANGE) != ESP_OK){
 		ESP_LOGE(TAG, "Deleting file failed!");
 		return ESP_FAIL;
 	}
