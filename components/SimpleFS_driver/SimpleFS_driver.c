@@ -10,19 +10,20 @@ static sfs_info_t partition_info;
 static uint8_t curr_filename = 0;
 static uint32_t read_ptr = 0;
 static uint32_t write_ptr = 0;
-static bool access_locked = false;
+static bool access_locked_r = false;
+static bool access_locked_w = false;
 
 static uint16_t crc16(uint8_t *buf, uint32_t len);
 static bool component_init_done = false;
 
 const char ESP_SIMPLEFS_TAG[] = "SimpleFS";
 
-static void SimpleFS_findDataEnd();
+static esp_err_t SimpleFS_findDataEnd();
 
 esp_err_t SimpleFS_init(const char * label){
 	esp_err_t err = ESP_OK;
 
-	if(access_locked == true){
+	if((access_locked_r == true) || (access_locked_w == true)){
 		return ESP_FAIL;
 	}
 
@@ -61,15 +62,18 @@ esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key){
 		return ESP_FAIL;
 	}
 
-	if(access_locked == true){
+	if((access_locked_r == true) || (access_locked_w == true)){
 		return ESP_FAIL;
 	}
 
-	access_locked = true;
+	access_locked_r = true;
+	access_locked_w = true;
 
 	esp_err_t err = simplefs_api_erase();
 
-	access_locked = false;
+	access_locked_r = false;
+	access_locked_w = false;
+
 	if(err == ESP_OK){
 		write_ptr = 0;
 	}
@@ -82,7 +86,7 @@ esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
 		return ESP_FAIL;
 	}
 
-	if(access_locked == true){
+	if(access_locked_w == true){
 		return ESP_FAIL;
 	}
 
@@ -93,7 +97,7 @@ esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
 
 	ESP_LOGV(ESP_SIMPLEFS_TAG, "Write size (payload): %i", size);
 
-	sfs_packet_t new_packet;
+	sfs_packet_t new_packet  __attribute__((aligned(4)));
 	memset(&new_packet, 0, sizeof(sfs_packet_t));
 	memcpy(&(new_packet.payload), buffer, size);
 
@@ -111,6 +115,10 @@ esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
 	ESP_LOGV(ESP_SIMPLEFS_TAG, "Write pointer: %i", write_ptr);
 
 	return err;
+}
+
+uint8_t SimpleFS_memoryUsedPercentage(){
+	return (100*write_ptr) / partition_info.partition_size_B;
 }
 
 esp_err_t SimpleFS_readMode(){
@@ -131,7 +139,7 @@ int32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
 		return -1;
 	}
 
-	if(access_locked == true){
+	if(access_locked_r == true){
 		return ESP_FAIL;
 	}
 
@@ -171,10 +179,11 @@ int32_t IRAM_ATTR SimpleFS_readMemoryLL(uint32_t position, uint32_t chunk_size, 
 	if((chunk_size == 0)
 			|| ((chunk_size + read_ptr) > partition_info.partition_size_B)
 			|| (chunk_size > SFS_MAX_CHUNK_SIZE_B)){
-		return -1;
+		return ESP_FAIL;
 	}
 
-	if(access_locked == true){
+	if(access_locked_r == true){
+		ESP_LOGE(ESP_SIMPLEFS_TAG, "Access locked - readLL");
 		return ESP_FAIL;
 	}
 
@@ -199,16 +208,90 @@ uint32_t SimpleFS_getFileSize(){
 	return write_ptr;
 }
 
-static void SimpleFS_findDataEnd(){
-	ESP_LOGE(ESP_SIMPLEFS_TAG, "Find Data End not implemented yet!");
-
-	if(access_locked == true){
-		return;
+static esp_err_t SimpleFS_findDataEnd(){
+	if(access_locked_w == true){
+		ESP_LOGE(ESP_SIMPLEFS_TAG, "Find Data End - access locked!");
+		return ESP_FAIL;
 	}
 
-	write_ptr = 0;
+	access_locked_w = true;
 
-	ESP_LOGI(ESP_SIMPLEFS_TAG, "Data size: %iB", write_ptr);
+	esp_err_t err 		  = ESP_OK;
+	uint8_t   tmp         = 0x00;
+	uint32_t  packet_size = sizeof(sfs_packet_t);
+	uint32_t  packet_max  = partition_info.partition_size_B / packet_size;
+	uint32_t  curr_packet = 0;
+
+	ESP_LOGI(ESP_SIMPLEFS_TAG, "Max packet count: %i, packet size: %i, Flash size: %i", packet_max, packet_size, partition_info.partition_size_B);
+
+	// Check first page
+	curr_packet = 0;
+	err = SimpleFS_readMemoryLL(curr_packet * packet_size, 1, (void *)(&tmp));
+	if(err == ESP_FAIL){
+		ESP_LOGE(ESP_SIMPLEFS_TAG, "Read failed");
+		return err;
+	}
+
+	if(tmp == 0xFF){
+		write_ptr = curr_packet * packet_size;
+		ESP_LOGV(ESP_SIMPLEFS_TAG, "Flash empty");
+		return ESP_OK;
+	}
+
+	// Check packet at 50% of memory
+	curr_packet = packet_max >> 1;
+	err = SimpleFS_readMemoryLL(curr_packet * packet_size, 1, (void *)(&tmp));
+	if(err == ESP_FAIL){
+		ESP_LOGE(ESP_SIMPLEFS_TAG, "Read failed");
+		return err;
+	}
+
+	if(tmp != 0xFF){
+		write_ptr = curr_packet * packet_size;
+		ESP_LOGI(ESP_SIMPLEFS_TAG, "Flash too full >50%%");
+		ESP_LOGI(ESP_SIMPLEFS_TAG, "Data end: %iB", write_ptr);
+		return ESP_OK;
+	}
+
+	// Init search algorithm - look for data end between second page and 50% of the memory
+	uint32_t curr_packet_min = 1;
+	uint32_t curr_packet_max = packet_max >> 1;
+
+	while(1){
+		// Check in the middle of search range
+		curr_packet = (curr_packet_max + curr_packet_min)>>1;
+
+		// Check if search range has more than 2 packets
+		if((curr_packet_max-curr_packet_min) <= 1 ){
+			ESP_LOGV(ESP_SIMPLEFS_TAG, "End found");
+			break;
+		}
+
+		// Read selected packet (first byte only) and check if it is empty (0xFF)
+		SimpleFS_readMemoryLL(curr_packet*packet_size, 1, (void *)(&tmp));
+		if(err == ESP_FAIL){
+			ESP_LOGE(ESP_SIMPLEFS_TAG, "Read failed");
+			return err;
+		}
+		ESP_LOGV(ESP_SIMPLEFS_TAG, "Ptr: %i, val: 0x%x", curr_packet*packet_size, tmp);
+
+		if(tmp == 0xFF)
+			curr_packet_max = curr_packet;	// Byte cleared - move upper search boundry to this position
+		else
+			curr_packet_min = curr_packet;	// Byte written - move lower search boundry to this position
+	}
+
+	SimpleFS_readMemoryLL(curr_packet*packet_size, 1, (void *)(&tmp));
+	if(tmp != 0xFF)
+		write_ptr = (curr_packet + 1) * packet_size;
+	else
+		write_ptr = curr_packet * packet_size;
+
+	access_locked_w = false;
+
+	ESP_LOGI(ESP_SIMPLEFS_TAG, "Data end: %iB", write_ptr);
+
+	return ESP_OK;
 }
 
 static uint16_t IRAM_ATTR crc16(uint8_t *buf, uint32_t len){
