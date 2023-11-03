@@ -113,7 +113,7 @@ esp_err_t LSM6DSO32_SPIinit(){
 	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
 	{
 		ESP_RETURN_ON_ERROR(SPI_registerDevice(&LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN_NUM(sensor),
-												SPI_SCK_10MHZ, 1, 1, 7), TAG, "SPI register for LSM6DS number: %sensor failed", sensor);
+												SPI_SCK_10MHZ, 1, 1, 7), TAG, "SPI register for LSM6DS number: %d sensor failed", sensor);
 	}
 
 	return ESP_OK;
@@ -250,10 +250,10 @@ esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
 
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting)
 {
-	if( !(LSM6DSO32_COUNT > sensor) )
+	if( (LSM6DSO32_COUNT > sensor) )
 	{
 		uint8_t buffer;
-		LSM6DSO32_Read(sensor, LSM6DS_CTRL1_XL, buffer, 8);
+		LSM6DSO32_Read(sensor, LSM6DS_CTRL1_XL, &buffer, 8);
 		buffer &= ~0x00000110;
 		buffer |= setting;
 		LSM6DSO32_Write(sensor, LSM6DS_CTRL1_XL, buffer);
@@ -269,10 +269,10 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 
 esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyr_dps_setting_t setting)
 {
-	if( !(LSM6DSO32_COUNT > sensor) )
+	if( (LSM6DSO32_COUNT > sensor) )
 	{
 		uint8_t buffer;
-		LSM6DSO32_Read(sensor, LSM6DS_CTRL2_G, buffer, 8);
+		LSM6DSO32_Read(sensor, LSM6DS_CTRL2_G, &buffer, 8);
 		buffer &= ~0x00001110;
 		buffer |= setting;
 		LSM6DSO32_Write(sensor, LSM6DS_CTRL2_G, buffer);
