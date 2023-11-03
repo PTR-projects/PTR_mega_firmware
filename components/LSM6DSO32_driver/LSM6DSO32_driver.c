@@ -59,7 +59,7 @@ const float LSM6DSAccSensGPerLsb[LSM6DS_ACC_FS_LIST_SIZE]=
 	0.000976f 	//LSM6DS_ACC_FS_32G
 };
 
-const uint8_t LSM6DSGyroDpsBits[LSM6DS_ACC_FS_LIST_SIZE]=
+const uint8_t LSM6DSGyroDpsBits[LSM6DS_GYRO_DPS_LIST_SIZE]=
 {
 	LSM6DS_CTRL2_G_GYRO_FS_125_DPS , // LSM6DS_GYRO_FS_125_DPS
 	LSM6DS_CTRL2_G_GYRO_FS_250_DPS , // LSM6DS_GYRO_FS_250_DPS 
@@ -69,7 +69,7 @@ const uint8_t LSM6DSGyroDpsBits[LSM6DS_ACC_FS_LIST_SIZE]=
 	
 };
 
-const float LSM6DSGyroDpsPerLsb[LSM6DS_ACC_FS_LIST_SIZE]=
+const float LSM6DSGyroDpsPerLsb[LSM6DS_GYRO_DPS_LIST_SIZE]=
 {
 	0.004375f,	// LSM6DS_GYRO_FS_125_DPS
 	0.00875f, 	// LSM6DS_GYRO_FS_250_DPS 
@@ -110,10 +110,10 @@ esp_err_t LSM6DSO32_SPIinit(){
 
 	/* CONFIGURE SPI DEVICE */
 	/* Max SCK frequency - 10MHz */
-	for(uint8_t x = 0; x < LSM6DSO32_COUNT; x++)
+	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
 	{
-		ESP_RETURN_ON_ERROR(SPI_registerDevice(&LSM6DSO32_d[x].config.spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN_NUM(x),
-												SPI_SCK_10MHZ, 1, 1, 7), TAG, "SPI register for LSM6DS number: %x failed", x);
+		ESP_RETURN_ON_ERROR(SPI_registerDevice(&LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN_NUM(sensor),
+												SPI_SCK_10MHZ, 1, 1, 7), TAG, "SPI register for LSM6DS number: %sensor failed", sensor);
 	}
 
 	return ESP_OK;
@@ -121,7 +121,7 @@ esp_err_t LSM6DSO32_SPIinit(){
 
 esp_err_t LSM6DSO32_init(){
 	LSM6DSO32_SPIinit();
-	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
+	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
 	{
 		LSM6DSO32_Write(sensor, LSM6DS_CTRL1_XL, (LSM6DS_CTRL1_XL_ACC_RATE_104_HZ | LSM6DSAccSensBits[INIT_LSM6DS_ACC_SENS] | LSM6DS_CTRL1_ACC_LPF2_EN));
 		LSM6DSO32_Write(sensor, LSM6DS_CTRL2_G,  (LSM6DS_CTRL2_G_GYRO_RATE_104_HZ | LSM6DSGyroDpsBits[INIT_LSM6DS_GYRO_DPS]));
@@ -238,7 +238,7 @@ esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
 	
 	if( !(LSM6DSO32_COUNT > sensor) )
 	{
-		return LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L, LSM6DSO32_d[sensor].rawData.raw, 14);
+		ESP_LOGE(TAG,"Not implemented!");
 
 	}
 	else
@@ -246,4 +246,42 @@ esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
 		ESP_LOGE(TAG,"Wrong sensor number!");
 	}
 	return ESP_OK;
+}
+
+esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting)
+{
+	if( !(LSM6DSO32_COUNT > sensor) )
+	{
+		uint8_t buffer;
+		LSM6DSO32_Read(sensor, LSM6DS_CTRL1_XL, buffer, 8);
+		buffer &= ~0x00000110;
+		buffer |= setting;
+		LSM6DSO32_Write(sensor, LSM6DS_CTRL1_XL, buffer);
+		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[setting];
+	}
+	else
+	{
+		ESP_LOGE(TAG,"Wrong sensor number!");
+	}
+	return ESP_OK;
+	
+}
+
+esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyr_dps_setting_t setting)
+{
+	if( !(LSM6DSO32_COUNT > sensor) )
+	{
+		uint8_t buffer;
+		LSM6DSO32_Read(sensor, LSM6DS_CTRL2_G, buffer, 8);
+		buffer &= ~0x00001110;
+		buffer |= setting;
+		LSM6DSO32_Write(sensor, LSM6DS_CTRL2_G, buffer);
+		LSM6DSO32_d[sensor].config.LSM6DSGyrDpsPerLsb = LSM6DSGyroDpsPerLsb[setting];
+	}
+	else
+	{
+		ESP_LOGE(TAG,"Wrong sensor number!");
+	}
+	return ESP_OK;
+	
 }
