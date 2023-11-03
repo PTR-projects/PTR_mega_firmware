@@ -256,7 +256,7 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 		LSM6DSO32_Read(sensor, LSM6DS_CTRL1_XL, &buffer, 8);
 		buffer &= ~0x00000110;
 		buffer |= setting;
-		LSM6DSO32_Write(sensor, LSM6DS_CTRL1_XL, buffer);
+		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL, buffer);
 		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[setting];
 	}
 	else
@@ -275,7 +275,7 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyr_dps_setting_t setting)
 		LSM6DSO32_Read(sensor, LSM6DS_CTRL2_G, &buffer, 8);
 		buffer &= ~0x00001110;
 		buffer |= setting;
-		LSM6DSO32_Write(sensor, LSM6DS_CTRL2_G, buffer);
+		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G, buffer);
 		LSM6DSO32_d[sensor].config.LSM6DSGyrDpsPerLsb = LSM6DSGyroDpsPerLsb[setting];
 	}
 	else
