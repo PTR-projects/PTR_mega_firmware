@@ -161,7 +161,7 @@ uint32_t Analog_getVBAT(){
     static float bat = 0.0f;
     bat = (float)voltage * 0.05f + bat * 0.95f;
 
-    ESP_LOGI(TAG, "%.0f,  \t%u", voltage, adc_reading);
+    //ESP_LOGI(TAG, "%.0f,  \t%u", voltage, adc_reading);
     return voltage_vbat;
 }
 
