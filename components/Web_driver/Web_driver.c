@@ -91,6 +91,7 @@ esp_err_t Web_init(void){
 	}
 
     Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
+    //Preferences_init();
 	return ret;
 }
 
@@ -570,6 +571,23 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
 }
 
 
+
+/*!
+ * @brief Handler responsible for serving json with configuration data.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t preferences_get_config(httpd_req_t *req){
+	char *string = Preferences_send_config_web();
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
 /*!
  * @brief Handler responsible for serving json with status data.
  * @param req
@@ -737,6 +755,14 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &jsonLive_get);
 
+    httpd_uri_t preferences_get = {
+			.uri      = "/config_get",
+			.method   = HTTP_GET,
+			.handler  = preferences_get_config,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &preferences_get);
+
 	httpd_uri_t cmd_send = {
 			    .uri      = "/cmd",
 			    .method   = HTTP_POST,
@@ -751,7 +777,7 @@ esp_err_t Web_http_init(const char *base_path){
 			    .handler  = config_post_handler,
 			    .user_ctx = server_data
 	};
-	httpd_register_uri_handler(server, &cmd_send);
+	httpd_register_uri_handler(server, &config_send);
 
 
 	httpd_uri_t file_delete = {

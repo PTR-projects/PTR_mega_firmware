@@ -117,6 +117,8 @@ void task_kpptr_main(void *pvParameter){
 void task_kpptr_telemetry(void *pvParameter){
 	DataPackageRF_t DataPackageRF_d;
 
+	DataPackageRF_d.id=2137;	//Tymczasowe, do wywalenia
+
 	while(LORA_init() != ESP_OK){
 		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);

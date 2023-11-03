@@ -129,78 +129,7 @@
             <label id="label-status-arming">????</label>
           </td>
         </tr>
-        <tr>
-          <td colspan="1">
-            <label>Timestamp</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-timestamp_ms">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>Analog driver</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-analog">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>Lora driver</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-lora">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>ADCS driver</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-adcs">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>Storage driver</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-storage">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>SysMgr driver</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-sysmgr">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>Utility driver</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-utils">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>Web driver</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-web">????</label>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="1">
-            <label>Pressure</label>
-          </td>
-          <td colspan="3">
-            <label id="label-status-pressure">????</label>
-          </td>
-        </tr>
+        
 
         
 
@@ -359,7 +288,7 @@
             <label>Staging delay [s]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-staging-delay" min="0" max="60" value="0" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-staging-delay" min="0" max="20000" value="0" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -386,7 +315,7 @@
             <label>Auto arming time [s]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-autoarm_delay" min="0" max="600" value="30" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-autoarm_delay" min="0" max="60" value="30" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -394,7 +323,7 @@
             <label>WiFi password</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="text" id="pref-wifi-pass" minlength="6" maxlength="10" size="12" value="Meteor" oninput="updatePreferencesData()">
+            <input class="tab-settings-input" type="text" id="pref-wifi-pass" minlength="6" maxlength="10" size="16" value="your_wifi_pass" oninput="updatePreferencesData()">
           </td>
         </tr>
 		<tr>
@@ -410,10 +339,10 @@
         </tr>
 		<tr>
           <td>
-            <label>LoRa frequency [MHz]</label>
+            <label>LoRa frequency [kHz]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-lora-frequency" min="420" max="450" value="433" step=".01" size="12" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-lora-frequency" min="420000" max="450000" value="433125" step="1" size="12" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -441,6 +370,112 @@
     </div>
 
     <div id="tab-live" class="tab-live">
+      <table class="table-main">
+      <tr>
+            <td colspan="3">
+              <label><b>Details</b></label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Serial number</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-serial-number">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Software version</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-software-version">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>System state</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-arming">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Timestamp</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-timestamp_ms">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Analog driver</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-analog">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Lora driver</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-lora">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>ADCS driver</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-adcs">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Storage driver</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-storage">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>SysMgr driver</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-sysmgr">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Utility driver</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-utils">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Web driver</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-web">????</label>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="1">
+              <label>Pressure</label>
+            </td>
+            <td colspan="3">
+              <label id="label-status-pressure">????</label>
+            </td>
+          </tr>
+  
+          
+  
+        </table>
     </div>
 
   </body>

@@ -141,7 +141,24 @@ uint32_t Analog_getVBAT(){
 
     voltage_vbat = filter_coeff * vbat_mV_raw + (1-filter_coeff) * voltage_vbat;
 
-    ESP_LOGV(TAG, "Raw: %i,   voltage: %i	Vbat: %imV", ulp_VBAT_RAW, voltage, voltage_vbat);
+	for(uint16_t i=0; i<1024; i++){
+		adc_reading += adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7);
+	}
+
+	adc_reading >>= 10;
+    voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, &adc_chars) * 11.0f * 1.024f;
+    ESP_LOGV(TAG, "Raw bat: %d\tVoltage: %.0fmV", adc_reading, voltage);
+
+    voltage_vbat = filter_coeff * voltage + (1-filter_coeff) * voltage_vbat;
+    vbat_mV_raw = voltage;
+
+    static float raw = 0.0f;
+    raw = (float)adc_reading * 0.05f + raw * 0.95f;
+
+    static float bat = 0.0f;
+    bat = (float)voltage * 0.05f + bat * 0.95f;
+
+    //ESP_LOGI(TAG, "%.0f,  \t%u", voltage, adc_reading);
     return voltage_vbat;
 }
 
