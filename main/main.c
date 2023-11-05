@@ -155,7 +155,6 @@ void task_kpptr_storage(void *pvParameter){
 			}
 		} else {
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){
-				Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t));
 				web_live_cnt++;
 				if(web_live_cnt > 100){
 					//ESP_LOGI(TAG, "Press1 %f", DataPackage_ptr->sensors.pressure);

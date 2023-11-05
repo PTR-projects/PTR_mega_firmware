@@ -23,38 +23,9 @@ typedef struct {
 	uint32_t partition_page_B;
 } sfs_info_t;
 
-
-esp_err_t simplefs_api_init(sfs_info_t * partition_info, const char * label);
-
-/**
- * @brief Read a region in a block.
- *
- * Negative error codes are propogated to the user.
- *
- * @return errorcode. 0 on success.
- */
-esp_err_t simplefs_api_read(uint32_t position, void *buffer, uint32_t size);
-
-/**
- * @brief Program a region in a block.
- *
- * The block must have previously been erased.
- * Negative error codes are propogated to the user.
- * May return LFS_ERR_CORRUPT if the block should be considered bad.
- *
- * @return errorcode. 0 on success.
- */
-esp_err_t simplefs_api_prog(uint32_t position, void *buffer, uint32_t size);
-
-/**
- * @brief Erase a block.
- *
- * A block must be erased before being programmed.
- * The state of an erased block is undefined.
- * Negative error codes are propogated to the user.
- * May return LFS_ERR_CORRUPT if the block should be considered bad.
- * @return errorcode. 0 on success.
- */
+esp_err_t simplefs_api_init (sfs_info_t * partition_info, const char * label);
+esp_err_t simplefs_api_read (uint32_t position, void *buffer, uint32_t size);
+esp_err_t simplefs_api_prog (uint32_t position, void *buffer, uint32_t size);
 esp_err_t simplefs_api_erase(uint32_t range_end_B);
 
 #ifdef __cplusplus

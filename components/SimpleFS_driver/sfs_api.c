@@ -124,13 +124,15 @@ esp_err_t IRAM_ATTR simplefs_api_erase(uint32_t range_end_B) {
 		}
     }
 
-
-	uint32_t last_chunk = 0;
-	if(((range_end_B % chunk) - (range_end_B % 4096) + 4096 + N*chunk) < partition_size_B){
-		last_chunk = (range_end_B % chunk) - (range_end_B % 4096) + 4096;	//Extend erase range
+    // Format last chunk and make sure that it is aligned to 4kB
+	uint32_t last_chunk		   = 0;
+	uint32_t chunk_remainder   = range_end_B % chunk;
+	uint32_t aligned_remainder = range_end_B % 4096;
+	if((chunk_remainder - aligned_remainder + 4096 + N*chunk) < partition_size_B){
+		last_chunk = chunk_remainder - aligned_remainder + 4096;	//Extend erase range
 	}
 	else {
-		last_chunk = (range_end_B % chunk) - (range_end_B % 4096);	//Trim erase range
+		last_chunk = chunk_remainder - aligned_remainder;	//Trim erase range
 	}
 
 	esp_partition_erase_range(partition, N*chunk, last_chunk);
@@ -144,6 +146,6 @@ esp_err_t IRAM_ATTR simplefs_api_erase(uint32_t range_end_B) {
         return ESP_FAIL;
     }
 
-    ESP_LOGI(ESP_SFS_TAG, "Erased memory successfuly");
+    ESP_LOGI(ESP_SFS_TAG, "Memory erased successfully");
     return 0;
 }
