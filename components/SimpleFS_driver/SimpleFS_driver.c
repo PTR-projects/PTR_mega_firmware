@@ -178,8 +178,37 @@ int32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
 		}
 	}
 
+	// Copy trimmed data to output buffer
 	memcpy(buffer, tmp_buffer, chunk_size);
 
+	// Move read pointer to new position
+	read_ptr += chunk_size;
+
+	return chunk_size;
+}
+
+int32_t IRAM_ATTR SimpleFS_dumpMemory(uint32_t chunk_size, void * buffer){
+	if((chunk_size == 0)
+			|| (chunk_size > SFS_MAX_CHUNK_SIZE_B)
+			|| (chunk_size < sizeof(sfs_packet_t))){
+		return -1;
+	}
+
+	if(access_locked_r == true){
+		return ESP_FAIL;
+	}
+
+	// Trim length for last chunk
+	if((chunk_size + read_ptr) > partition_info.partition_size_B){
+		chunk_size = partition_info.partition_size_B - read_ptr;
+	}
+
+	// Read raw data from memory
+	if(simplefs_api_read(read_ptr, buffer, chunk_size) != ESP_OK){
+		return -1;
+	}
+
+	// Move read pointer to new position
 	read_ptr += chunk_size;
 
 	return chunk_size;
