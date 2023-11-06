@@ -9,7 +9,7 @@
 #include "FlightStateDetector.h"
 
 typedef struct __attribute__((__packed__)){
-	uint64_t sys_time;
+	uint32_t sys_time;
 	struct __attribute__((__packed__)){
 		float accX;
 		float accY;
@@ -28,7 +28,7 @@ typedef struct __attribute__((__packed__)){
 		float accHZ;
 
 		float pressure;
-		float temp;
+		int8_t temp;
 
 		float latitude;
 		float longitude;
@@ -38,13 +38,7 @@ typedef struct __attribute__((__packed__)){
 
 	struct __attribute__((__packed__)){
 		float altitude_press;
-
-		float posX;
-		float posY;
 		float posZ;
-
-		float veloX;
-		float veloY;
 		float veloZ;
 
 		float q1, q2, q3, q4;
@@ -64,15 +58,17 @@ typedef struct __attribute__((__packed__)){
 		uint8_t ign4_state : 1;
 	} ign;
 
-	uint32_t vbat_mV;
+	uint16_t vbat_mV;
 
 	struct __attribute__((__packed__)){
-		float servo_1;
-		float servo_2;
-		float servo_3;
-		float servo_4;
+		int8_t servo_1;
+		int8_t servo_2;
+		int8_t servo_3;
+		int8_t servo_4;
 		uint8_t servo_en;
 	} servo;
+
+	uint8_t blank[5];
 } DataPackage_t;
 
 typedef struct __attribute__((__packed__)){
@@ -105,10 +101,11 @@ typedef struct __attribute__((__packed__)){
 } DataPackageRF_t;
 
 esp_err_t DM_init();
+uint16_t DM_checkWaitingElementsNumber();
 esp_err_t DM_getUsedPointerFromMainRB(DataPackage_t ** ptr);
 esp_err_t DM_getUsedPointerFromMainRB_wait(DataPackage_t ** ptr);
 esp_err_t DM_returnUsedPointerToMainRB(DataPackage_t ** ptr);
 esp_err_t DM_getFreePointerToMainRB(DataPackage_t ** ptr);
 esp_err_t DM_addToMainRB(DataPackage_t ** ptr);
-void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign, Analog_meas_t * analog);
+void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog);
 void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign);

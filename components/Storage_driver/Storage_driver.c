@@ -6,28 +6,34 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_err.h"
+#include "esp_check.h"
 #include "esp_log.h"
+#include "SimpleFS_driver.h"
 #include "Storage_driver.h"
 
 FILE* f_meas = NULL;
 uint8_t meas_file_lock = 0;
 
-esp_err_t Storage_init_Spiffs			();
-esp_err_t Storage_init_Littlefs			();
 esp_err_t Storage_initFile				();
+
+#if defined(CONFIG_FS_SPIFFS)
+esp_err_t Storage_init_Spiffs			();
 esp_err_t Storage_erase_Spiffs			(uint32_t key);
-esp_err_t Storage_erase_Littlefs		(uint32_t key);
 esp_err_t Storage_writePacket_Spiffs	(void * buf, uint16_t len);
-esp_err_t Storage_writePacket_Littlefs	(void * buf, uint16_t len);
 esp_err_t Storage_readFile_Spiffs		(void * buf);
-esp_err_t Storage_readFile_Littlefs		(void * buf);
 size_t    Storage_getFreeMem_Spiffs		(void);
+
+#elif defined(CONFIG_FS_LITTLEFS)
+esp_err_t Storage_init_Littlefs			();
+esp_err_t Storage_erase_Littlefs		(uint32_t key);
+esp_err_t Storage_writePacket_Littlefs	(void * buf, uint16_t len);
+esp_err_t Storage_readFile_Littlefs		(void * buf);
 size_t    Storage_getFreeMem_Littlefs	(void);
-
-
+#endif
 
 static Storage_data_t Storage_data_d;
 
+#if defined(CONFIG_FS_SPIFFS)
 esp_vfs_spiffs_conf_t conf_spiffs = {
       .base_path = "/storage",
       .partition_label = "storage",
@@ -35,11 +41,13 @@ esp_vfs_spiffs_conf_t conf_spiffs = {
       .format_if_mount_failed = true
     };
 
+#elif defined(CONFIG_FS_LITTLEFS)
 esp_vfs_littlefs_conf_t conf_littlefs = {
 		.base_path = "/storage",
 		.partition_label = "storage",
 		.format_if_mount_failed = true
     };
+#endif
 
 static const char *TAG = "Storage_driver";
 
@@ -52,23 +60,28 @@ static const char *TAG = "Storage_driver";
  * @return `ESP_OK` if initialized
  * @return `ESP_FAIL` otherwise.
  */
-esp_err_t Storage_init(Storage_filesystem_t filesys , uint32_t key){
+esp_err_t Storage_init(){
 
 	esp_err_t ret = ESP_FAIL;
 
-    Storage_data_d.Storage_filestystem_d 	= filesys;
     Storage_data_d.ReadyFlag 				= false;
     Storage_data_d.MasterKey 				= CONFIG_KPPTR_MASTERKEY;
     Storage_data_d.minFreeMem 				= 100;
 
     strcpy(Storage_data_d.path, "/storage/meas.bin");
 
-    if(filesys == 1){
-        ret = Storage_init_Spiffs(key);
-    }
-    else if(filesys == 2){
-        ret = Storage_init_Littlefs(key);
-    }
+#if defined(CONFIG_FS_SPIFFS)
+	ret = Storage_init_Spiffs(STORAGE_KEY);
+
+#elif defined(CONFIG_FS_LITTLEFS)
+	ret = Storage_init_Littlefs(STORAGE_KEY);
+
+#elif defined(CONFIG_FS_SIMPLEFS)
+	ret = SimpleFS_init("storage");
+
+#else
+#error No File System selected!
+#endif
 
     if(ret==ESP_OK){
     	Storage_data_d.ReadyFlag=true;
@@ -81,6 +94,7 @@ esp_err_t Storage_init(Storage_filesystem_t filesys , uint32_t key){
  * @return `ESP_OK` if initialized
  * @return `ESP_FAIL` otherwise.
  */
+#if defined(CONFIG_FS_SPIFFS)
 esp_err_t Storage_init_Spiffs(){
 	esp_err_t ret = ESP_OK;
 
@@ -105,12 +119,14 @@ esp_err_t Storage_init_Spiffs(){
 
 	return ret;
 }
+#endif
 
 /*!
  * @brief Initialize littlefs filesystem and check if the log file file can be created.
  * @return `ESP_OK` if initialized
  * @return `ESP_FAIL` otherwise.
  */
+#if defined(CONFIG_FS_LITTLEFS)
 esp_err_t Storage_init_Littlefs(){
 	esp_err_t ret = ESP_OK;
 
@@ -135,12 +151,14 @@ esp_err_t Storage_init_Littlefs(){
 
 	return ret;
 }
+#endif
 
 /*!
  * @brief Check if new file can be created
  * @return `ESP_OK` if initialized
  * @return `ESP_FAIL` otherwise.
  */
+#if defined(CONFIG_FS_SPIFFS) || defined(CONFIG_FS_LITTLEFS)
 esp_err_t Storage_initFile(){
 
 	esp_err_t ret = ESP_FAIL;
@@ -152,34 +170,33 @@ esp_err_t Storage_initFile(){
 	int8_t FileStatus = stat(Storage_data_d.path, &st);
 
 	if(FileStatus == -1){
-		ESP_LOGI(TAG, "File not present, created file successfully");
+		ESP_LOGI(TAG, "File not present, formating...");
+		Storage_erase(Storage_data_d.MasterKey);
 
 		f_meas = fopen(Storage_data_d.path, "a+");
+		ESP_LOGI(TAG, "File created successfully");
 		//fclose(f_meas);
 
 		ret = ESP_OK;
 	}
 	else if(st.st_size < 20){
-		ESP_LOGW(TAG, "File present but empty.");
+		ESP_LOGW(TAG, "File present but empty, formating...");
 
 		Storage_erase(Storage_data_d.MasterKey);
 		f_meas = fopen(Storage_data_d.path, "a+");
+		ESP_LOGI(TAG, "File created successfully");
 		//fclose(f_meas);
 
 		ret = ESP_OK;
-
 	}
 	else{
 		ESP_LOGE(TAG, "File present and not empty!");
 		ret = ESP_FAIL;
 	}
 
-
-
-
 	return ret;
 }
-
+#endif
 
 
 /*!
@@ -194,18 +211,21 @@ esp_err_t Storage_erase(uint32_t key){
 		return ESP_FAIL;
 	}
 
-	if(Storage_data_d.Storage_filestystem_d == 1){
+#if defined(CONFIG_FS_SPIFFS)
         return Storage_erase_Spiffs(key);
-    }
-    else if(Storage_data_d.Storage_filestystem_d == 2){
+
+#elif defined(CONFIG_FS_LITTLEFS)
         return Storage_erase_Littlefs(key);
-    }
+
+#elif defined(CONFIG_FS_SPIFFS)
+    	return SimpleFS_formatMemory(SFS_MAGIC_KEY);
+#endif
 
     return ESP_FAIL;
 }
 
 
-
+#if defined(CONFIG_FS_SPIFFS)
 esp_err_t Storage_erase_Spiffs(uint32_t key){
 	if(key != Storage_data_d.MasterKey){
 		ESP_LOGE(TAG, "Erase - wrong key");
@@ -214,7 +234,9 @@ esp_err_t Storage_erase_Spiffs(uint32_t key){
 
     return esp_spiffs_format(conf_spiffs.partition_label);
 }
+#endif
 
+#if defined(CONFIG_FS_LITTLEFS)
 esp_err_t Storage_erase_Littlefs(uint32_t key){
 	if(key != Storage_data_d.MasterKey){
 		ESP_LOGE(TAG, "Erase - wrong key");
@@ -223,7 +245,7 @@ esp_err_t Storage_erase_Littlefs(uint32_t key){
 
     return esp_littlefs_format(conf_littlefs.partition_label);
 }
-
+#endif
 
 //######################################################################################################################
 //													WRITING FILES
@@ -240,7 +262,6 @@ esp_err_t Storage_erase_Littlefs(uint32_t key){
  * @return `ESP_FAIL` otherwise
  */
 esp_err_t Storage_writePacket(void * buf, uint16_t len){
-
 	esp_err_t res = ESP_FAIL;
 
 	if(!Storage_data_d.ReadyFlag){
@@ -248,12 +269,15 @@ esp_err_t Storage_writePacket(void * buf, uint16_t len){
 		return ESP_FAIL;
 	}
 
-	if(Storage_data_d.Storage_filestystem_d == 1){
+#if defined(CONFIG_FS_SPIFFS)
 		res = Storage_writePacket_Spiffs(buf, len);
-	}
-	else if(Storage_data_d.Storage_filestystem_d == 2){
+
+#elif defined(CONFIG_FS_LITTLEFS)
 		res = Storage_writePacket_Littlefs(buf, len);
-	}
+
+#elif defined(CONFIG_FS_SIMPLEFS)
+		res = SimpleFS_appendPacket(buf, len);
+#endif
 
 	return res;
 }
@@ -266,9 +290,8 @@ esp_err_t Storage_writePacket(void * buf, uint16_t len){
  * Length of buffer in Bytes
  * @return `ESP_OK` if initialized
  * @return `ESP_ERR_NOT_FOUND` if file is not found
-
-
  */
+#if defined(CONFIG_FS_SPIFFS)
 esp_err_t Storage_writePacket_Spiffs(void * buf, uint16_t len){
 
     FILE* f = fopen(Storage_data_d.path, "a");
@@ -288,9 +311,9 @@ esp_err_t Storage_writePacket_Spiffs(void * buf, uint16_t len){
 		return ESP_FAIL;
 	}
 
-
 	return ESP_OK;
 }
+#endif
 
 /*!
  * @brief Write packet of given size in littlefs
@@ -301,7 +324,11 @@ esp_err_t Storage_writePacket_Spiffs(void * buf, uint16_t len){
  * @return `ESP_OK` if initialized
  * @return `ESP_ERR_NOT_FOUND` if file is not found
  */
+#if defined(CONFIG_FS_LITTLEFS)
 esp_err_t Storage_writePacket_Littlefs(void * buf, uint16_t len){
+	ESP_RETURN_ON_FALSE(!(len % CONFIG_LITTLEFS_WRITE_SIZE), ESP_ERR_INVALID_SIZE,
+			TAG, "Wrong packet size. Must be multiple of %i", CONFIG_LITTLEFS_WRITE_SIZE);
+
     //f_meas = fopen(Storage_data_d.path, "a+");
 
 	if(meas_file_lock)
@@ -324,7 +351,9 @@ esp_err_t Storage_writePacket_Littlefs(void * buf, uint16_t len){
 
 	return ESP_OK;
 }
+#endif
 
+#if defined(CONFIG_FS_SPIFFS) || defined(CONFIG_FS_LITTLEFS)
 esp_err_t Storage_blockMeasFile(){
 	meas_file_lock = 1;
 	if(fclose(f_meas) != 0){
@@ -341,6 +370,7 @@ esp_err_t Storage_unblockMeasFile(){
 
 	return ESP_OK;
 }
+#endif
 
 /*!
  * @brief Read whole file by calling filesystem specific function
@@ -357,12 +387,16 @@ esp_err_t Storage_readFile(void * buf){
 		return ESP_FAIL;
 	}
 
-	if(Storage_data_d.Storage_filestystem_d == 1){
+#if defined(CONFIG_FS_SPIFFS)
 		return Storage_readFile_Spiffs(buf);
-	}
-	else if(Storage_data_d.Storage_filestystem_d == 2){
+
+#elif defined(CONFIG_FS_SPIFFS)
 		return Storage_readFile_Littlefs(buf);
-	}
+
+#elif defined(CONFIG_FS_SPIFFS)
+		ESP_LOGE(TAG, "Read from SimpleFS not implemented here!");
+		return ESP_FAIL;
+#endif
 
 	return ESP_FAIL;
 }
@@ -376,6 +410,7 @@ esp_err_t Storage_readFile(void * buf){
  * @return `ESP_OK` if initialized
  * @return `ESP_ERR_NOT_FOUND` if file is not found
  */
+#if defined(CONFIG_FS_SPIFFS)
 esp_err_t Storage_readFile_Spiffs(void * buf){
 
     FILE* f = fopen(Storage_data_d.path, "r");
@@ -395,6 +430,7 @@ esp_err_t Storage_readFile_Spiffs(void * buf){
 
 	return ESP_OK;
 }
+#endif
 
 /*!
  * @brief Read whole file from littlefs
@@ -403,6 +439,7 @@ esp_err_t Storage_readFile_Spiffs(void * buf){
  * @return `ESP_OK` if initialized
  * @return `ESP_ERR_NOT_FOUND` if file is not found
  */
+#if defined(CONFIG_FS_LITTLEFS)
 esp_err_t Storage_readFile_Littlefs(void * buf){
 	 FILE* f = fopen(Storage_data_d.path, "r");
 
@@ -421,10 +458,7 @@ esp_err_t Storage_readFile_Littlefs(void * buf){
 
 	return ESP_OK;
 }
-
-
-
-
+#endif
 
 //######################################################################################################################
 //													GETTING FREE SPACE
@@ -441,12 +475,16 @@ size_t Storage_getFreeMem()
 		return ESP_FAIL;
 	}
 
-    if(Storage_data_d.Storage_filestystem_d == 1){
+#if defined(CONFIG_FS_SPIFFS)
         return Storage_getFreeMem_Spiffs();
-    }
-    else if(Storage_data_d.Storage_filestystem_d == 2){
+
+#elif defined(CONFIG_FS_LITTLEFS)
     	return Storage_getFreeMem_Littlefs();
-    }
+
+#elif defined(CONFIG_FS_SIMPLEFS)
+    	ESP_LOGE(TAG, "getFreeMem not implemented for SimpleFS!");
+    	return ESP_FAIL;
+#endif
 
      return ESP_FAIL;
 }
@@ -455,28 +493,31 @@ size_t Storage_getFreeMem()
  * @brief Get amount of free memory from spiifs
  * @return Amount of free memory available in `kB`.
  */
+#if defined(CONFIG_FS_SPIFFS)
 size_t Storage_getFreeMem_Spiffs(void){
     size_t total_bytes = 0,
     		used_bytes = 0;
 
     esp_spiffs_info(conf_spiffs.partition_label,  &total_bytes,  &used_bytes);
 
-	return (total_bytes-used_bytes)/1000;
+	return (total_bytes-used_bytes)/1024;
 }
+#endif
 
 /*!
  * @brief Get amount of free memory from littlefs
  * @return Amount of free memory available in `kB`.
  */
+#if defined(CONFIG_FS_LITTLEFS)
 size_t Storage_getFreeMem_Littlefs(void){
     size_t total_bytes = 0,
     		used_bytes = 0;
 
     esp_littlefs_info(conf_littlefs.partition_label,  &total_bytes,  &used_bytes);
 
-	return (total_bytes-used_bytes)/1000;
+	return (total_bytes-used_bytes)/1024;
 }
-
+#endif
 
 //######################################################################################################################
 //													UTILITY FUNCTIONS
@@ -491,5 +532,3 @@ size_t Storage_getFreeMem_Littlefs(void){
 Storage_data_t Storage_listParams(void){
 	return Storage_data_d;
 }
-
-

@@ -25,6 +25,7 @@
 #include "Web_driver_cmd.h"
 #include "DataManager.h"
 #include "Storage_driver.h"
+#include "SimpleFS_driver.h"
 
 static const char *TAG = "Web_driver";
 
@@ -38,9 +39,6 @@ static const char *TAG = "Web_driver";
 /* Max size of an individual file.*/
 #define MAX_FILE_SIZE   (5000*1024) // 5000 KB
 #define MAX_FILE_SIZE_STR "5000KB"
-
-/* Scratch buffer size */
-#define SCRATCH_BUFSIZE  8192
 
 #define IS_FILE_EXT(filename, ext) \
 		(strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
@@ -172,6 +170,8 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
         return httpd_resp_set_type(req, "image/x-icon");
     } else if (IS_FILE_EXT(filename, ".js")) {
     	return httpd_resp_set_type(req, "text/javascript");
+    } else if (IS_FILE_EXT(filename, ".bin")) {
+    	return httpd_resp_set_type(req, "application/octet-stream");
     }
     /* This is a limited set only */
     /* For any other type always set as plain text */
@@ -253,66 +253,121 @@ static esp_err_t download_get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-
-    /* If name has trailing '/', respond with directory contents */
-    ESP_LOGI(TAG, "Filename: %s",filename);
-    if(stat(filepath, &file_stat) == -1){
-        /* If file not present on SPIFFS check if URI
-         * corresponds to one of the hardcoded paths */
-
-        ESP_LOGE(TAG, "Failed to stat file : %s", filepath);
-        /* Respond with 404 Not Found */
-        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
-        return ESP_FAIL;
-    }
-
-    if(strstr(filename, "meas.bin") != NULL)
+    if(strstr(filename, "meas.bin") != NULL){
+#if defined(CONFIG_FS_LITTLEFS) || defined(CONFIG_FS_SPIFFS)
     	Storage_blockMeasFile();
-    fd = fopen(filepath, "r");
-
-    if(!fd){
-        ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
-        /* Respond with 500 Internal Server Error */
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read existing file");
-        return ESP_FAIL;
     }
-
-    ESP_LOGI(TAG, "Sending file: %s (%ld bytes)...", filename, file_stat.st_size);
-    set_content_type_from_file(req, filename);
-
-    /* Retrieve the pointer to scratch buffer for temporary storage */
-    char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
-    size_t chunksize;
-    do{
-        /* Read file in chunks into the scratch buffer */
-        chunksize = fread(chunk, 1, SCRATCH_BUFSIZE, fd);
-
-        if (chunksize > 0) {
-            /* Send the buffer contents as HTTP response chunk */
-            if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
-            	fclose(fd);
-
-                ESP_LOGE(TAG, "File sending failed!");
-                /* Abort sending file */
-                httpd_resp_sendstr_chunk(req, NULL);
-                /* Respond with 500 Internal Server Error */
-                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
-               return ESP_FAIL;
-           }
+#else
+        /* If name has trailing '/', respond with directory contents */
+        ESP_LOGI(TAG, "Filename: %s",filename);
+        if(strstr(filename, "meas.bin") == NULL){
+            /* Respond with 404 Not Found */
+            httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
+            return ESP_FAIL;
         }
 
-        /* Keep looping till the whole file is sent */
-    }while (chunksize != 0);
+        //Lock write and enable read from memory
+        SimpleFS_readMode();
 
-    /* Close file after sending complete */
-    fclose(fd);
-    ESP_LOGI(TAG, "File sending complete");
+        ESP_LOGI(TAG, "Sending file: %s (%i bytes)...", filename, SimpleFS_getFileSize());
+    	set_content_type_from_file(req, filename);
 
-    if(strstr(filename, "meas.bin") != NULL)
-        	Storage_unblockMeasFile();
+    	/* Retrieve the pointer to scratch buffer for temporary storage */
+    	char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
+    	size_t chunksize;
+
+    	// Reset read pointer to the beginning of the memory
+    	SimpleFS_resetReadPointer();
+
+    	do{
+    		/* Read file in chunks into the scratch buffer */
+    		chunksize = SimpleFS_readMemory(SCRATCH_BUFSIZE, chunk);
+
+    		if (chunksize > 0) {
+    			/* Send the buffer contents as HTTP response chunk */
+    			if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
+    				ESP_LOGE(TAG, "File sending failed!");
+    				/* Abort sending file */
+    				httpd_resp_sendstr_chunk(req, NULL);
+    				/* Respond with 500 Internal Server Error */
+    				httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
+    				return ESP_FAIL;
+    		   }
+    		}
+
+    		/* Keep looping till the whole file is sent */
+    	}while (chunksize != 0);
+
+    	ESP_LOGI(TAG, "File sending complete");
+
+    	SimpleFS_writeMode();
+    }
+    else{
+#endif
+        /* If name has trailing '/', respond with directory contents */
+        ESP_LOGI(TAG, "Filename: %s",filename);
+        if(stat(filepath, &file_stat) == -1){
+            /* If file not present on SPIFFS check if URI
+             * corresponds to one of the hardcoded paths */
+
+            ESP_LOGE(TAG, "Failed to stat file : %s", filepath);
+            /* Respond with 404 Not Found */
+            httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
+            return ESP_FAIL;
+        }
+
+    	fd = fopen(filepath, "r");
+
+		if(!fd){
+			ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
+			/* Respond with 500 Internal Server Error */
+			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read existing file");
+			return ESP_FAIL;
+		}
+
+		ESP_LOGI(TAG, "Sending file: %s (%ld bytes)...", filename, file_stat.st_size);
+		set_content_type_from_file(req, filename);
+
+		/* Retrieve the pointer to scratch buffer for temporary storage */
+		char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
+		size_t chunksize;
+		do{
+			/* Read file in chunks into the scratch buffer */
+			chunksize = fread(chunk, 1, SCRATCH_BUFSIZE, fd);
+
+			if (chunksize > 0) {
+				/* Send the buffer contents as HTTP response chunk */
+				if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
+					fclose(fd);
+
+					ESP_LOGE(TAG, "File sending failed!");
+					/* Abort sending file */
+					httpd_resp_sendstr_chunk(req, NULL);
+					/* Respond with 500 Internal Server Error */
+					httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
+				   return ESP_FAIL;
+    	           }
+    	        }
+
+    	        /* Keep looping till the whole file is sent */
+    	    }while (chunksize != 0);
+
+    	    /* Close file after sending complete */
+    	    fclose(fd);
+    	    ESP_LOGI(TAG, "File sending complete");
+
+
+
+#if defined(CONFIG_FS_LITTLEFS) || defined(CONFIG_FS_SPIFFS)
+    	    if(strstr(filename, "meas.bin") != NULL)
+				Storage_unblockMeasFile();
+#else
+    }
+#endif
 
     /* Respond with an empty chunk to signal HTTP response completion */
-    httpd_resp_send_chunk(req, NULL, 0);
+	httpd_resp_send_chunk(req, NULL, 0);
+
     return ESP_OK;
 }
 
@@ -347,6 +402,7 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+#if defined(CONFIG_FS_LITTLEFS) || defined(CONFIG_FS_SPIFFS)
     if(stat(filepath, &file_stat) == -1){
         ESP_LOGE(TAG, "File does not exist : %s", filename);
         /* Respond with 400 Bad Request */
@@ -365,6 +421,23 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to create file");
         return ESP_FAIL;
     }
+
+#elif defined(CONFIG_FS_SIMPLEFS)
+	if(strstr(filename, "meas.bin") == NULL){
+		/* Respond with 404 Not Found */
+		httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
+		ESP_LOGE(TAG, "Delete failed - file: %s", filename);
+		return ESP_FAIL;
+	}
+
+	ESP_LOGI(TAG, "Deleting file : %s", filename);
+
+	/* Delete file */
+	if(SimpleFS_formatMemory(SFS_MAGIC_KEY, SFS_FORMAT_RANGE) != ESP_OK){
+		ESP_LOGE(TAG, "Deleting file failed!");
+		return ESP_FAIL;
+	}
+#endif
 
     /* Redirect onto root to see the updated file list */
     httpd_resp_set_status(req, "303 See Other");
