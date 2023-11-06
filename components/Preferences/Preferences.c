@@ -134,7 +134,7 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	
 	char *string = NULL;
 	cJSON *json = cJSON_CreateObject();
-
+	
 	//Update current config stored in RAM
 	Preferences_data_d = config;
 	cJSON_AddStringToObject(json, "wifi_pass", Preferences_data_d.wifi_pass);
@@ -159,7 +159,7 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	cJSON_Delete(json); 
 	ESP_LOGI(TAG, "Config file: %s", string);
 
-
+	
 	//Update config stored on FLASH chip
 	FILE* f = fopen(preferences_path, "w");
 	if(f == NULL){
@@ -183,6 +183,7 @@ esp_err_t Preferences_restore_dafaults(){
 
 esp_err_t Prefences_update_web(char *buf){
 	Preferences_data_t temp;
+	temp = Preferences_data_d;
 
 	cJSON *json = cJSON_Parse(buf); 
 	ESP_LOGE(TAG, "%s", buf);
@@ -204,7 +205,7 @@ esp_err_t Prefences_update_web(char *buf){
 		ESP_LOGE(TAG, "Cannot read json!");
 		return ESP_FAIL;
 	}
-
+	
 	uint32_t crc32_received = cJSON_GetObjectItem(json, "crc32")->valueint;
 	temp.wifi_pass = cJSON_GetObjectItem(json, "wifi_pass")->valuestring;
 	temp.main_alt = cJSON_GetObjectItem(json, "main_alt")->valueint;
@@ -216,7 +217,8 @@ esp_err_t Prefences_update_web(char *buf){
 	temp.auto_arming_time_s = cJSON_GetObjectItem(json, "auto_arming_time_s")->valueint;
 	temp.auto_arming = cJSON_GetObjectItem(json, "auto_arming")->valueint;
 	temp.key = cJSON_GetObjectItem(json, "key")->valueint;
-	temp.lora_freq = cJSON_GetObjectItem(json, "pref-lora-frequency")->valueint;
+	temp.lora_freq = cJSON_GetObjectItem(json, "lora_freq")->valueint;
+	
 	
 	
 	
