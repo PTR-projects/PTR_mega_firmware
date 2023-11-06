@@ -60,7 +60,7 @@ esp_err_t Web_wifi_stop					(void);
 esp_vfs_spiffs_conf_t conf = {
      .base_path = "/www",
      .partition_label = "www",
-     .max_files = 5,
+     .max_files = 6,
      .format_if_mount_failed = false
 };
 
@@ -628,6 +628,9 @@ esp_err_t Web_http_init(const char *base_path){
 
 	httpd_handle_t server = NULL;
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.max_uri_handlers = 16;
+
+
 
 	static struct file_server_data *server_data = NULL;
 	if(server_data){
@@ -660,6 +663,14 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &index_get);
 
+    httpd_uri_t pref_get = {
+			.uri      = "/pref_get",
+			.method   = HTTP_GET,
+			.handler  = preferences_get_config,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &pref_get);
+
 	httpd_uri_t jsonStatus_get = {
 		    .uri      = "/status",
 		    .method   = HTTP_GET,
@@ -675,14 +686,6 @@ esp_err_t Web_http_init(const char *base_path){
 			.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &jsonLive_get);
-
-    httpd_uri_t preferences_get = {
-			.uri      = "/config_get",
-			.method   = HTTP_GET,
-			.handler  = preferences_get_config,
-			.user_ctx = server_data
-	};
-	httpd_register_uri_handler(server, &preferences_get);
 
 	httpd_uri_t cmd_send = {
 			    .uri      = "/cmd",
@@ -724,7 +727,6 @@ esp_err_t Web_http_init(const char *base_path){
 	        .user_ctx  = server_data    // Pass server data as context
 	};
 	httpd_register_uri_handler(server, &file_download);
-
 
 	ESP_LOGI(TAG, "Started HTTP server successfully");
 	return ESP_OK;
