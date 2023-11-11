@@ -33,6 +33,7 @@ static const char *TAG = "KP-PTR";
 //----------- Queues etc ---------------
 QueueHandle_t queue_AnalogToMain;
 QueueHandle_t queue_MainToTelemetry;
+QueueHandle_t queue_MainToWeb;
 
 //----------- Global settings ----------
 Preferences_data_t Preferences_data_d;
@@ -42,7 +43,9 @@ Preferences_data_t Preferences_data_d;
 void task_kpptr_main(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	TickType_t prevTickCountRF = 0;
+	TickType_t prevTickCountWeb = 0;
 	DataPackage_t *  DataPackage_ptr = NULL;
+	DataPackage_t DataPackage_d;
 	DataPackageRF_t  DataPackageRF_d;
 	gps_t gps_d;
 	Analog_meas_t Analog_meas;
@@ -80,9 +83,11 @@ void task_kpptr_main(void *pvParameter){
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
+		DM_collectFlash(&DataPackage_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
+
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
-				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
+				*DataPackage_ptr = DataPackage_d;
 				DM_addToMainRB(&DataPackage_ptr);
 			} else {
 				ESP_LOGE(TAG, "Main RB pointer = NULL!");
@@ -97,6 +102,13 @@ void task_kpptr_main(void *pvParameter){
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
 		}
+
+		//send data to Web every 1000ms
+		if(((prevTickCountWeb + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
+			prevTickCountWeb = xLastWakeTime;
+			xQueueOverwrite(queue_MainToWeb, (void *)DataPackage_ptr); // add to Web queue
+		}
+
 	}
 	vTaskDelete(NULL);
 }
@@ -127,9 +139,7 @@ void task_kpptr_storage(void *pvParameter){
 	}
 
 	DataPackage_t * DataPackage_ptr;
-	Web_driver_live_t 	live_web;
 	uint32_t write_error_cnt = 0;
-	uint32_t web_live_cnt = 0;
 
 	vTaskDelay(pdMS_TO_TICKS( 2000 ));
 	ESP_LOGI(TAG, "Task Storage - ready!");
@@ -153,63 +163,6 @@ void task_kpptr_storage(void *pvParameter){
 			} else {
 				ESP_LOGI(TAG, "Storage timeout");
 			}
-		} else {
-			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){
-				web_live_cnt++;
-				if(web_live_cnt > 100){
-					//ESP_LOGI(TAG, "Press1 %f", DataPackage_ptr->sensors.pressure);
-					web_live_cnt = 0;
-					live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
-					live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
-					live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;
-					live_web.LSM6DS32_0.ax = DataPackage_ptr->sensors.accX;
-					live_web.LSM6DS32_0.ay = DataPackage_ptr->sensors.accY;
-					live_web.LSM6DS32_0.az = DataPackage_ptr->sensors.accZ;
-					live_web.LSM6DS32_0.gx = DataPackage_ptr->sensors.gyroX;
-					live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
-					live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
-					live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
-					live_web.LSM6DS32_1.ax = 10.0f;
-					live_web.LSM6DS32_1.ay = 0.0f;
-					live_web.LSM6DS32_1.az = 0.0f;
-					live_web.LSM6DS32_1.gx = 0.0f;
-					live_web.LSM6DS32_1.gy = 0.0f;
-					live_web.LSM6DS32_1.gz = 0.0f;
-					live_web.LSM6DS32_1.temperature = 0.0f;
-					live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
-					live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
-					live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
-					live_web.MS5607.altitude = 0.0f;
-					live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
-					live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
-					live_web.anglex = 0.0f;
-					live_web.angley = 0.0f;
-					live_web.anglez = 0.0f;
-					live_web.gps.fix = DataPackage_ptr->sensors.gnss_fix;
-					live_web.gps.latitude = DataPackage_ptr->sensors.latitude;
-					live_web.gps.longitude = DataPackage_ptr->sensors.longitude;
-					live_web.gps.sats = DataPackage_ptr->sensors.gnss_fix;
-					Web_live_exchange(live_web);
-
-					Web_status_updateGNSS(DataPackage_ptr->sensors.latitude, DataPackage_ptr->sensors.longitude,
-										DataPackage_ptr->sensors.gnss_fix >> 6, DataPackage_ptr->sensors.gnss_fix & 0x3F);
-					Web_status_updateADCS(0, 0);
-
-					// change GNSS component status if fix is OK
-					if(GPS_checkStatus() == ESP_OK){
-						static sysmgr_checkout_state_t gnss_ready_check = check_void;
-						if((gnss_ready_check == check_void)
-								/*&& (DataPackage_ptr->sensors.gnss_fix)*/){
-							gnss_ready_check = check_ready;
-							SysMgr_checkout(checkout_gnss, check_ready);
-						}
-					} else {
-						SysMgr_checkout(checkout_gnss, check_fail);
-					}
-
-				}
-				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
-			}
 		}
 	}
 }
@@ -217,6 +170,7 @@ void task_kpptr_storage(void *pvParameter){
 void task_kpptr_utils(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	uint32_t interval_ms = 20;
+	DataPackage_t DataPackage_d;
 
 	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
@@ -237,6 +191,23 @@ void task_kpptr_utils(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		LED_srv();
 		IGN_srv(pdTICKS_TO_MS(xTaskGetTickCount ()));
+
+		if(xQueueReceive(queue_MainToWeb, &DataPackage_d, 0)){
+			Web_live_from_DataPackage(&DataPackage_d);
+
+			// change GNSS component status if fix is OK
+			if(GPS_checkStatus() == ESP_OK){
+				static sysmgr_checkout_state_t gnss_ready_check = check_void;
+				if((gnss_ready_check == check_void)
+						/*&& (DataPackage_ptr->sensors.gnss_fix)*/){
+					gnss_ready_check = check_ready;
+					SysMgr_checkout(checkout_gnss, check_ready);
+				}
+			} else {
+				SysMgr_checkout(checkout_gnss, check_fail);
+			}
+
+		}
 	}
 	vTaskDelete(NULL);
 }
@@ -364,6 +335,7 @@ void app_main(void)
     //----- Create queues ----------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t ) );
     queue_MainToTelemetry = xQueueCreate( 1, sizeof( DataPackageRF_t ) );
+    queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t ) );
 
     //----- Check queues -----------
     if(queue_AnalogToMain == 0)

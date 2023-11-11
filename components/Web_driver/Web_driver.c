@@ -20,12 +20,12 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
+#include "Storage_driver.h"
+#include "SimpleFS_driver.h"
+
 #include "Web_driver.h"
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
-#include "DataManager.h"
-#include "Storage_driver.h"
-#include "SimpleFS_driver.h"
 
 static const char *TAG = "Web_driver";
 
@@ -902,10 +902,14 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     live_web.anglex = 0.0f;
     live_web.angley = 0.0f;
     live_web.anglez = 0.0f;
-    live_web.gps.fix = DataPackage_ptr->sensors.gnss_fix;
-    live_web.gps.latitude = DataPackage_ptr->sensors.latitude;
-    live_web.gps.longitude = DataPackage_ptr->sensors.longitude;
-    live_web.gps.sats = DataPackage_ptr->sensors.gnss_fix;
+    live_web.gps.fix 		= DataPackage_ptr->sensors.gnss_fix >> 6;
+    live_web.gps.latitude 	= DataPackage_ptr->sensors.latitude;
+    live_web.gps.longitude 	= DataPackage_ptr->sensors.longitude;
+    live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
+
+    status_web.flight_state = DataPackage_ptr->flightstate;
+	status_web.rocket_tilt  = 0.0f;
+
     Web_live_exchange(live_web);
     return ESP_OK;
 }
