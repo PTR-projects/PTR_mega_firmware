@@ -182,3 +182,4 @@ esp_err_t LSM6DSO32_init();
 uint8_t LSM6DSO32_WhoAmI();
 esp_err_t LSM6DSO32_readMeas();
 esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas);
+esp_err_t LSM6DSO32_calibrateGyro(float gain);

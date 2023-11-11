@@ -38,10 +38,10 @@ typedef struct __attribute__((__packed__)){
 
 	struct __attribute__((__packed__)){
 		float altitude_press;
-		float posZ;
-		float veloZ;
+		float altitude_kalman;
+		float ascent_rate_kalman;
 
-		float q1, q2, q3, q4;
+		float q0, q1, q2, q3;
 	} ahrs;
 
 	uint8_t flightstate;
@@ -108,4 +108,4 @@ esp_err_t DM_returnUsedPointerToMainRB(DataPackage_t ** ptr);
 esp_err_t DM_getFreePointerToMainRB(DataPackage_t ** ptr);
 esp_err_t DM_addToMainRB(DataPackage_t ** ptr);
 void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog);
-void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign);
+void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign);

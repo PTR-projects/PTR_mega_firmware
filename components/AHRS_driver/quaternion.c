@@ -85,7 +85,7 @@ void quaternionNormalize(quaternions_t * result, quaternions_t * q){
     }
 }
 
-void quaternionRotateVector(vectorf_t * result, quaternions_t * vect, quaternions_t * ref){
+void quaternionRotateVector(vectorf_t * result, vectorf_t * vect, quaternions_t * ref){
 	quaternions_t vectQuat, refConj;
 
     vectQuat.q0 = 0;

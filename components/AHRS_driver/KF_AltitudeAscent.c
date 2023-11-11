@@ -29,8 +29,8 @@ void AHRS_kalmanAltitudeAscent_init(float Q_accel, float R_altitude){
 	KF_data.R_altitude 	= R_altitude;
 }
 
-void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float accZ, float * altitude_result, float * ascentrate_result){
-	AHRS_kalmanAltitudeAscent_propagate(&KF_data, accZ, dt);
+void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, float * altitude_result, float * ascentrate_result){
+	AHRS_kalmanAltitudeAscent_propagate(&KF_data, acc_up, dt);
 	AHRS_kalmanAltitudeAscent_update   (&KF_data, altitudeP);
 
 	*altitude_result   = KF_data.h;
@@ -40,7 +40,7 @@ void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float accZ, float
 
 
 // https://github.com/rblilja/AltitudeKF/blob/master/altitude_kf.cpp
-static void AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float acc, float dt){
+static void AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float acc_up, float dt){
 	// Repeated arithmetics
 	float _dtdt = dt * dt;
 
@@ -57,8 +57,8 @@ static void AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float 
 	// where 'u_k' is our acceleration input signal.
 
 	// Propagation of the state (equation of motion) by Euler integration
-	KF->h += KF->v*dt + 0.5f*acc*_dtdt;
-	KF->v += acc*dt;
+	KF->h += KF->v*dt + 0.5f*acc_up*_dtdt;
+	KF->v += acc_up*dt;
 
 	// The "a priori" state estimate error covariance 'P_k|k-1 = A * P_k-1 * A' + Q_k' is calculated as follows:
 	//

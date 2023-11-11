@@ -71,8 +71,8 @@ void task_kpptr_main(void *pvParameter){
 	ESP_LOGI(TAG, "Task Main - ready!");
 
 	xLastWakeTime = xTaskGetTickCount ();
-	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));
+	while(1){
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));	// Note - for rate > 100Hz change MS5607 settings
 
 		int64_t time_us = esp_timer_get_time();
 
@@ -89,6 +89,7 @@ void task_kpptr_main(void *pvParameter){
 			if(DataPackage_ptr != NULL){
 				*DataPackage_ptr = DataPackage_d;
 				DM_addToMainRB(&DataPackage_ptr);
+
 			} else {
 				ESP_LOGE(TAG, "Main RB pointer = NULL!");
 			}
@@ -96,10 +97,10 @@ void task_kpptr_main(void *pvParameter){
 			ESP_LOGE(TAG, "Main RB error!");
 		}
 
-		//send data to RF every 500ms
+		//send data to RF every 1000ms
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
+			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
 		}
 

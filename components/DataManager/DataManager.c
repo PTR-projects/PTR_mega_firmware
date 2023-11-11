@@ -133,6 +133,15 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->sensors.altitude_gnss = gps->altitude;
 	package->sensors.gnss_fix 	= ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
 
+	package->ahrs.altitude_press 	 = ahrs->altitudeP;
+	package->ahrs.altitude_kalman 	 = ahrs->altitude;
+	package->ahrs.ascent_rate_kalman = ahrs->ascent_rate;
+
+	package->ahrs.q0 = ahrs->orientation.quaternions.q0;
+	package->ahrs.q1 = ahrs->orientation.quaternions.q1;
+	package->ahrs.q2 = ahrs->orientation.quaternions.q2;
+	package->ahrs.q3 = ahrs->orientation.quaternions.q3;
+
 	package->ign.ign1_cont 		= analog->IGN1_det;
 	package->ign.ign2_cont 		= analog->IGN2_det;
 	package->ign.ign3_cont 		= analog->IGN3_det;
@@ -149,7 +158,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->flightstate = (uint8_t)flightstate;
 }
 
-void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, FlightState_t * flightstate, IGN_t * ign){
+void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign){
 	package->id           = 1024;
 	package->packet_no    = packet_counter++;
 	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
@@ -170,4 +179,6 @@ void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_
 	package->lon      = (int32_t)(gps->longitude * 10000000.0f);
 	package->alti_gps = (int32_t)(gps->altitude);
 	package->sats_fix     = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
+
+	package->state = flightstate;
 }

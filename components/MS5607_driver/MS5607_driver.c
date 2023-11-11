@@ -159,12 +159,12 @@ static esp_err_t MS5607_readCalibration() {
 }
 
 static esp_err_t MS5607_reqPress() {
-	MS5607_write(MS5607_CONVERT_D1_256);
+	MS5607_write(MS5607_CONVERT_D1_2048);
 	return ESP_OK;
 }
 
 static esp_err_t MS5607_reqTemp() {
-	MS5607_write(MS5607_CONVERT_D2_256);
+	MS5607_write(MS5607_CONVERT_D2_2048);
 	return ESP_OK;
 }
 

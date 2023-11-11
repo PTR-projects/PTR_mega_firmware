@@ -53,9 +53,9 @@ esp_err_t LSM6DSO32_readMeas(){
 	LSM6DSO32_d.meas.accY  = (LSM6DSO32_d.accY_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accYoffset;
 	LSM6DSO32_d.meas.accZ  = (LSM6DSO32_d.accZ_raw)*(64.0f/65536.0f) - LSM6DSO32_d.accZoffset;
 
-	LSM6DSO32_d.meas.gyroX = (LSM6DSO32_d.gyroX_raw)*(0.035f) - LSM6DSO32_d.gyroXoffset;
-	LSM6DSO32_d.meas.gyroY = (LSM6DSO32_d.gyroY_raw)*(0.035f) - LSM6DSO32_d.gyroYoffset;
-	LSM6DSO32_d.meas.gyroZ = (LSM6DSO32_d.gyroZ_raw)*(0.035f) - LSM6DSO32_d.gyroZoffset;
+	LSM6DSO32_d.meas.gyroX = (LSM6DSO32_d.gyroX_raw - LSM6DSO32_d.gyroXoffset)*(0.035f);
+	LSM6DSO32_d.meas.gyroY = (LSM6DSO32_d.gyroY_raw - LSM6DSO32_d.gyroYoffset)*(0.035f);
+	LSM6DSO32_d.meas.gyroZ = (LSM6DSO32_d.gyroZ_raw - LSM6DSO32_d.gyroZoffset)*(0.035f);
 
 	LSM6DSO32_d.meas.temp  = (LSM6DSO32_d.temp_raw)*(0.00390625f) + 25.0f;
 
@@ -64,6 +64,25 @@ esp_err_t LSM6DSO32_readMeas(){
 
 esp_err_t LSM6DSO32_getMeas(LSM6DS_meas_t * meas){
 	*meas = LSM6DSO32_d.meas;
+
+	return ESP_OK;
+}
+
+esp_err_t LSM6DSO32_calibrateGyro(float gain){
+	static bool first_run = false;
+
+	if(first_run == false){
+		first_run = true;
+		LSM6DSO32_d.gyroXoffset = (float)LSM6DSO32_d.gyroX_raw;
+		LSM6DSO32_d.gyroYoffset = (float)LSM6DSO32_d.gyroY_raw;
+		LSM6DSO32_d.gyroZoffset = (float)LSM6DSO32_d.gyroZ_raw;
+
+		return ESP_OK;
+	}
+
+	LSM6DSO32_d.gyroXoffset = gain * (float)LSM6DSO32_d.gyroX_raw + (1.0f - gain) * LSM6DSO32_d.gyroXoffset;
+	LSM6DSO32_d.gyroYoffset = gain * (float)LSM6DSO32_d.gyroY_raw + (1.0f - gain) * LSM6DSO32_d.gyroYoffset;
+	LSM6DSO32_d.gyroZoffset = gain * (float)LSM6DSO32_d.gyroZ_raw + (1.0f - gain) * LSM6DSO32_d.gyroZoffset;
 
 	return ESP_OK;
 }
