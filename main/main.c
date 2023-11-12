@@ -136,7 +136,7 @@ void task_kpptr_storage(void *pvParameter){
 	while(Storage_init() != ESP_OK){
 		ESP_LOGW(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
-		vTaskDelay(pdMS_TO_TICKS( 10000 ));
+		vTaskDelay(pdMS_TO_TICKS( 3000 ));
 	}
 
 	DataPackage_t * DataPackage_ptr;

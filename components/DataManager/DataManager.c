@@ -141,6 +141,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->ahrs.q1 = ahrs->orientation.quaternions.q1;
 	package->ahrs.q2 = ahrs->orientation.quaternions.q2;
 	package->ahrs.q3 = ahrs->orientation.quaternions.q3;
+	package->ahrs.tilt = (uint8_t)ahrs->orientation.euler.tilt;
 
 	package->ign.ign1_cont 		= analog->IGN1_det;
 	package->ign.ign2_cont 		= analog->IGN2_det;

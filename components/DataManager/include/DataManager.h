@@ -40,6 +40,7 @@ typedef struct __attribute__((__packed__)){
 		float altitude_press;
 		float altitude_kalman;
 		float ascent_rate_kalman;
+		uint8_t tilt;
 
 		float q0, q1, q2, q3;
 	} ahrs;
@@ -68,7 +69,7 @@ typedef struct __attribute__((__packed__)){
 		uint8_t servo_en;
 	} servo;
 
-	uint8_t blank[5];
+	uint8_t blank[4];
 } DataPackage_t;
 
 typedef struct __attribute__((__packed__)){

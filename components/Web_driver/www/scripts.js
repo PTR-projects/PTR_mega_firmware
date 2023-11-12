@@ -636,11 +636,35 @@ function getDataStatus() {
 				document.getElementById("label-status-vbat").textContent 		= data.system.battery_voltage.toFixed(2) + " V";
 			else 
 				document.getElementById("label-status-vbat").textContent 		= "LOW!";
+			
+			IGN_contToLabel(data.igniters[0].continuity, "label-igniter1-cont-status");
+			IGN_contToLabel(data.igniters[1].continuity, "label-igniter2-cont-status");
+			IGN_contToLabel(data.igniters[2].continuity, "label-igniter3-cont-status");
+			IGN_contToLabel(data.igniters[3].continuity, "label-igniter4-cont-status");
 	  })
 	  .catch(error => {
 		/* Handle any errors that occurred*/
 		console.error(error);
 	  });
+}
+
+function IGN_contToLabel(cont, label){
+	let color, text;
+	
+	if(cont == 0){
+		text 	= "Missing!";
+		color 	= "red";
+	} else if(cont == 1){
+		text 	= "Connected";
+		color 	= "green";
+	} else {
+		text 	= "BAT missing!";
+		color 	= "orange";
+	}
+	
+	document.getElementById(label).textContent = text;
+	document.getElementById(label).style.color = color;
+	document.getElementById(label).style.fontWeight = "bold"
 }
 
 function webInit(){

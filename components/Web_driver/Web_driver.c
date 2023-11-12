@@ -114,7 +114,6 @@ esp_err_t Web_wifi_init(void){
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-
     wifi_config_t wifi_config = {
     	.ap =
     	{
@@ -580,6 +579,8 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req){
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+    free(string);
     return ESP_OK;
 }
 
@@ -597,6 +598,8 @@ esp_err_t jsonLive_get_handler(httpd_req_t *req){
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+    free(string);
     return ESP_OK;
 }
 
@@ -908,7 +911,7 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
 
     status_web.flight_state = DataPackage_ptr->flightstate;
-	status_web.rocket_tilt  = 0.0f;
+	status_web.rocket_tilt  = DataPackage_ptr->ahrs.tilt;
 
     Web_live_exchange(live_web);
     return ESP_OK;
