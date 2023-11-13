@@ -87,24 +87,24 @@ const typedef enum LSM6DSO32_register_t{
 
 
 const typedef enum LSM6DS_acc_sens_setting_t{
-LSM6DS_ACC_FS_4G,	
-LSM6DS_ACC_FS_8G,	
-LSM6DS_ACC_FS_16G,			
-LSM6DS_ACC_FS_32G,	
-
-LSM6DS_ACC_FS_LIST_SIZE
+	LSM6DS_ACC_FS_4G,	
+	LSM6DS_ACC_FS_8G,	
+	LSM6DS_ACC_FS_16G,			
+	LSM6DS_ACC_FS_32G,	
+	
+	LSM6DS_ACC_FS_LIST_SIZE
 }LSM6DS_acc_sens_setting_t;
 
 
-const typedef enum LSM6DS_gyr_dps_setting_t{
-LSM6DS_GYRO_FS_125_DPS,
-LSM6DS_GYRO_FS_250_DPS,
-LSM6DS_GYRO_FS_500_DPS,
-LSM6DS_GYRO_FS_1000_DPS,
-LSM6DS_GYRO_FS_2000_DPS,
+const typedef enum LSM6DS_gyro_dps_setting_t{
+	LSM6DS_GYRO_FS_125_DPS,
+	LSM6DS_GYRO_FS_250_DPS,
+	LSM6DS_GYRO_FS_500_DPS,
+	LSM6DS_GYRO_FS_1000_DPS,
+	LSM6DS_GYRO_FS_2000_DPS,
 
-LSM6DS_GYRO_DPS_LIST_SIZE
-}LSM6DS_gyr_dps_setting_t;
+	LSM6DS_GYRO_DPS_LIST_SIZE
+}LSM6DS_gyro_dps_setting_t;
 
 
 typedef union{
@@ -239,4 +239,4 @@ esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas);
 esp_err_t LSM6DSO32_readMeasAll();
 esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t * meas);
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting);
-esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyr_dps_setting_t setting);
+esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting);
