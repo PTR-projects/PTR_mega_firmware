@@ -83,18 +83,16 @@ typedef struct
 	spi_dev_handle_t spi_dev_handle_LSM6DSO32;
 	uint8_t LSM6DSO32_register_value[LSM6DS_NUMBER_OF_REGISTERS];
 	float LSM6DSAccSensMgPerLsbCurrent;
-	float LSM6DSGyrDpsPerLsb;
-
+	float LSM6DSGyroDpsPerLsb;
 } LSM6DS_config_t;
-typedef struct{
-
+typedef struct
+{
 	LSM6DSO32_raw_data_t rawData;
 	LSM6DS_meas_t meas;
 	LSM6DS_config_t config;
 	float accXoffset;
 	float accYoffset;
 	float accZoffset;
-
 	float gyroXoffset;
 	float gyroYoffset;
 	float gyroZoffset;
@@ -102,6 +100,11 @@ typedef struct{
 
 static LSM6DSO32_t LSM6DSO32_d[LSM6DSO32_COUNT];
 
+/**
+ * @brief Initializes the SPI communication for LSM6DSO32 sensors.
+ *
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_SPIinit(){
 	if(SPI_checkInit() != ESP_OK){
 		ESP_LOGE(TAG, "SPI controller not initialized! Use SPI_init() in main.c");
@@ -119,6 +122,11 @@ esp_err_t LSM6DSO32_SPIinit(){
 	return ESP_OK;
 }
 
+/**
+ * @brief Initializes LSM6DSO32 sensors.
+ *
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_init(){
 	LSM6DSO32_SPIinit();
 	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
@@ -133,11 +141,17 @@ esp_err_t LSM6DSO32_init(){
 		LSM6DSO32_Write(sensor, LSM6DS_CTRL8_XL, LSM6DS_CTRL8_ACC_LPF | LSM6DS_CTRL8_FILTER_ODR_4);
 		LSM6DSO32_WhoAmI(sensor);
 		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[INIT_LSM6DS_ACC_SENS];
-		LSM6DSO32_d[sensor].config.LSM6DSGyrDpsPerLsb = LSM6DSGyroDpsPerLsb[INIT_LSM6DS_GYRO_DPS]; 
+		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[INIT_LSM6DS_GYRO_DPS]; 
 	}
 	return ESP_OK;
 }
 
+/**
+ * @brief Retrieves the WHO_AM_I response from the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @return uint8_t WHO_AM_I response.
+ */
 uint8_t LSM6DSO32_WhoAmI(uint8_t sensor){
 	uint8_t rxBuff[1] = {0U};
 	LSM6DSO32_Read(sensor, LSM6DS_WHOAMI, rxBuff, 1);
@@ -153,7 +167,12 @@ uint8_t LSM6DSO32_WhoAmI(uint8_t sensor){
 }
 
 
-
+/**
+ * @brief Reads all measurement data from a specified LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L, LSM6DSO32_d[sensor].rawData.raw, 14);
 
@@ -161,15 +180,20 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	LSM6DSO32_d[sensor].meas.accY  = (LSM6DSO32_d[sensor].rawData.accY_raw)*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accYoffset;
 	LSM6DSO32_d[sensor].meas.accZ  = (LSM6DSO32_d[sensor].rawData.accZ_raw)*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accZoffset;
 
-	LSM6DSO32_d[sensor].meas.gyroX = (LSM6DSO32_d[sensor].rawData.gyroX_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyrDpsPerLsb) - LSM6DSO32_d[sensor].gyroXoffset;
-	LSM6DSO32_d[sensor].meas.gyroY = (LSM6DSO32_d[sensor].rawData.gyroY_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyrDpsPerLsb) - LSM6DSO32_d[sensor].gyroYoffset;
-	LSM6DSO32_d[sensor].meas.gyroZ = (LSM6DSO32_d[sensor].rawData.gyroZ_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyrDpsPerLsb) - LSM6DSO32_d[sensor].gyroZoffset;
+	LSM6DSO32_d[sensor].meas.gyroX = (LSM6DSO32_d[sensor].rawData.gyroX_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroXoffset;
+	LSM6DSO32_d[sensor].meas.gyroY = (LSM6DSO32_d[sensor].rawData.gyroY_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroYoffset;
+	LSM6DSO32_d[sensor].meas.gyroZ = (LSM6DSO32_d[sensor].rawData.gyroZ_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroZoffset;
 
 	LSM6DSO32_d[sensor].meas.temp  = (LSM6DSO32_d[sensor].rawData.temp_raw)*(0.00390625f) + 25.0f;
 
 	return ESP_OK;
 }
 
+/**
+ * @brief Reads all measurement data from all LSM6DSO32 sensors.
+ *
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_readMeasAll(){
 	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
 		{
@@ -178,12 +202,25 @@ esp_err_t LSM6DSO32_readMeasAll(){
 	return ESP_OK;
 }
 
+/**
+ * @brief Retrieves measurement data from a specified LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @param meas Pointer to LSM6DS_meas_t structure to store measurement data.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas){
 	*meas = LSM6DSO32_d[sensor].meas;
 
 	return ESP_OK;
 }
 
+/**
+ * @brief Retrieves measurement data from all LSM6DSO32 sensors.
+ *
+ * @param meas Pointer to an array of LSM6DS_meas_t structures to store measurement data.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t *meas){
 	for(uint8_t x = 0; x < LSM6DSO32_COUNT; x++)
 		{
@@ -193,9 +230,14 @@ esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t *meas){
 	return ESP_OK;
 }
 
-
-
-
+/**
+ * @brief Sets the value of a register in the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @param eRegisterToSet Register to set.
+ * @param val Value to set in the register.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_t eRegisterToSet, uint8_t val){
 	esp_err_t retval = ESP_FAIL;
 	retval = LSM6DSO32_Write(sensor, eRegisterToSet, val);
@@ -211,22 +253,62 @@ esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_t eRegisterTo
 	return ESP_OK;
 }
 
-esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t val){
-	return SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 0, LSM6DSO32_register_addr[reg], &val, NULL, 1);
+/**
+ * @brief Writes a single byte of data to a specified register of the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @param reg Register to write data to.
+ * @param val Data byte to write.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
+esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t val) {
+    if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
+        ESP_LOGE(TAG, "Sensor %d: Null pointer while writing!", sensor);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    esp_err_t result = SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 0, LSM6DSO32_register_addr[reg], &val, NULL, 1);
+
+    if (result != ESP_OK) {
+        ESP_LOGE(TAG, "Sensor %d: Failed to write data to LSM6DSO32: %d", sensor, result);
+    }
+
+    return result;
 }
 
-esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t * rx, uint8_t length){
-	if( NULL != LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 )
-	{
-		return SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 1, LSM6DSO32_register_addr[reg], NULL, rx, length);
-	}
-	else
-	{
-		ESP_LOGE(TAG,"Nullpointer while reading!");
-	}
-	return ESP_OK;
+/**
+ * @brief Reads a specified number of bytes from a register of the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @param reg Register to read data from.
+ * @param rx Pointer to the buffer to store the read data.
+ * @param length Number of bytes to read.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
+esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t *rx, uint8_t length) {
+    if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
+        ESP_LOGE(TAG, "Sensor %d: Null pointer while reading!", sensor);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    esp_err_t result = SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 1, LSM6DSO32_register_addr[reg], NULL, rx, length);
+
+    if (result != ESP_OK) {
+        ESP_LOGE(TAG, "Sensor %d: Failed to read data from LSM6DSO32: %d", sensor, result);
+    }
+
+    return result;
 }
 
+/**
+ * @brief Sets a specific bit in a register of the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @param eRegisterToSet Register to modify.
+ * @param bitPos Bit position to set.
+ * @param bit New bit value.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_SetBitInRegister(uint8_t sensor, LSM6DSO32_register_t eRegisterToSet, uint8_t bitPos, bool bit){
 	uint8_t val;
 	LSM6DSO32_Read(sensor, eRegisterToSet, &val, 1);
@@ -234,6 +316,12 @@ esp_err_t LSM6DSO32_SetBitInRegister(uint8_t sensor, LSM6DSO32_register_t eRegis
 	return LSM6DSO32_SetRegister(sensor, eRegisterToSet, val);
 }
 
+/**
+ * @brief Performs calibration for the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
 	
 	if( !(LSM6DSO32_COUNT > sensor) )
@@ -248,6 +336,13 @@ esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
 	return ESP_OK;
 }
 
+/**
+ * @brief Sets the accelerometer sensitivity for the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @param setting New sensitivity setting.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting)
 {
 	if( (LSM6DSO32_COUNT > sensor) )
@@ -267,7 +362,14 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 	
 }
 
-esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyr_dps_setting_t setting)
+/**
+ * @brief Sets the gyroscope sensitivity for the LSM6DSO32 sensor.
+ *
+ * @param sensor Sensor number.
+ * @param setting New sensitivity setting.
+ * @return esp_err_t ESP_OK if successful, otherwise an error code.
+ */
+esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting)
 {
 	if( (LSM6DSO32_COUNT > sensor) )
 	{
@@ -276,7 +378,7 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyr_dps_setting_t setting)
 		buffer &= ~0x00001110;
 		buffer |= setting;
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G, buffer);
-		LSM6DSO32_d[sensor].config.LSM6DSGyrDpsPerLsb = LSM6DSGyroDpsPerLsb[setting];
+		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[setting];
 	}
 	else
 	{
