@@ -1,8 +1,18 @@
 #include "LSM6DSO32_driver.h"
 
+/**
+ * @brief Tag for identifying log messages related to LSM6DSO32.
+ */
 static const char *TAG = "LSM6DSO32";
 
+
+/**
+ * @brief LSM6DSO32 accelerometer initial sensitivity settings.
+ */
 #define INIT_LSM6DS_ACC_SENS LSM6DS_ACC_FS_32G
+/**
+ * @brief LSM6DSO32 gyroscope initial sensitivity settings.
+ */
 #define INIT_LSM6DS_GYRO_DPS LSM6DS_GYRO_FS_2000_DPS
 
 esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_t reg, uint8_t val);
@@ -43,6 +53,9 @@ const LSM6DSO32_register_addr_t LSM6DSO32_register_addr[LSM6DS_NUMBER_OF_REGISTE
 	LSM6DS_TAP_CFG_ADDR
 };
 
+/**
+ * @brief Array of accelerometer sensitivity bits for LSM6DSO32.
+ */
 const uint8_t LSM6DSAccSensBits[LSM6DS_ACC_FS_LIST_SIZE]=
 {
 	LSM6DS_CTRL1_XL_ACC_FS_4G,	//LSM6DS_ACC_FS_4G
@@ -51,6 +64,9 @@ const uint8_t LSM6DSAccSensBits[LSM6DS_ACC_FS_LIST_SIZE]=
 	LSM6DS_CTRL1_XL_ACC_FS_32G 	//LSM6DS_ACC_FS_32G
 };
 
+/**
+ * @brief Array of accelerometer sensitivity values in mg per LSB for LSM6DSO32.
+ */
 const float LSM6DSAccSensGPerLsb[LSM6DS_ACC_FS_LIST_SIZE]=
 {
 	0.000122f,	//LSM6DS_ACC_FS_4G
@@ -59,6 +75,9 @@ const float LSM6DSAccSensGPerLsb[LSM6DS_ACC_FS_LIST_SIZE]=
 	0.000976f 	//LSM6DS_ACC_FS_32G
 };
 
+/**
+ * @brief Array of gyroscope sensitivity bits for LSM6DSO32.
+ */
 const uint8_t LSM6DSGyroDpsBits[LSM6DS_GYRO_DPS_LIST_SIZE]=
 {
 	LSM6DS_CTRL2_G_GYRO_FS_125_DPS , // LSM6DS_GYRO_FS_125_DPS
@@ -69,6 +88,9 @@ const uint8_t LSM6DSGyroDpsBits[LSM6DS_GYRO_DPS_LIST_SIZE]=
 	
 };
 
+/**
+ * @brief Array of gyroscope sensitivity values in degrees per second per LSB for LSM6DSO32.
+ */
 const float LSM6DSGyroDpsPerLsb[LSM6DS_GYRO_DPS_LIST_SIZE]=
 {
 	0.004375f,	// LSM6DS_GYRO_FS_125_DPS
@@ -78,6 +100,9 @@ const float LSM6DSGyroDpsPerLsb[LSM6DS_GYRO_DPS_LIST_SIZE]=
 	0.070f, 	// LSM6DS_GYRO_FS_2000_DPS
 };
 
+/**
+ * @brief Structure holding configuration information for LSM6DSO32.
+ */
 typedef struct
 {
 	spi_dev_handle_t spi_dev_handle_LSM6DSO32;
@@ -85,6 +110,10 @@ typedef struct
 	float LSM6DSAccSensMgPerLsbCurrent;
 	float LSM6DSGyroDpsPerLsb;
 } LSM6DS_config_t;
+
+/**
+ * @brief Structure holding raw data and measurements for LSM6DSO32.
+ */
 typedef struct
 {
 	LSM6DSO32_raw_data_t rawData;
