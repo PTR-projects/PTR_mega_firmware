@@ -1,5 +1,6 @@
 #include "LSM6DSO32_driver.h"
 
+/*
 const LSM6DSO32_register_addr_t LSM6DSO32_register_addr[LSM6DS_NUMBER_OF_REGISTERS]={
 	LSM6DS_WHOAMI_RESPONSE_ADDR,
 	LSM6DS_FUNC_CFG_ACCESS_ADDR,
@@ -25,6 +26,7 @@ const LSM6DSO32_register_addr_t LSM6DSO32_register_addr[LSM6DS_NUMBER_OF_REGISTE
 	LSM6DS_TAP_CFG_ADDR
 };
 
+*/
 /**
  * @brief Array of accelerometer sensitivity bits for LSM6DSO32.
  */
