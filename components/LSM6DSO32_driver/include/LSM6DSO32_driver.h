@@ -33,11 +33,11 @@ typedef struct{
 
 
 const typedef enum LSM6DSO32_register_addr_t{
-	LSM6DS_WHOAMI_RESPONSE_ADDR = 0x6C,   ///< Fixed response value
+	LSM6DS_WHOAMI_RESPONSE = 0x6C,   ///< Fixed response value
 	LSM6DS_FUNC_CFG_ACCESS_ADDR = 0x1,    ///< Enable embedded functions register
 	LSM6DS_INT1_CTRL_ADDR = 0x0D,         ///< Interrupt control for INT 1
 	LSM6DS_INT2_CTRL_ADDR = 0x0E,         ///< Interrupt control for INT 2
-	LSM6DS_WHOAMI_ADDR = 0x0,             ///< Chip ID register
+	LSM6DS_WHOAMI_ADDR = 0x0F,             ///< Chip ID register
 	LSM6DS_CTRL1_XL_ADDR = 0x10,          ///< Main accelerometer config register
 	LSM6DS_CTRL2_G_ADDR = 0x11,           ///< Main gyro config register
 	LSM6DS_CTRL3_C_ADDR = 0x12,           ///< Main configuration register
@@ -58,35 +58,8 @@ const typedef enum LSM6DSO32_register_addr_t{
 
 } LSM6DSO32_register_addr_t;
 
-const typedef enum LSM6DSO32_register_t{
-	LSM6DS_WHOAMI_RESPONSE,  ///< Fixed response value
-	LSM6DS_FUNC_CFG_ACCESS,  ///< Enable embedded functions register
-	LSM6DS_INT1_CTRL,       ///< Interrupt control for INT 1
-	LSM6DS_INT2_CTRL,   ///< Interrupt control for INT 2
-	LSM6DS_WHOAMI,             ///< Chip ID register
-	LSM6DS_CTRL1_XL,          ///< Main accelerometer config register
-	LSM6DS_CTRL2_G,           ///< Main gyro config register
-	LSM6DS_CTRL3_C,         ///< Main configuration register
-	LSM6DS_CTRL4_C,
-	LSM6DS_CTRL5_C,
-	LSM6DS_CTRL6_C,
-	LSM6DS_CTRL7_G,
-	LSM6DS_CTRL8_XL,
-	LSM6DS_CTRL9_XL,
-	LSM6DS_CTRL10_C,
-	LSM6DS_WAKEUP_SRC,
-	LSM6DS_STATUS_REG,
-	LSM6DS_OUT_TEMP_L,
-	LSM6DS_OUTX_L_G,
-	LSM6DS_OUTX_L_A,
-	LSM6DS_STEPCOUNTER,
-	LSM6DS_TAP_CFG,
 
-	LSM6DS_NUMBER_OF_REGISTERS
-} LSM6DSO32_register_t;
-
-
-const typedef enum LSM6DS_acc_sens_setting_t{
+const typedef enum {
 	LSM6DS_ACC_FS_4G,	
 	LSM6DS_ACC_FS_8G,	
 	LSM6DS_ACC_FS_16G,			
@@ -96,7 +69,7 @@ const typedef enum LSM6DS_acc_sens_setting_t{
 }LSM6DS_acc_sens_setting_t;
 
 
-const typedef enum LSM6DS_gyro_dps_setting_t{
+const typedef enum {
 	LSM6DS_GYRO_FS_125_DPS,
 	LSM6DS_GYRO_FS_250_DPS,
 	LSM6DS_GYRO_FS_500_DPS,
