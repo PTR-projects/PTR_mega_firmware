@@ -80,7 +80,6 @@ const float LSM6DSGyroDpsPerLsb[LSM6DS_GYRO_DPS_LIST_SIZE]=
 typedef struct
 {
 	spi_dev_handle_t spi_dev_handle_LSM6DSO32;
-	uint8_t LSM6DSO32_register_value[LSM6DS_NUMBER_OF_REGISTERS];
 	float LSM6DSAccSensMgPerLsbCurrent;
 	float LSM6DSGyroDpsPerLsb;
 } LSM6DS_config_t;

@@ -183,7 +183,6 @@ static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t
 	retval = LSM6DSO32_Write(sensor, eRegisterToSet, val);
 	if(ESP_OK == retval)
 	{
-		LSM6DSO32_d[sensor].config.LSM6DSO32_register_value[eRegisterToSet] = val;
 		ESP_LOGD(TAG,"LSM6DSO32 no.%d register no.0x%x set to 0x%x", sensor, eRegisterToSet, val);
 	}
 	else
