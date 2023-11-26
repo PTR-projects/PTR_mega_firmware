@@ -101,6 +101,108 @@ or run 'idf.py -p (PORT) flash'
 
 ### Troubleshooting
 1. Make sure you checked out `4.4.x` esp-idf branch. Branch `5.x` is not supported yet.  
+
+## Hardware
+### Prototype PCB
+Hardware fot KPPTR is developed in repository [PTR_tracker_hardware](https://github.com/PTR-projects/PTR_tracker_hardware). 
+As of Dec 2023 boards are not in serial production yet. Prototype design is almost fully tested, but still, it's a prototype. 
+
+### Bread board
+Not all development require dedicated PCB. As we use standard ESP32-S3 processor, development boards could be used. 
+
+#### ESP32-S3-WROOM-1-N16R8
+One of them is `ESP32-S3-WROOM-1-N16R8`. It can be flashed directly via USB cable without additional programmer. Only two
+adjustments needs to be done. Run in `PTR_mega_firmware` directory command `idf.py menuconfig` and using menu:
+1. Set partition table definition to match 16MB flash: `Serial flasher config -> flash size -> 16MB`
+2. Set flash size to 16mb in project settings: `Partition table -> custom partition CSV file -> partitions-16mb.csv` 
+3. Quit menu saving changes
+4. Rebuild project
+
+## Flashing firmware
+1. Attach ESP32 board with USB cable to computer. `pwr` led should turn on.
+2. Holding `rst` button press once `boot` button. This will initiate programming sequence on ESP32 side.
+3. Find how your system recognise USB attached ESP32 board:
+    ```bash
+    # MacOS
+    $ ls -l /dev/cu.*
+    crw-rw-rw-  1 root  wheel  0x9000001 Nov 26 21:06 /dev/cu.usbmodem21401
+    ```
+    ```bash
+    # Linux
+    $ ls -l /dev/ttyUSB*
+    crw-rw---- 1 root dialout 188, 0 Nov 23 21:05 /dev/ttyUSB0
+    ```
+4. Use USB device to flash firmware using command:
+    ```bash
+    $ idf.py -p <serial_port_name> -b 9600 flash monitor
+    ```
+
+    As a result you should see similar output (trimmed for brevity):   
+
+    ```bash 
+    Executing action: flash
+    [...]
+    esptool.py v3.3.4-dev
+    Serial port /dev/cu.usbmodem21401
+    Connecting...
+    Chip is ESP32-S3 (revision v0.2)
+    Features: WiFi, BLE
+    Crystal is 40MHz
+    MAC: de:ad:be:ef:1c:10
+    Uploading stub...
+    Running stub...
+    Stub running...
+    Configuring flash size...
+    Flash will be erased from 0x00000000 to 0x00005fff...
+    Flash will be erased from 0x00010000 to 0x000befff...
+    Flash will be erased from 0x00008000 to 0x00008fff...
+    Flash will be erased from 0x00190000 to 0x0020ffff...
+    Compressed 22320 bytes to 13906...
+    Writing at 0x00000000... (100 %)
+    Wrote 22320 bytes (13906 compressed) at 0x00000000 in 0.2 seconds (effective 747.1 kbit/s)...
+    Hash of data verified.
+    Compressed 716400 bytes to 466476...
+    Writing at 0x00010000... (3 %)
+    [...]
+    Wrote 524288 bytes (10053 compressed) at 0x00190000 in 2.6 seconds (effective 1607.7 kbit/s)...
+    Hash of data verified.
+    
+    Leaving...
+    Hard resetting via RTS pin...
+    Executing action: monitor
+    Running idf_monitor in directory /Users/[...]/PTR_mega_firmware
+    [...]
+    --- idf_monitor on /dev/cu.usbmodem21401 115200 ---
+    --- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H ---
+    ESP-ROM:esp32s3-20210327
+    Build:Mar 27 2021
+    [...]
+    I (24) boot: ESP-IDF v4.4.6 2nd stage bootloader
+    I (25) boot: compile time 19:03:36
+    I (25) boot: Multicore bootloader
+    I (27) boot: chip revision: v0.2
+    [...]
+    I (0) cpu_start: App cpu up.
+    I (294) cpu_start: Pro cpu start user code
+    I (294) cpu_start: cpu freq: 240000000
+    I (295) cpu_start: Application information:
+    I (295) cpu_start: Project name:     KP-PTR_firmware
+    I (295) cpu_start: App version:      1458fe8-dirty
+    I (295) cpu_start: Compile time:     Nov 26 2023 19:03:32
+    I (295) cpu_start: ELF file SHA256:  e8554e562adc0f10...
+    I (296) cpu_start: ESP-IDF:          v4.4.6
+    I (296) cpu_start: Min chip rev:     v0.0
+    I (296) cpu_start: Max chip rev:     v0.99
+    I (296) cpu_start: Chip rev:         v0.2
+    I (296) heap_init: Initializing. RAM available for dynamic allocation:
+    I (297) heap_init: At 3FCA9960 len 0003FDB0 (255 KiB): D/IRAM
+    I (297) heap_init: At 3FCE9710 len 00005724 (21 KiB): STACK/DIRAM
+    I (297) heap_init: At 600FE000 len 00002000 (8 KiB): RTCRAM
+    [...]
+    I (3700) KP-PTR: Task Main - ready!
+    ```
+5. Once started you should be able to join default WiFi network `KPPTR` with default password `MeteorPTR`. 
+On address http://192.168.4.1/ listens onboard web server. Congrats, you started and verified running firmware \o/
 ## Contributors
 
 - [bartekM](https://gitlab.com/space.tech)
