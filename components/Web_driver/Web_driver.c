@@ -381,8 +381,6 @@ static esp_err_t download_get_handler(httpd_req_t *req)
 static esp_err_t delete_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
-    FILE *fd = NULL;
-    struct stat file_stat;
 
     /* Skip leading "/delete" from URI to get filename */
     /* Note sizeof() counts NULL termination hence the -1 */
@@ -458,7 +456,6 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
     FILE *fd = NULL;
-    struct stat file_stat;
 
     /* Skip leading "/upload" from URI to get filename */
     /* Note sizeof() counts NULL termination hence the -1 */
