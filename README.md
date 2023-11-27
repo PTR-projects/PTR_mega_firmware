@@ -54,6 +54,7 @@ Feel free to explore the individual components and tasks within the firmware to 
 
 ## Getting Started
 
+### Windows
 To start using the KPPTR-firmware and exploring its capabilities, follow these steps:
 
 1. Clone the repository to your local machine.
@@ -62,6 +63,44 @@ To start using the KPPTR-firmware and exploring its capabilities, follow these s
 
 Please check [ESP-IDF docs](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for getting started instructions.
 
+### MacOS
+As of Dec 2023 MacOS is supported with [command line esp-idf](https://docs.espressif.com/projects/esp-idf/en/v4.4.6/esp32s3/get-started/index.html#id3)
+toolchain and [VCS extension](https://github.com/espressif/vscode-esp-idf-extension). In order to install cmd-line tooling follow steps below:
+1. Add `cmake` and `pyenv`, install latest python
+
+   ```bash
+   $ brew install cmake pyenv ninja dfu-util
+   $ pyenv install 3.11.6
+   ```
+
+2. Install `esp-idf` from [branch 4.4.x](https://espressif-docs.readthedocs-hosted.com/projects/esp-idf/en/stable/get-started/index.html#linux-and-macos). 
+   As of Dec 2023 branch 5.x is not yet supported by `KPPTR`.
+3. Enter directory where you cloned toolchain and setup `esp-idf` env variables:
+   ```bash
+   $ source ./export.sh
+   ```
+4. Enter directory where you cloned `PTR_mega_firmware` and build project with:
+   ```bash
+   $ idf.py build
+   ```
+At the end you should see something along the lines:
+```bash
+[1134/1135] Generating binary image from built executable
+esptool.py v3.3.4-dev
+Creating esp32s3 image...
+Merged 2 ELF sections
+Successfully created esp32s3 image.
+Generated /Users/[...]/PTR_mega_firmware/build/KP-PTR_firmware.bin
+[1135/1135] cd /Users/[...]/PTR_mega_firmware/build/esp-idf/esp...le.bin /Users/[...]/PTR_mega_firmware/build/KP-PTR_firmware.bin
+KP-PTR_firmware.bin binary size 0xaee70 bytes. Smallest app partition is 0x180000 bytes. 0xd1190 bytes (54%) free.
+
+Project build complete. To flash, run this command:
+/Users/[...]/.espressif/python_env/idf4.4_py3.11_env/bin/python ../esp-idf/components/esptool_py/esptool/esptool.py -p (PORT) -b 460800 --before default_reset --after hard_reset --chip esp32s3  write_flash --flash_mode dout --flash_size detect --flash_freq 80m 0x0 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin 0x10000 build/KP-PTR_firmware.bin 0x190000 build/www.bin
+or run 'idf.py -p (PORT) flash'
+```
+
+### Troubleshooting
+1. Make sure you checked out `4.4.x` esp-idf branch. Branch `5.x` is not supported yet.  
 ## Contributors
 
 - [bartekM](https://gitlab.com/space.tech)
