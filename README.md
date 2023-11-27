@@ -6,6 +6,19 @@ Welcome to the KPPTR-firmware repository! This repository contains the firmware 
 
 The main branch of this repository currently houses the firmware code written in C, utilizing the ESP-IDF 4.4 framework. To compile the software, you'll need the ESP-IDF 4.4 framework, which you can download from [here](https://dl.espressif.com/dl/esp-idf/?idf=4.4).
 
+## Main features
+1. 4 independent igniters with connectivity check indicated by individual LED. Safety fuse with reset included.
+   2 outputs dedicated to parachute release. Other 2 user configurable.
+2. Improved reliability. Duplicated [IMU](https://en.wikipedia.org/wiki/Inertial_measurement_unit) and onboard magnetometer.
+3. Wide range of measured acceleration (1 - 400g).
+4. Accurate altitude readings up to 11km with precision barometer.
+5. High frequency (100Hz) data probing and logging.
+6. Remote access via onboard WiFi access point and web interface.
+7. Accurate and reliable position reporting read from multiple [GNSS systems](https://en.wikipedia.org/wiki/Gnss). Build in antenna.
+8. Real time position tracking and access to onboard telemetry. Delivered via standard radio transmitter (Lora 433MHz)
+9. 3 extension slots. 1 dedicated to servo or other [S.BUS compatible peripheral](https://www.futabarc.com/sbus/).
+10. Detection of rocket flight stages for second stage ignition or parachute deployment.
+
 ## Software Components
 
 This project is composed of several distinct software components, each responsible for a specific aspect of the on-board computer's functionality. Here's a brief overview of each component:
