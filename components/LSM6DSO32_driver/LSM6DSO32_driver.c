@@ -111,7 +111,7 @@ uint8_t LSM6DSO32_WhoAmI(uint8_t sensor){
  */
 esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	esp_err_t readResult = LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L_ADDR, LSM6DSO32_d[sensor].rawData.raw, 14);
-
+	
 	if (readResult == ESP_OK) 
 	{
 		LSM6DSO32_d[sensor].meas.accX  = (LSM6DSO32_d[sensor].rawData.accX_raw)*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accXoffset;
@@ -252,6 +252,7 @@ esp_err_t LSM6DSO32_SetBitInRegister(uint8_t sensor, LSM6DSO32_register_addr_t e
 	uint8_t val;
 	LSM6DSO32_Read(sensor, eRegisterToSet, &val, 1);
 	val = ((val & ~(1 << bitPos)) | (bit << bitPos));
+	
 	return LSM6DSO32_SetRegister(sensor, eRegisterToSet, val);
 }
 
@@ -272,6 +273,7 @@ esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
 	{
 		ESP_LOGE(TAG,"Wrong sensor number!");
 	}
+	
 	return ESP_OK;
 }
 
@@ -288,8 +290,8 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 	{
 		uint8_t buffer;
 		LSM6DSO32_Read(sensor, LSM6DS_CTRL1_XL_ADDR, &buffer, 8);
-		buffer &= ~0x00000110;
-		buffer |= setting;
+		buffer &= ~0b00001100;
+		buffer |= LSM6DSAccSensBits[setting];
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, buffer);
 		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[setting];
 	}
@@ -297,8 +299,8 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 	{
 		ESP_LOGE(TAG,"Wrong sensor number!");
 	}
-	return ESP_OK;
 	
+	return ESP_OK;
 }
 
 /**
@@ -314,8 +316,8 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
 	{
 		uint8_t buffer;
 		LSM6DSO32_Read(sensor, LSM6DS_CTRL2_G_ADDR, &buffer, 8);
-		buffer &= ~0x00001110;
-		buffer |= setting;
+		buffer &= ~0b00001110;
+		buffer |= LSM6DSGyroDpsBits[setting];
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR, buffer);
 		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[setting];
 	}
@@ -323,6 +325,6 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
 	{
 		ESP_LOGE(TAG,"Wrong sensor number!");
 	}
-	return ESP_OK;
 	
+	return ESP_OK;
 }
