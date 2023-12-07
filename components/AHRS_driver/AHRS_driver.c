@@ -8,22 +8,25 @@
 #include "KF_AltitudeAscent.h"
 #include "AHRS_driver.h"
 
-static void AHRS_CalcAltitudeP(float press);
+#define GRAVITY 9.81f
+
+static void AHRS_CalcAltitudeP(float press, float ref_press);
 static void AHRS_CalcVelocityPosition();
-static void AHRS_CalcOrientation(Sensors_t * sensors);
+static void AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro);
 static void AHRS_InitOrientation(orientation_t * orient);
-static void AHRS_MahonyUpdate( float dt, 	float gx, float gy, float gz,
-							uint8_t useAcc, float ax, float ay, float az,
-							uint8_t useMag, float mx, float my, float mz,
+static void AHRS_MahonyUpdate( float dt,
+							uint8_t useGyro, float gx, float gy, float gz,
+							uint8_t useAcc,  float ax, float ay, float az,
+							uint8_t useMag,  float mx, float my, float mz,
 							float dcmKpGain, orientation_t * orient);
 static void AHRS_ComputeRotationMatrix(orientation_t * orient);
 static void AHRS_UpdateEulerAngles(orientation_t * orient);
 static void AHRS_TransformAccToENU();
 
 static AHRS_t AHRS_d;
-static float reference_pressure = 100930.0f;
 static uint8_t orientation_useAcc = 1;
 static uint8_t orientation_useMag = 0;
+static bool flag_in_flight = false;
 
 // !!!! This library is NOT thread-safe !!!!
 
@@ -47,25 +50,23 @@ esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors){
 	AHRS_d.prev_time_us = time_us;
 
 	//Store raw accelerations in AHRS_d <<---- to be changed with more complex function (sensors fusion)
-	AHRS_d.acc_rf.x = 9.81f*sensors->LSM6DSO32[0].accX;
-	AHRS_d.acc_rf.y = 9.81f*sensors->LSM6DSO32[0].accY;
-	AHRS_d.acc_rf.z = 9.81f*sensors->LSM6DSO32[0].accZ;
+	AHRS_d.acc_rf.x = GRAVITY * sensors->LSM6DSO32[0].accX;
+	AHRS_d.acc_rf.y = GRAVITY * sensors->LSM6DSO32[0].accY;
+	AHRS_d.acc_rf.z = GRAVITY * sensors->LSM6DSO32[0].accZ;
 
-	AHRS_CalcAltitudeP(sensors->MS5607.press);
-	AHRS_CalcOrientation(sensors);
-	AHRS_TransformAccToENU();
-	AHRS_CalcVelocityPosition();
-
+	AHRS_CalcAltitudeP(sensors->MS5607.press, sensors->ref_press);
 	AHRS_d.acc_axis_lowpass = 0.05f*AHRS_d.acc_rf.x + 0.95f*AHRS_d.acc_axis_lowpass;
 
-	//printf("$,%f,%.1f,%.3f,%.3f,%.3f\n", AHRS_d.dt, sensors->LSM6DSO32.gyroY, AHRS_d.orientation.euler.tilt, AHRS_d.orientation.euler.dir, AHRS_d.orientation.euler.rot);
-	//printf("$,%f,%.3f,%.3f\n", AHRS_d.dt, AHRS_d.acc_up, AHRS_d.altitude);
-	return ESP_OK;
-}
+	if(flag_in_flight == false){
+		AHRS_CalcOrientation(sensors, false);
+	}
+	else {
+		AHRS_CalcOrientation(sensors, true);
+		AHRS_TransformAccToENU();
+		AHRS_CalcVelocityPosition();
+	}
 
-void AHRS_UpdateReferencePressure(float press){
-	AHRS_d.max_altitude = 0.0f;
-	reference_pressure  = 0.05f*press + 0.95f*(reference_pressure);
+	return ESP_OK;
 }
 
 void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag){
@@ -73,9 +74,13 @@ void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag){
 	orientation_useMag = enableMag;
 }
 
+void AHRS_setInFlight(){
+	flag_in_flight = true;
+}
+
 //------------------ AHRS private functions -------------------
 // Arecorder Kalman for pressure and altitude
-static void AHRS_CalcAltitudeP(float press){
+static void AHRS_CalcAltitudeP(float press, float ref_press){
 	/** \desc Raw pressure data read from pressure sensor [Pa]. */
 	float kalman_raw = press;
 	/** \desc Pressure after current prediction [Pa]. */
@@ -122,7 +127,7 @@ static void AHRS_CalcAltitudeP(float press){
 	 }
 
 	//ALTITUDE CALCULATIONS
-	float alti_new =  (1.0-powf(kalman_post/reference_pressure, 0.190295f)) * 44330.0f;
+	float alti_new =  (1.0-powf(kalman_post/ref_press, 0.190295f)) * 44330.0f;
 
 
 	//wykrycie maksymalnego pułapu
@@ -131,27 +136,21 @@ static void AHRS_CalcAltitudeP(float press){
 
 	AHRS_d.velocityP = 0.9f*AHRS_d.velocityP + 0.1f*(((alti_new) - AHRS_d.altitudeP) / AHRS_d.dt);
 	AHRS_d.altitudeP = alti_new;
-
-	//printf("$,%.1f,%.1f,%.1f,%.1f,%.3f,\n", kalman_raw, kalman_post, reference_pressure, alti_new, AHRS_d.velocityP);
 }
 
 static void AHRS_CalcVelocityPosition(){
-	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up-9.81f,
-												&(AHRS_d.altitude), &AHRS_d.ascent_rate);
+	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up, &(AHRS_d.altitude), &AHRS_d.ascent_rate);
 }
 
-static void AHRS_CalcOrientation(Sensors_t * sensors){
+static void AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro){
 	bool useMag = orientation_useMag;
 	bool useAcc = orientation_useAcc;
-
-//	float dcmKpGain = imuCalcKpGain(AHRS_d.prev_time_us/1000, useAcc,	// TODO -------------- dynamic Kp gain
-//			sensors->LSM6DSO32.gyroX, sensors->LSM6DSO32.gyroY, sensors->LSM6DSO32.gyroZ);
 	float dcmKpGain = 2.5f;
 
 	AHRS_MahonyUpdate(AHRS_d.dt,
-						sensors->LSM6DSO32[0].gyroX, sensors->LSM6DSO32[0].gyroY, sensors->LSM6DSO32[0].gyroZ,
-						useAcc, sensors->LSM6DSO32[0].accX, sensors->LSM6DSO32[0].accY, sensors->LSM6DSO32[0].accZ,
-						useMag, sensors->MMC5983MA.magX, sensors->MMC5983MA.magY, sensors->MMC5983MA.magZ,
+						useGyro, sensors->LSM6DSO32.gyroX, sensors->LSM6DSO32.gyroY, sensors->LSM6DSO32.gyroZ,
+						useAcc,  sensors->LSM6DSO32[0].accX,  sensors->LSM6DSO32[0].accY,  sensors->LSM6DSO32[0].accZ,
+						useMag,  sensors->MMC5983MA.magX,  sensors->MMC5983MA.magY,  sensors->MMC5983MA.magZ,
 						dcmKpGain, &(AHRS_d.orientation));
 
 	AHRS_UpdateEulerAngles(&(AHRS_d.orientation));
@@ -182,10 +181,11 @@ static void AHRS_InitOrientation(orientation_t * orient){
 
 // https://github.com/betaflight/betaflight/blob/master/src/main/flight/imu.c
 // https://github.com/iNavFlight/inav/blob/master/src/main/flight/imu.c
-static void AHRS_MahonyUpdate( float dt, 	   float gx, float gy, float gz,
-						 	   uint8_t useAcc, float ax, float ay, float az,
-						 	   uint8_t useMag, float mx, float my, float mz,
-							   float dcmKpGain, orientation_t * orient){
+static void AHRS_MahonyUpdate( float dt,
+		 	 	 	 	 	   uint8_t useGyro, float gx, float gy, float gz,
+						 	   uint8_t useAcc,  float ax, float ay, float az,
+						 	   uint8_t useMag,  float mx, float my, float mz,
+							   float dcmKpGain,  orientation_t * orient){
 	// Integral error terms scaled by Ki
 	static float integralFBx = 0.0f;
 	static float integralFBy = 0.0f;
@@ -193,6 +193,21 @@ static void AHRS_MahonyUpdate( float dt, 	   float gx, float gy, float gz,
 
 	// Errors
 	float ex = 0, ey = 0, ez = 0;
+
+	// Change reference frame from X-up to Z-up
+	float _gx = gx;		float _ax = ax;		float _mx = mx;
+	float _gy = gy;		float _ay = ay;		float _my = my;
+	float _gz = gz;		float _az = az;		float _mz = mz;
+	gx =  _gz;		ax =  _az;		mx =  _mz;
+	gy = -_gy;		ay = -_ay;		my = -_my;
+	gz =  _gx;		az =  _ax;		mz =  _mx;
+
+	// If gyro disabled -> zero gyro meas
+	if(!useGyro){
+		gx = 0.0f;
+		gy = 0.0f;
+		gz = 0.0f;
+	}
 
 	// Convert spin rate from deg/s to rad/s
 	gx = DEGREES_TO_RADIANS(gx);
@@ -215,10 +230,10 @@ static void AHRS_MahonyUpdate( float dt, 	   float gx, float gy, float gz,
 
 		// (hx; hy; 0) - measured mag field vector in EF (assuming Z-component is zero)
 		// (bx; 0; 0) - reference mag field vector heading due North in EF (assuming Z-component is zero)
-		const float hx = orient->rMat[0][0] * mx
+		const float hx  = orient->rMat[0][0] * mx
 						+ orient->rMat[0][1] * my
 						+ orient->rMat[0][2] * mz;
-		const float hy = orient->rMat[1][0] * mx
+		const float hy  = orient->rMat[1][0] * mx
 						+ orient->rMat[1][1] * my
 						+ orient->rMat[1][2] * mz;
 		const float bx = sqrtf(hx * hx + hy * hy);
@@ -329,18 +344,26 @@ static void AHRS_UpdateEulerAngles(orientation_t * orient){
 	float res_1 = acosf(r21);
 	float res_2 = atan2f(r31, r32);
 
-	orient->euler.dir  = RADIANS_TO_DEGREES(res_0);		//minus dodany dla prawoskrętności E=0, N=90, W=+/-180, S=-90
+	orient->euler.dir  = RADIANS_TO_DEGREES(res_0);
 	orient->euler.tilt = RADIANS_TO_DEGREES(res_1);
 	orient->euler.rot  = RADIANS_TO_DEGREES(res_2);
 }
 
 static void AHRS_TransformAccToENU(){
 	vectorf_t acc_enu;
-	// From body frame to earth frame
-	quaternionRotateVectorInv(&acc_enu, &(AHRS_d.acc_rf), &(AHRS_d.orientation.quaternions));
 
-	// Store vertical acceleration
-	AHRS_d.acc_up = acc_enu.z;
+	vectorf_t acc_rf;
+
+	// Use Z-up
+	acc_rf.x =  AHRS_d.acc_rf.z;
+	acc_rf.y = -AHRS_d.acc_rf.y;
+	acc_rf.z =  AHRS_d.acc_rf.x;
+
+	// From body frame to earth frame
+	quaternionRotateVectorInv(&acc_enu, &acc_rf, &(AHRS_d.orientation.quaternions));
+
+	// Store vertical acceleration (Z component)
+	AHRS_d.acc_up = acc_enu.z - GRAVITY;
 }
 
 

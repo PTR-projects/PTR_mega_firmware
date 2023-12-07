@@ -213,3 +213,4 @@ esp_err_t LSM6DSO32_readMeasAll();
 esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t * meas);
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting);
 esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting);
+esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);

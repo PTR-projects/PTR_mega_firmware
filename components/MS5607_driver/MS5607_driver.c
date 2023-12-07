@@ -159,12 +159,12 @@ static esp_err_t MS5607_readCalibration() {
 }
 
 static esp_err_t MS5607_reqPress() {
-	MS5607_write(MS5607_CONVERT_D1_256);
+	MS5607_write(MS5607_CONVERT_D1_2048);
 	return ESP_OK;
 }
 
 static esp_err_t MS5607_reqTemp() {
-	MS5607_write(MS5607_CONVERT_D2_256);
+	MS5607_write(MS5607_CONVERT_D2_2048);
 	return ESP_OK;
 }
 
@@ -196,7 +196,7 @@ static esp_err_t MS5607_readTemp() {
 	return ESP_OK;
 }
 
-static esp_err_t  MS5607_calcPress() {
+static esp_err_t MS5607_calcPress() {
 	int64_t dT = MS5607_d.dT;
 	int64_t C1 = MS5607_cal_d.C1;
 	int64_t C2 = MS5607_cal_d.C2;
@@ -212,7 +212,7 @@ static esp_err_t  MS5607_calcPress() {
 	return ESP_OK;
 }
 
-static esp_err_t  MS5607_calcTemp() {
+static esp_err_t MS5607_calcTemp() {
 	uint64_t C5 = MS5607_cal_d.C5;
 	int64_t  C6 = MS5607_cal_d.C6;
 	int64_t  D2 = MS5607_d.D2;
