@@ -78,5 +78,7 @@ esp_err_t Sensors_UpdateReferencePressure(){
 }
 
 esp_err_t Sensors_calibrateGyro(float gain){
-	return LSM6DSO32_calibrateGyro(gain);
+	LSM6DSO32_calibrateGyro(0, gain);
+	LSM6DSO32_calibrateGyro(1, gain);
+	return ESP_OK;
 }
