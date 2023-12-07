@@ -301,6 +301,7 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 	}
 	
 	return ESP_OK;
+}
 
 esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain){
 	static bool first_run = false;
@@ -314,9 +315,9 @@ esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain){
 		return ESP_OK;
 	}
 
-	LSM6DSO32_d[sensor].gyroXoffset = gain * (float)LSM6DSO32_d.rawData.gyroX_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroXoffset;
-	LSM6DSO32_d[sensor].gyroYoffset = gain * (float)LSM6DSO32_d.rawData.gyroY_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroYoffset;
-	LSM6DSO32_d[sensor].gyroZoffset = gain * (float)LSM6DSO32_d.rawData.gyroZ_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroZoffset;
+	LSM6DSO32_d[sensor].gyroXoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroX_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroXoffset;
+	LSM6DSO32_d[sensor].gyroYoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroY_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroYoffset;
+	LSM6DSO32_d[sensor].gyroZoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroZoffset;
 
 	return ESP_OK;
 }

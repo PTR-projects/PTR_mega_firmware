@@ -148,7 +148,7 @@ static void AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro){
 	float dcmKpGain = 2.5f;
 
 	AHRS_MahonyUpdate(AHRS_d.dt,
-						useGyro, sensors->LSM6DSO32.gyroX, sensors->LSM6DSO32.gyroY, sensors->LSM6DSO32.gyroZ,
+						useGyro, sensors->LSM6DSO32[0].gyroX, sensors->LSM6DSO32[0].gyroY, sensors->LSM6DSO32[0].gyroZ,
 						useAcc,  sensors->LSM6DSO32[0].accX,  sensors->LSM6DSO32[0].accY,  sensors->LSM6DSO32[0].accZ,
 						useMag,  sensors->MMC5983MA.magX,  sensors->MMC5983MA.magY,  sensors->MMC5983MA.magZ,
 						dcmKpGain, &(AHRS_d.orientation));
