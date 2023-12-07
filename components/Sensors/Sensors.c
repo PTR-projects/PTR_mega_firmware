@@ -32,12 +32,12 @@ esp_err_t  Sensors_update(){
 
 	MS5607_getReloadSmart();
 	LIS331_readMeas();
-	LSM6DSO32_readMeas();
+	LSM6DSO32_readMeasAll();
 	MMC5983MA_readMeas();
 
 	MS5607_getMeas	 (&(Sensors_d.MS5607));
 	LIS331_getMeas	 (&(Sensors_d.LIS331));
-	LSM6DSO32_getMeas(&(Sensors_d.LSM6DSO32));
+	LSM6DSO32_getMeasAll(&(Sensors_d.LSM6DSO32[0]));
 	MMC5983MA_getMeas(&(Sensors_d.MMC5983MA));
 
 	Sensors_axes_translation();
@@ -52,13 +52,13 @@ esp_err_t Sensors_axes_translation(){
 	Sensors_d.LIS331.accY     = -Sensors_b.LIS331.accY;
 	Sensors_d.LIS331.accZ     = -Sensors_b.LIS331.accZ;
 
-	Sensors_d.LSM6DSO32.accX  =  Sensors_b.LSM6DSO32.accY;
-	Sensors_d.LSM6DSO32.accY  =  Sensors_b.LSM6DSO32.accX;
-	Sensors_d.LSM6DSO32.accZ  = -Sensors_b.LSM6DSO32.accZ;
+	Sensors_d.LSM6DSO32[0].accX  =  Sensors_b.LSM6DSO32[0].accY;
+	Sensors_d.LSM6DSO32[0].accY  =  Sensors_b.LSM6DSO32[0].accX;
+	Sensors_d.LSM6DSO32[0].accZ  = -Sensors_b.LSM6DSO32[0].accZ;
 
-	Sensors_d.LSM6DSO32.gyroX =  Sensors_b.LSM6DSO32.gyroY;
-	Sensors_d.LSM6DSO32.gyroY =  Sensors_b.LSM6DSO32.gyroX;
-	Sensors_d.LSM6DSO32.gyroZ = -Sensors_b.LSM6DSO32.gyroZ;
+	Sensors_d.LSM6DSO32[0].gyroX =  Sensors_b.LSM6DSO32[0].gyroY;
+	Sensors_d.LSM6DSO32[0].gyroY =  Sensors_b.LSM6DSO32[0].gyroX;
+	Sensors_d.LSM6DSO32[0].gyroZ = -Sensors_b.LSM6DSO32[0].gyroZ;
 
 	Sensors_d.MMC5983MA.magX  = -Sensors_b.MMC5983MA.magY;
 	Sensors_d.MMC5983MA.magY  = -Sensors_b.MMC5983MA.magX;
@@ -78,5 +78,7 @@ esp_err_t Sensors_UpdateReferencePressure(){
 }
 
 esp_err_t Sensors_calibrateGyro(float gain){
-	return LSM6DSO32_calibrateGyro(gain);
+	LSM6DSO32_calibrateGyro(0, gain);
+	LSM6DSO32_calibrateGyro(1, gain);
+	return ESP_OK;
 }
