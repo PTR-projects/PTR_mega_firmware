@@ -118,9 +118,9 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 		LSM6DSO32_d[sensor].meas.accY  = (LSM6DSO32_d[sensor].rawData.accY_raw)*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accYoffset;
 		LSM6DSO32_d[sensor].meas.accZ  = (LSM6DSO32_d[sensor].rawData.accZ_raw)*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accZoffset;
 
-		LSM6DSO32_d[sensor].meas.gyroX = (LSM6DSO32_d[sensor].rawData.gyroX_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroXoffset;
-		LSM6DSO32_d[sensor].meas.gyroY = (LSM6DSO32_d[sensor].rawData.gyroY_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroYoffset;
-		LSM6DSO32_d[sensor].meas.gyroZ = (LSM6DSO32_d[sensor].rawData.gyroZ_raw)*(LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroZoffset;
+		LSM6DSO32_d[sensor].meas.gyroX = (LSM6DSO32_d[sensor].rawData.gyroX_raw - LSM6DSO32_d[sensor].gyroXoffset) * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb;
+		LSM6DSO32_d[sensor].meas.gyroY = (LSM6DSO32_d[sensor].rawData.gyroY_raw - LSM6DSO32_d[sensor].gyroYoffset) * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb;
+		LSM6DSO32_d[sensor].meas.gyroZ = (LSM6DSO32_d[sensor].rawData.gyroZ_raw - LSM6DSO32_d[sensor].gyroZoffset) * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb;
 
 		LSM6DSO32_d[sensor].meas.temp  = (LSM6DSO32_d[sensor].rawData.temp_raw)*(0.00390625f) + 25.0f;
 	}
