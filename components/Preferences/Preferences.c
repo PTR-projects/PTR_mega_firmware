@@ -19,10 +19,8 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-
 static const char *TAG = "Preferences_driver";
 const char* preferences_path = "/www/preferences.txt";
- 
 
 esp_vfs_spiffs_conf_t conf_preferences = {
      .base_path = "/www",
@@ -31,12 +29,10 @@ esp_vfs_spiffs_conf_t conf_preferences = {
      .format_if_mount_failed = false
 };
 
-
 Preferences_data_t Preferences_data_d;
 Preferences_data_t Preferences_default;
 
 uint32_t calculate_CRC32(const char* input);
-
 
 esp_err_t Preferences_init(Preferences_data_t * data){
 	esp_err_t ret = ESP_FAIL;
@@ -72,13 +68,11 @@ esp_err_t Preferences_init(Preferences_data_t * data){
 		ret = ESP_OK;
 	}
 
-
 	FILE* f = fopen(preferences_path, "r");
 	if(f == NULL){
 		ESP_LOGE(TAG, "Failed to open file for reading");
 		return ESP_ERR_NOT_FOUND;
 	}
-
 
 	fseek(f, 0L, SEEK_END);
 	size_t size = ftell(f);
@@ -102,7 +96,6 @@ esp_err_t Preferences_init(Preferences_data_t * data){
 	NULL == cJSON_GetObjectItem(json, "lora_freq")){
 		return ESP_FAIL;
 	}
-	
 	
 	Preferences_data_d.main_alt = cJSON_GetObjectItem(json, "main_alt")->valueint;
 	Preferences_data_d.drouge_alt = cJSON_GetObjectItem(json, "drouge_alt")->valueint;
@@ -170,16 +163,13 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	fwrite(string, 1, strlen(string), f);
 	fclose(f);
 	ESP_LOGI(TAG, "Updated config successfully");
-
-
+	
 	return ESP_OK;
 }
-
 
 esp_err_t Preferences_restore_dafaults(){
 	return Preferences_update(Preferences_default);
 }
-
 
 esp_err_t Prefences_update_web(char *buf){
 	Preferences_data_t temp;
@@ -219,10 +209,7 @@ esp_err_t Prefences_update_web(char *buf){
 	temp.key = cJSON_GetObjectItem(json, "key")->valueint;
 	temp.lora_freq = cJSON_GetObjectItem(json, "lora_freq")->valueint;
 	
-	
-	
-	
-	//ESP_LOGI(TAG, "%d", Preferences_data_t);
+	ESP_LOGD(TAG, "%d", Preferences_data_t);
 	return Preferences_update(temp);
 }
 
@@ -255,8 +242,6 @@ char* Preferences_send_config_web(){
 	return string;
 }
 
-
-
 /*!
  * @brief Calculate 32bit CRC code for data protection
  * @param input
@@ -285,27 +270,4 @@ uint32_t calculate_CRC32(const char* input) {
 
     return crc ^ 0xFFFFFFFF;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
