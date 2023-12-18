@@ -84,16 +84,6 @@ esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 		return ESP_FAIL;
 	}
 
-	// Run ULP program and wait for results - use them to init filters
-//	if(ulp_execute_and_wait() != ESP_OK){
-//		ESP_LOGE(TAG, "ULP execution failed!");
-//		return ESP_FAIL;
-//	}
-//	voltage_ign1 = esp_adc_cal_raw_to_voltage(ulp_IGN1_RAW, &adc_chars);
-//	voltage_ign2 = esp_adc_cal_raw_to_voltage(ulp_IGN2_RAW, &adc_chars);
-//	voltage_ign3 = esp_adc_cal_raw_to_voltage(ulp_IGN3_RAW, &adc_chars);
-//	voltage_ign4 = esp_adc_cal_raw_to_voltage(ulp_IGN4_RAW, &adc_chars);
-//	voltage_vbat = esp_adc_cal_raw_to_voltage(ulp_VBAT_RAW, &adc_chars) * 11;
 	//temp_sensor_read_celsius(&mcu_temp);	// Not implemented for ULP yet
 
 	return ESP_OK;
@@ -136,30 +126,12 @@ uint32_t Analog_getIGN4(uint32_t vbat){
 }
 
 uint32_t Analog_getVBAT(){
-	uint32_t adc_reading = 0;
 	uint32_t voltage = esp_adc_cal_raw_to_voltage(ulp_VBAT_RAW, &adc_chars);
 	vbat_mV_raw = voltage * 11.0f * 1.024f;
 
     voltage_vbat = filter_coeff * vbat_mV_raw + (1-filter_coeff) * voltage_vbat;
 
-	for(uint16_t i=0; i<1024; i++){
-		adc_reading += adc1_get_raw((adc1_channel_t)ADC1_CHANNEL_7);
-	}
-
-	adc_reading >>= 10;
-    voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, &adc_chars) * 11.0f * 1.024f;
-    ESP_LOGV(TAG, "Raw bat: %u\tVoltage: %.0umV", adc_reading, voltage);
-
-    voltage_vbat = filter_coeff * voltage + (1-filter_coeff) * voltage_vbat;
-    vbat_mV_raw = voltage;
-
-    static float raw = 0.0f;
-    raw = (float)adc_reading * 0.05f + raw * 0.95f;
-
-    static float bat = 0.0f;
-    bat = (float)voltage * 0.05f + bat * 0.95f;
-
-    //ESP_LOGI(TAG, "%.0f,  \t%u", voltage, adc_reading);
+    ESP_LOGV(TAG, "Raw: %i,   voltage: %i	Vbat: %imV", ulp_VBAT_RAW, voltage, voltage_vbat);
     return voltage_vbat;
 }
 
