@@ -20,15 +20,14 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
+#include "Preferences.h"
+#include "DataManager.h"
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
 
 #include "Web_driver.h"
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
-#include "Preferences.h"
-#include "DataManager.h"
-#include "Storage_driver.h"
 
 static const char *TAG = "Web_driver";
 
@@ -90,8 +89,9 @@ esp_err_t Web_init(void){
 		ret = Web_http_init(base_path);
 	}
 
-    Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
-    //Preferences_init();
+	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
+	//Preferences_init();
+	
 	return ret;
 }
 
@@ -570,8 +570,6 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-
-
 /*!
  * @brief Handler responsible for serving json with configuration data.
  * @param req
@@ -707,9 +705,7 @@ esp_err_t Web_http_init(const char *base_path){
 
 	httpd_handle_t server = NULL;
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 16;
-
-
+	config.max_uri_handlers = 16;
 
 	static struct file_server_data *server_data = NULL;
 	if(server_data){
@@ -742,7 +738,7 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &index_get);
 
-    httpd_uri_t pref_get = {
+	httpd_uri_t pref_get = {
 			.uri      = "/pref_get",
 			.method   = HTTP_GET,
 			.handler  = preferences_get_config,
@@ -773,15 +769,14 @@ esp_err_t Web_http_init(const char *base_path){
 			    .user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &cmd_send);
-
-    httpd_uri_t config_send = {
+	
+	httpd_uri_t config_send = {
 			    .uri      = "/config",
 			    .method   = HTTP_POST,
 			    .handler  = config_post_handler,
 			    .user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &config_send);
-
 
 	httpd_uri_t file_delete = {
 			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
@@ -806,6 +801,7 @@ esp_err_t Web_http_init(const char *base_path){
 	        .user_ctx  = server_data    // Pass server data as context
 	};
 	httpd_register_uri_handler(server, &file_download);
+
 
 	ESP_LOGI(TAG, "Started HTTP server successfully");
 	return ESP_OK;
@@ -989,4 +985,3 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     Web_live_exchange(live_web);
     return ESP_OK;
 }
-
