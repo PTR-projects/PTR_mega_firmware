@@ -136,6 +136,7 @@ uint32_t Analog_getIGN4(uint32_t vbat){
 }
 
 uint32_t Analog_getVBAT(){
+	uint32_t adc_reading = 0;
 	uint32_t voltage = esp_adc_cal_raw_to_voltage(ulp_VBAT_RAW, &adc_chars);
 	vbat_mV_raw = voltage * 11.0f * 1.024f;
 
@@ -147,7 +148,7 @@ uint32_t Analog_getVBAT(){
 
 	adc_reading >>= 10;
     voltage 	 = esp_adc_cal_raw_to_voltage(adc_reading, &adc_chars) * 11.0f * 1.024f;
-    ESP_LOGV(TAG, "Raw bat: %d\tVoltage: %.0fmV", adc_reading, voltage);
+    ESP_LOGV(TAG, "Raw bat: %u\tVoltage: %.0umV", adc_reading, voltage);
 
     voltage_vbat = filter_coeff * voltage + (1-filter_coeff) * voltage_vbat;
     vbat_mV_raw = voltage;
