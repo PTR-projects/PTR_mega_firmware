@@ -873,21 +873,6 @@ function sendPreferencesData(preferencesData) {
 	const apiUrl = '/config'; // Replace with your API URL
 
 	// Send the JSON data as a POST request
-	/*fetch(apiUrl, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'text/html',
-		},
-		body: finalJsonData,
-	})
-	.then(response => response.json())
-	.then(data => {
-		console.log('Response:', data);
-	})
-	.catch(error => {
-		console.error('Error:', error);
-	});*/
-
 	console.log(POST_simple("/config", finalJsonData));
 }
 
