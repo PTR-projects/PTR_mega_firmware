@@ -209,7 +209,6 @@ esp_err_t Prefences_update_web(char *buf){
 	temp.key = cJSON_GetObjectItem(json, "key")->valueint;
 	temp.lora_freq = cJSON_GetObjectItem(json, "lora_freq")->valueint;
 	
-	ESP_LOGD(TAG, "%d", Preferences_data_t);
 	return Preferences_update(temp);
 }
 
