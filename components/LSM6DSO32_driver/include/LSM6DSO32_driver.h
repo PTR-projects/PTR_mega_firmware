@@ -99,6 +99,17 @@ typedef union{
 		};
 	} LSM6DSO32_raw_data_t;
 
+typedef union{
+		uint8_t raw[7];
+		struct{
+			int8_t tag;
+
+			int16_t dataOutX_raw;
+			int16_t dataOutY_raw;
+			int16_t dataOutZ_raw;
+		};
+	} LSM6DSO32_fifo_data_t;	
+
 
 
 // CTRL1_XL
