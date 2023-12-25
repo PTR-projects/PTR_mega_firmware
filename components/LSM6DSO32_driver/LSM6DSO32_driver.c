@@ -18,6 +18,8 @@ static const char *TAG = "LSM6DSO32";
 #define LSM6DS_ACC_RATE LSM6DS_CTRL1_XL_ACC_RATE_1_66K_HZ
 #define LSM6DS_FIFO_BATCH_SIZE 16
 
+LSM6DSO32_fifo_data_t fifoBuffer[LSM6DS_FIFO_BATCH_SIZE];
+
 #define INIT_LSM6DS_GYRO_DPS LSM6DS_GYRO_FS_2000_DPS
 
 static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
