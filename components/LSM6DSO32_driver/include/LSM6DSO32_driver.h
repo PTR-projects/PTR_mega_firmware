@@ -55,6 +55,10 @@ const typedef enum LSM6DSO32_register_addr_t{
 	LSM6DS_OUTX_L_A_ADDR = 0x28,          ///< First accel data register
 	LSM6DS_STEPCOUNTER_ADDR = 0x4B,       ///< 16-bit step counter
 	LSM6DS_TAP_CFG_ADDR = 0x58,           ///< Tap/pedometer configuration
+	LSM6DS_FIFO_CTRL1_ADDR = 0x07,
+	LSM6DS_FIFO_CTRL2_ADDR = 0x08,
+	LSM6DS_FIFO_CTRL3_ADDR = 0x09,
+	LSM6DS_FIFO_CTRL4_ADDR = 0x0A,
 
 } LSM6DSO32_register_addr_t;
 
