@@ -51,6 +51,13 @@ esp_err_t LSM6DSO32_SPIinit(){
 	return ESP_OK;
 }
 
+
+esp_err_t LSM6DSO32_configure_fifo(uint8_t sensor){
+
+
+}
+
+
 /**
  * @brief Initializes LSM6DSO32 sensors.
  *
@@ -61,22 +68,24 @@ esp_err_t LSM6DSO32_SPIinit(){
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 esp_err_t LSM6DSO32_init(){
-	LSM6DSO32_SPIinit();
+	esp_err_t retVal = ESP_FAIL;
+	retVal = LSM6DSO32_SPIinit();
 	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
 	{
-		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, (LSM6DS_CTRL1_XL_ACC_RATE_104_HZ | LSM6DSAccSensBits[INIT_LSM6DS_ACC_SENS] | LSM6DS_CTRL1_ACC_LPF2_EN));
-		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR,  (LSM6DS_CTRL2_G_GYRO_RATE_104_HZ | LSM6DSGyroDpsBits[INIT_LSM6DS_GYRO_DPS]));
+		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, (LSM6DS_CTRL1_XL_ACC_RATE_1_66K_HZ | LSM6DSAccSensBits[INIT_LSM6DS_ACC_SENS] | LSM6DS_CTRL1_ACC_LPF2_EN));
+		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR,  (LSM6DS_CTRL2_G_GYRO_RATE_1_66K_HZ | LSM6DSGyroDpsBits[INIT_LSM6DS_GYRO_DPS]));
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL3_C_ADDR,  LSM6DS_CTRL3_BDU | LSM6DS_CTRL3_INT_PP | LSM6DS_CTRL3_INT_H | LSM6DS_CTRL3_INC);
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL4_C_ADDR,  LSM6DS_CTRL4_INT12_SEP | LSM6DS_CTRL4_I2C_DIS | LSM6DS_CTRL4_GYRO_LPF1_EN);
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR,  LSM6DS_CTRL5_ACC_ULP_DIS | LSM6DS_CTRL5_ROUNDING_DIS | LSM6DS_CTRL5_GYRO_ST_DIS | LSM6DS_CTRL5_ACC_ST_DIS);
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL6_C_ADDR,  LSM6DS_CTRL6_GYRO_LPF1_0);
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL7_G_ADDR, 0);	//default
 		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL8_XL_ADDR, LSM6DS_CTRL8_ACC_LPF | LSM6DS_CTRL8_FILTER_ODR_4);
-		LSM6DSO32_WhoAmI(sensor);
 		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[INIT_LSM6DS_ACC_SENS];
 		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[INIT_LSM6DS_GYRO_DPS]; 
+		retVal &= (LSM6DSO32_WhoAmI(sensor) == LSM6DS_WHOAMI_RESPONSE ? ESP_OK : ESP_FAIL);
 	}
-	return ESP_OK;
+
+	return retVal;
 }
 
 /**
