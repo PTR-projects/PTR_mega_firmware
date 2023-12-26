@@ -16,14 +16,14 @@ static const char *TAG = "LSM6DSO32";
  */
 #define LSM6DS_GYRO_RATE LSM6DS_CTRL2_G_GYRO_RATE_1_66K_HZ
 #define LSM6DS_ACC_RATE LSM6DS_CTRL1_XL_ACC_RATE_1_66K_HZ
-#define LSM6DS_FIFO_BATCH_SIZE 16
+#define LSM6DS_FIFO_BATCH_SIZE 16 //To be moved to config
 
-LSM6DSO32_fifo_data_t fifoBuffer[LSM6DS_FIFO_BATCH_SIZE];
+LSM6DSO32_fifo_data_t fifoBuffer; //ACC + GYRO
 
 #define INIT_LSM6DS_GYRO_DPS LSM6DS_GYRO_FS_2000_DPS
 
 static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
-static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t * rx, uint8_t length);
+static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const * rx, uint8_t length);
 static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
 
 
@@ -59,7 +59,10 @@ esp_err_t LSM6DSO32_SPIinit(){
 
 
 esp_err_t LSM6DSO32_configure_fifo(uint8_t sensor){
-
+	LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL1_ADDR, 1<<5); //Threshold set to 32 (16ACC + 16GYRO)
+	LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL2_ADDR, 1<<7); //Limit Fifo depth to threshold
+	LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL3_ADDR, (1<<7 | 1<<3)); // ACC and GYRO batching data rate 1667Hz
+	LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL4_ADDR, 6); //Continous mode
 return ESP_OK;
 }
 
@@ -154,11 +157,21 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 esp_err_t LSM6DSO32_readMeasAll(){
+	#ifdef LSM6DS_FIFO_BATCH_SIZE
+	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
+		{
+			LSM6DSO32_readFIFOByID(sensor);
+			LSM6DSO32_readTempByID(sensor);
+		}
+	return ESP_OK;
+	#else
 	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
 		{
 			LSM6DSO32_readMeasByID(sensor);
 		}
 	return ESP_OK;
+	#endif
+
 }
 
 /**
@@ -241,7 +254,7 @@ static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, 
  * @param length Number of bytes to read.
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
-static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t *rx, uint8_t length) {
+static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const *rx, uint8_t length) {
     if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
         ESP_LOGE(TAG, "Sensor %d: Null pointer while reading!", sensor);
         return ESP_ERR_INVALID_STATE;
@@ -366,3 +379,124 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
 	
 	return ESP_OK;
 }
+
+
+esp_err_t LSM6DSO32_readTempByID(uint8_t sensor){
+	esp_err_t readResult = LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L_ADDR, &LSM6DSO32_d[sensor].rawData.temp_raw, 2);
+	
+	if (readResult == ESP_OK) 
+	{
+		LSM6DSO32_d[sensor].meas.temp  = (LSM6DSO32_d[sensor].rawData.temp_raw)*(0.00390625f) + 25.0f;
+		//ESP_LOGE(TAG ,"Temp: %f", LSM6DSO32_d[sensor].meas.temp);
+	}
+	else
+	{
+		ESP_LOGE(TAG, "LSM6DSO32_readTempByID for %d failed with response: %d", sensor, readResult);
+	}
+	return readResult;
+}
+
+esp_err_t LSM6DSO32_readFIFOStatusByID(uint8_t sensor, uint16_t *FIFOStatus){
+	uint8_t FIFOStatusBuffer = 0;
+	LSM6DSO32_Read(sensor, LSM6DS_FIFO_STATUS2_ADDR, (uint8_t*)&FIFOStatusBuffer, 1);
+	*FIFOStatus = ((uint16_t)FIFOStatusBuffer & 0x00000011) << 8;  
+	LSM6DSO32_Read(sensor, LSM6DS_FIFO_STATUS1_ADDR, (uint8_t*)&FIFOStatusBuffer, 1);
+	*FIFOStatus += (uint16_t)FIFOStatusBuffer;
+	return ESP_OK;
+}
+
+esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor){
+	esp_err_t readResult = ESP_FAIL;
+	uint8_t AccReadingCount = 0;
+	uint8_t GyroReadingCount = 0;
+	int16_t accDataRaw[3];
+	int16_t gyroDataRaw[3];
+	uint16_t FIFOStatus = 0;
+	readResult |= LSM6DSO32_readFIFOStatusByID(sensor, &FIFOStatus);
+	//ESP_LOGE(TAG, "fifo status pre : %d", FIFOStatus);
+	FIFOStatus =  (FIFOStatus > (LSM6DS_FIFO_BATCH_SIZE * 2)) ? (LSM6DS_FIFO_BATCH_SIZE * 2) : FIFOStatus; //Process no more then batch size
+	if (!(FIFOStatus > 0))
+	{
+		ESP_LOGE(TAG, "FIFO Status read 0");
+		return ESP_FAIL;
+	}
+	
+	//ESP_LOGE(TAG, "fifo status start : %d", FIFOStatus);
+
+	for(uint16_t FIFOSample = 0 ; FIFOSample < FIFOStatus; FIFOSample++)
+	{
+		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_TAG_ADDR, &fifoBuffer.tag, 1);
+		//ESP_LOGE(TAG, "sample %d  fifo tag: %x value %x, %x, %x", FIFOSample, fifoBuffer[FIFOSample].raw[0] >> 3,fifoBuffer[FIFOSample].dataOutRaw[0], fifoBuffer[FIFOSample].dataOutRaw[1], fifoBuffer[FIFOSample].dataOutRaw[2]);
+		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_X_L , (uint8_t*)&fifoBuffer.dataOutRaw, 6);
+		//ESP_LOGE(TAG, "fifo tag read : %x", fifoBuffer.tag);
+		switch ((fifoBuffer.tag >> 3))
+		{
+		case 0x01: 
+			{
+				GyroReadingCount++;
+				parse_gyro_data(GyroReadingCount, &gyroDataRaw, &fifoBuffer.dataOutRaw);
+				break;
+			}
+
+		case 0x02: 
+			{
+				AccReadingCount++;
+				parse_acc_data(AccReadingCount, &accDataRaw[0], &fifoBuffer.dataOutRaw[0]);
+				break;
+			}
+		default:
+			{
+				ESP_LOGE(TAG, "Wrong fifo tag read : %x", (fifoBuffer.tag >> 3));
+			}
+		}
+
+	}
+	
+	calc_acc(sensor, accDataRaw);
+	calc_gyro(sensor, gyroDataRaw);
+	return readResult;
+}
+
+esp_err_t parse_gyro_data(const uint8_t sampleNum, int16_t *gyroDataRaw, int16_t *sampleValue){
+	if(sampleNum == 1){
+		gyroDataRaw[0] = sampleValue[0];
+		gyroDataRaw[1] = sampleValue[1];
+		gyroDataRaw[2] = sampleValue[2];
+	}
+	else{
+		gyroDataRaw[0] = ((gyroDataRaw[0] * ((sampleNum - 1)/sampleNum)) + (sampleValue[0] / sampleNum));
+		gyroDataRaw[1] = ((gyroDataRaw[1] * ((sampleNum - 1)/sampleNum)) + (sampleValue[1] / sampleNum));
+		gyroDataRaw[2] = ((gyroDataRaw[2] * ((sampleNum - 1)/sampleNum)) + (sampleValue[2] / sampleNum));
+	}
+	return ESP_OK;
+}
+
+esp_err_t parse_acc_data(const uint8_t sampleNum, int16_t *accDataRaw, int16_t *sampleValue){
+	if(sampleNum == 1){
+		
+		accDataRaw[0] = sampleValue[0];
+		accDataRaw[1] = sampleValue[1];
+		accDataRaw[2] = sampleValue[2];
+	}
+	else{
+		
+		accDataRaw[0] = (int16_t)(((int32_t)accDataRaw[0] * (sampleNum - 1) + sampleValue[0]) / sampleNum);
+		accDataRaw[1] = (int16_t)(((int32_t)accDataRaw[1] * (sampleNum - 1) + sampleValue[1]) / sampleNum);
+		accDataRaw[2] = (int16_t)(((int32_t)accDataRaw[2] * (sampleNum - 1) + sampleValue[2]) / sampleNum);
+	}
+	return ESP_OK;
+}
+
+esp_err_t calc_acc(uint8_t sensor, int16_t *rawData){
+	LSM6DSO32_d[sensor].meas.accX  = rawData[0]*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accXoffset;
+	LSM6DSO32_d[sensor].meas.accY  = rawData[1]*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accYoffset;
+	LSM6DSO32_d[sensor].meas.accZ  = rawData[2]*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accZoffset;
+	return ESP_OK;
+}
+esp_err_t calc_gyro(uint8_t sensor, int16_t *rawData){
+	LSM6DSO32_d[sensor].meas.gyroX = ((rawData[0] * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroXoffset);
+	LSM6DSO32_d[sensor].meas.gyroY = ((rawData[1] * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroYoffset);
+	LSM6DSO32_d[sensor].meas.gyroZ = ((rawData[2] * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroZoffset);
+	return ESP_OK;
+}
+

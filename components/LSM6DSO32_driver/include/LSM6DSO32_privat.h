@@ -99,3 +99,10 @@ typedef struct
 	float gyroYoffset;
 	float gyroZoffset;
 } LSM6DSO32_t;
+
+esp_err_t LSM6DSO32_readTempByID(uint8_t sensor);
+esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor);
+esp_err_t parse_gyro_data(const uint8_t sampleNum, int16_t *gyroDataRaw, int16_t *sampleValue);
+esp_err_t parse_acc_data(const uint8_t sampleNum, int16_t *accDataRaw, int16_t *sampleValue);
+esp_err_t calc_acc(uint8_t sensor, int16_t *rawData);
+esp_err_t calc_gyro(uint8_t sensor, int16_t *rawData);

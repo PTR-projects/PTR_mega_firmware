@@ -59,6 +59,11 @@ const typedef enum LSM6DSO32_register_addr_t{
 	LSM6DS_FIFO_CTRL2_ADDR = 0x08,
 	LSM6DS_FIFO_CTRL3_ADDR = 0x09,
 	LSM6DS_FIFO_CTRL4_ADDR = 0x0A,
+	LSM6DS_FIFO_STATUS1_ADDR = 0x3A,
+	LSM6DS_FIFO_STATUS2_ADDR = 0x3B,
+	LSM6DS_FIFO_DATA_OUT_TAG_ADDR = 0x78,
+	LSM6DS_FIFO_DATA_OUT_X_L = 0x79,
+	
 
 } LSM6DSO32_register_addr_t;
 
@@ -102,11 +107,8 @@ typedef union{
 typedef union{
 		uint8_t raw[7];
 		struct{
-			int8_t tag;
-
-			int16_t dataOutX_raw;
-			int16_t dataOutY_raw;
-			int16_t dataOutZ_raw;
+			uint8_t tag;
+			int16_t dataOutRaw[3];
 		};
 	} LSM6DSO32_fifo_data_t;	
 
