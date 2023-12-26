@@ -407,10 +407,10 @@ esp_err_t LSM6DSO32_readFIFOStatusByID(uint8_t sensor, uint16_t *FIFOStatus){
 
 esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor){
 	esp_err_t readResult = ESP_FAIL;
-	uint8_t AccReadingCount = 0;
-	uint8_t GyroReadingCount = 0;
-	int16_t accDataRaw[3];
-	int16_t gyroDataRaw[3];
+	uint8_t accReadingCount = 0;
+	uint8_t gyroReadingCount = 0;
+	int32_t accDataRaw[3];
+	int32_t gyroDataRaw[3];
 	uint16_t FIFOStatus = 0;
 	readResult |= LSM6DSO32_readFIFOStatusByID(sensor, &FIFOStatus);
 	//ESP_LOGE(TAG, "fifo status pre : %d", FIFOStatus);
@@ -433,15 +433,15 @@ esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor){
 		{
 		case 0x01: 
 			{
-				GyroReadingCount++;
-				parse_gyro_data(GyroReadingCount, &gyroDataRaw, &fifoBuffer.dataOutRaw);
+				gyroReadingCount++;
+				collect_gyro_data(gyroDataRaw, fifoBuffer.dataOutRaw);
 				break;
 			}
 
 		case 0x02: 
 			{
-				AccReadingCount++;
-				parse_acc_data(AccReadingCount, &accDataRaw[0], &fifoBuffer.dataOutRaw[0]);
+				accReadingCount++;
+				collect_acc_data(accDataRaw, fifoBuffer.dataOutRaw);
 				break;
 			}
 		default:
@@ -451,38 +451,46 @@ esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor){
 		}
 
 	}
-	
+	parse_acc_data(accReadingCount, accDataRaw);
+	parse_gyro_data(gyroReadingCount, gyroDataRaw);
 	calc_acc(sensor, accDataRaw);
 	calc_gyro(sensor, gyroDataRaw);
 	return readResult;
 }
 
-esp_err_t parse_gyro_data(const uint8_t sampleNum, int16_t *gyroDataRaw, int16_t *sampleValue){
-	if(sampleNum == 1){
-		gyroDataRaw[0] = sampleValue[0];
-		gyroDataRaw[1] = sampleValue[1];
-		gyroDataRaw[2] = sampleValue[2];
+esp_err_t collect_gyro_data(int32_t *gyroDataRaw, int16_t *sampleValue){
+	gyroDataRaw[0] =+ (int32_t)sampleValue[0];
+	gyroDataRaw[1] =+ (int32_t)sampleValue[1];
+	gyroDataRaw[2] =+ (int32_t)sampleValue[2];
+	return ESP_OK;
+}
+esp_err_t collect_acc_data(int32_t *accDataRaw, int16_t *sampleValue){
+	accDataRaw[0] =+ (int32_t)sampleValue[0];
+	accDataRaw[1] =+ (int32_t)sampleValue[1];
+	accDataRaw[2] =+ (int32_t)sampleValue[2];
+	return ESP_OK;
+}
+
+esp_err_t parse_gyro_data(const uint8_t sampleNum, int32_t *gyroDataRaw){
+	if(sampleNum == 0){
+		return ESP_FAIL;
 	}
 	else{
-		gyroDataRaw[0] = ((gyroDataRaw[0] * ((sampleNum - 1)/sampleNum)) + (sampleValue[0] / sampleNum));
-		gyroDataRaw[1] = ((gyroDataRaw[1] * ((sampleNum - 1)/sampleNum)) + (sampleValue[1] / sampleNum));
-		gyroDataRaw[2] = ((gyroDataRaw[2] * ((sampleNum - 1)/sampleNum)) + (sampleValue[2] / sampleNum));
+		gyroDataRaw[0] = gyroDataRaw[0] / sampleNum;
+		gyroDataRaw[1] = gyroDataRaw[1] / sampleNum;
+		gyroDataRaw[2] = gyroDataRaw[2] / sampleNum;
 	}
 	return ESP_OK;
 }
 
-esp_err_t parse_acc_data(const uint8_t sampleNum, int16_t *accDataRaw, int16_t *sampleValue){
-	if(sampleNum == 1){
-		
-		accDataRaw[0] = sampleValue[0];
-		accDataRaw[1] = sampleValue[1];
-		accDataRaw[2] = sampleValue[2];
+esp_err_t parse_acc_data(const uint8_t sampleNum, int32_t *accDataRaw){
+	if(sampleNum == 0){
+		return ESP_FAIL;
 	}
 	else{
-		
-		accDataRaw[0] = (int16_t)(((int32_t)accDataRaw[0] * (sampleNum - 1) + sampleValue[0]) / sampleNum);
-		accDataRaw[1] = (int16_t)(((int32_t)accDataRaw[1] * (sampleNum - 1) + sampleValue[1]) / sampleNum);
-		accDataRaw[2] = (int16_t)(((int32_t)accDataRaw[2] * (sampleNum - 1) + sampleValue[2]) / sampleNum);
+		accDataRaw[0] = accDataRaw[0] / sampleNum;
+		accDataRaw[1] = accDataRaw[1] / sampleNum;
+		accDataRaw[2] = accDataRaw[2] / sampleNum;
 	}
 	return ESP_OK;
 }
