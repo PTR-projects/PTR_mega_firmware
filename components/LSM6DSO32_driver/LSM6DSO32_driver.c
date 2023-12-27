@@ -409,8 +409,8 @@ esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor){
 	esp_err_t readResult = ESP_FAIL;
 	uint8_t accReadingCount = 0;
 	uint8_t gyroReadingCount = 0;
-	int32_t accDataRaw[3];
-	int32_t gyroDataRaw[3];
+	int32_t accDataRaw[3] = {0};
+	int32_t gyroDataRaw[3] = {0};
 	uint16_t FIFOStatus = 0;
 	readResult |= LSM6DSO32_readFIFOStatusByID(sensor, &FIFOStatus);
 	//ESP_LOGE(TAG, "fifo status pre : %d", FIFOStatus);
@@ -459,15 +459,15 @@ esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor){
 }
 
 esp_err_t collect_gyro_data(int32_t *gyroDataRaw, int16_t *sampleValue){
-	gyroDataRaw[0] =+ (int32_t)sampleValue[0];
-	gyroDataRaw[1] =+ (int32_t)sampleValue[1];
-	gyroDataRaw[2] =+ (int32_t)sampleValue[2];
+	gyroDataRaw[0] += (int32_t)sampleValue[0];
+	gyroDataRaw[1] += (int32_t)sampleValue[1];
+	gyroDataRaw[2] += (int32_t)sampleValue[2];
 	return ESP_OK;
 }
 esp_err_t collect_acc_data(int32_t *accDataRaw, int16_t *sampleValue){
-	accDataRaw[0] =+ (int32_t)sampleValue[0];
-	accDataRaw[1] =+ (int32_t)sampleValue[1];
-	accDataRaw[2] =+ (int32_t)sampleValue[2];
+	accDataRaw[0] += (int32_t)sampleValue[0];
+	accDataRaw[1] += (int32_t)sampleValue[1];
+	accDataRaw[2] += (int32_t)sampleValue[2];
 	return ESP_OK;
 }
 
@@ -488,20 +488,20 @@ esp_err_t parse_acc_data(const uint8_t sampleNum, int32_t *accDataRaw){
 		return ESP_FAIL;
 	}
 	else{
-		accDataRaw[0] = accDataRaw[0] / sampleNum;
-		accDataRaw[1] = accDataRaw[1] / sampleNum;
-		accDataRaw[2] = accDataRaw[2] / sampleNum;
+		accDataRaw[0] = accDataRaw[0] / (int32_t)sampleNum;
+		accDataRaw[1] = accDataRaw[1] / (int32_t)sampleNum;
+		accDataRaw[2] = accDataRaw[2] / (int32_t)sampleNum;
 	}
 	return ESP_OK;
 }
 
-esp_err_t calc_acc(uint8_t sensor, int16_t *rawData){
+esp_err_t calc_acc(uint8_t sensor, int32_t *rawData){
 	LSM6DSO32_d[sensor].meas.accX  = rawData[0]*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accXoffset;
 	LSM6DSO32_d[sensor].meas.accY  = rawData[1]*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accYoffset;
 	LSM6DSO32_d[sensor].meas.accZ  = rawData[2]*(LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent) - LSM6DSO32_d[sensor].accZoffset;
 	return ESP_OK;
 }
-esp_err_t calc_gyro(uint8_t sensor, int16_t *rawData){
+esp_err_t calc_gyro(uint8_t sensor, int32_t *rawData){
 	LSM6DSO32_d[sensor].meas.gyroX = ((rawData[0] * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroXoffset);
 	LSM6DSO32_d[sensor].meas.gyroY = ((rawData[1] * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroYoffset);
 	LSM6DSO32_d[sensor].meas.gyroZ = ((rawData[2] * LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb) - LSM6DSO32_d[sensor].gyroZoffset);
