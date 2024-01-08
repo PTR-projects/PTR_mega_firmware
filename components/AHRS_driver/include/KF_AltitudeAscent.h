@@ -17,6 +17,6 @@ typedef struct {
 } KF_AltitudeAscent_t;
 
 void AHRS_kalmanAltitudeAscent_init(float Q_accel, float R_altitude);
-void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float accZ, float * altitude_result, float * ascentrate_result);
+void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, float * altitude_result, float * ascentrate_result);
 
 #endif /* COMPONENTS_AHRS_DRIVER_INCLUDE_KF_ALTITUDEASCENT_H_ */

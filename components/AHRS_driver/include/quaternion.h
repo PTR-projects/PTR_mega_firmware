@@ -44,15 +44,15 @@ typedef struct {
 } quaternionsProd_t;
 
 
-void quaternionInitUnit(quaternions_t * result);
-void quaternionInitFromVector(quaternions_t * result, quaternions_t * v);
-void quaternionMultiply(quaternions_t * result, quaternions_t * a, quaternions_t * b);
-void quaternionScale(quaternions_t * result, quaternions_t * a, float b);
-void quaternionAdd(quaternions_t * result, quaternions_t * a, quaternions_t * b);
-void quaternionConjugate(quaternions_t * result, quaternions_t * q);
-void quaternionNormalize(quaternions_t * result, quaternions_t * q);
-void quaternionRotateVector(vectorf_t * result, quaternions_t * vect, quaternions_t * ref);
-void quaternionRotateVectorInv(vectorf_t * result, vectorf_t * vect, quaternions_t * ref);
-void quaternionComputeProducts(quaternions_t *quat, quaternionsProd_t *quatProd);
+void quaternionInitUnit			(quaternions_t * result);
+void quaternionInitFromVector	(quaternions_t * result, quaternions_t * v);
+void quaternionMultiply			(quaternions_t * result, quaternions_t * a, quaternions_t * b);
+void quaternionScale			(quaternions_t * result, quaternions_t * a, float b);
+void quaternionAdd				(quaternions_t * result, quaternions_t * a, quaternions_t * b);
+void quaternionConjugate		(quaternions_t * result, quaternions_t * q);
+void quaternionNormalize		(quaternions_t * result, quaternions_t * q);
+void quaternionRotateVector		(vectorf_t * result,     vectorf_t * vect,  quaternions_t * ref);
+void quaternionRotateVectorInv	(vectorf_t * result,     vectorf_t * vect,  quaternions_t * ref);
+void quaternionComputeProducts	(quaternions_t *quat,    quaternionsProd_t *quatProd);
 
 #endif /* COMPONENTS_AHRS_DRIVER_INCLUDE_QUATERNION_H_ */

@@ -60,6 +60,8 @@ esp_err_t FSD_init(AHRS_t * ahrs){
 esp_err_t FSD_detect(uint64_t time_ms){
 	if(FSD_checkArmed() == DISARMED){
 		flightState_d.state = FLIGHTSTATE_STARTUP;
+		Sensors_UpdateReferencePressure();
+		Sensors_calibrateGyro(0.1f);
 		return ESP_OK;
 	}
 
@@ -116,10 +118,12 @@ static void FlightState_STARTUP	(uint64_t time_ms, FlightState_t * currentState,
 	}
 
 	//------ Komendy wykonywane co pętlę ------
+	Sensors_UpdateReferencePressure();
+	Sensors_calibrateGyro(0.1f);
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 5000)) /* && (SysManager_checkStartupDone() == ESP_OK) */) {
+	if (TIME_ELAPSED(stateChangeTime, time_ms, 500)) {
 		currentState->state = FLIGHTSTATE_PREFLIGHT;
 		currentState->state_ready = false;
 	}
@@ -133,10 +137,11 @@ static void FlightState_PREFLIGHT (uint64_t time_ms, FlightState_t * currentStat
 	}
 
 	//------ Komendy wykonywane co pętlę ------
-
+	Sensors_UpdateReferencePressure();
+	Sensors_calibrateGyro(0.001f);
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= 2.0f) ) {
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (1.6f * 9.81f)) ) {
 		currentState->state = FLIGHTSTATE_ME_ACCELERATING;
 		currentState->state_ready = false;
 	}
@@ -147,6 +152,7 @@ static void FlightState_ME_ACCELERATING	(uint64_t time_ms, FlightState_t * curre
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
 		stateChangeTime = time_ms;
+		AHRS_setInFlight();
 	}
 
 	//------ Komendy wykonywane co pętlę ------

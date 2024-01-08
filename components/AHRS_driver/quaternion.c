@@ -5,6 +5,7 @@
  *      Author: bartek
  */
 #include <stdio.h>
+#include "esp_attr.h"
 #include <math.h>
 #include "common.h"
 #include "quaternion.h"
@@ -84,7 +85,7 @@ void quaternionNormalize(quaternions_t * result, quaternions_t * q){
     }
 }
 
-void quaternionRotateVector(vectorf_t * result, quaternions_t * vect, quaternions_t * ref){
+void quaternionRotateVector(vectorf_t * result, vectorf_t * vect, quaternions_t * ref){
 	quaternions_t vectQuat, refConj;
 
     vectQuat.q0 = 0;

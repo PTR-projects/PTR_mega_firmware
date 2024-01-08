@@ -57,7 +57,7 @@ esp_err_t SPI_registerDevice(spi_dev_handle_t *handle, int CS_pin, int clock_mhz
 	return ESP_OK;
 }
 
-esp_err_t SPI_transfer(spi_dev_handle_t handle, uint8_t cmd, uint8_t addr, uint8_t * tx_buf, uint8_t * rx_buf, int payload_len){
+esp_err_t IRAM_ATTR SPI_transfer(spi_dev_handle_t handle, uint8_t cmd, uint8_t addr, uint8_t * tx_buf, uint8_t * rx_buf, int payload_len){
 	ESP_RETURN_ON_FALSE(handle != NULL, ESP_ERR_INVALID_ARG, TAG, "SPI_transfer - handle is NULL");
 
 	esp_err_t ret = ESP_OK;
@@ -81,7 +81,7 @@ esp_err_t SPI_transfer(spi_dev_handle_t handle, uint8_t cmd, uint8_t addr, uint8
 	return ret;
 }
 
-esp_err_t SPI_longTransfer(){
+esp_err_t IRAM_ATTR SPI_longTransfer(){
 
 	return ESP_OK;
 }

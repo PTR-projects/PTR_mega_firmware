@@ -33,6 +33,7 @@ static const char *TAG = "KP-PTR";
 //----------- Queues etc ---------------
 QueueHandle_t queue_AnalogToMain;
 QueueHandle_t queue_MainToTelemetry;
+QueueHandle_t queue_MainToWeb;
 
 //----------- Global settings ----------
 Preferences_data_t Preferences_data_d;
@@ -42,16 +43,14 @@ Preferences_data_t Preferences_data_d;
 void task_kpptr_main(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	TickType_t prevTickCountRF = 0;
+	TickType_t prevTickCountWeb = 0;
 	DataPackage_t *  DataPackage_ptr = NULL;
+	DataPackage_t DataPackage_d;
 	DataPackageRF_t  DataPackageRF_d;
 	gps_t gps_d;
 	Analog_meas_t Analog_meas;
-	struct timeval tv_now;
-	struct timeval tv_tic;
-	struct timeval tv_toc;
-	struct timeval tv_comp;
-	gettimeofday(&tv_now, NULL);
-	int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+
+	int64_t time_us = esp_timer_get_time();
 
 	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
@@ -62,7 +61,7 @@ void task_kpptr_main(void *pvParameter){
 		status |= FSD_init(AHRS_getData());
 
 		if(status != ESP_OK){
-			ESP_LOGE(TAG, "Main task - failed to prepare main task");
+			ESP_LOGW(TAG, "Main task - failed to prepare main task");
 			SysMgr_checkout(checkout_main, check_fail);
 			vTaskDelay(pdMS_TO_TICKS( 1000 ));
 		}
@@ -72,15 +71,10 @@ void task_kpptr_main(void *pvParameter){
 	ESP_LOGI(TAG, "Task Main - ready!");
 
 	xLastWakeTime = xTaskGetTickCount ();
-	while(1){				//<<----- TODO zrobi� wyzwalanie z timera
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));
+	while(1){
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));	// Note - for rate > 100Hz change MS5607 settings
 
-		//----- Tic ----------
-//		gettimeofday(&tv_tic, NULL);
-		//--------------------
-
-		gettimeofday(&tv_now, NULL);
-		int64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+		int64_t time_us = esp_timer_get_time();
 
 		Sensors_update();
 		AHRS_compute(time_us, Sensors_get());
@@ -89,10 +83,13 @@ void task_kpptr_main(void *pvParameter){
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
+		DM_collectFlash(&DataPackage_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
+
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
-				DM_collectFlash(DataPackage_ptr, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL, &Analog_meas);
+				*DataPackage_ptr = DataPackage_d;
 				DM_addToMainRB(&DataPackage_ptr);
+
 			} else {
 				ESP_LOGE(TAG, "Main RB pointer = NULL!");
 			}
@@ -100,28 +97,18 @@ void task_kpptr_main(void *pvParameter){
 			ESP_LOGE(TAG, "Main RB error!");
 		}
 
-		//send data to RF every 500ms
+		//send data to RF every 1000ms
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), NULL, NULL);
+			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
 		}
 
-		//------- Toc ---------
-//		gettimeofday(&tv_toc, NULL);
-		//---------------------
-
-		//------- Comp ---------
-//		gettimeofday(&tv_comp, NULL);
-		//---------------------
-
-		//---------- Tic Toc analysis --------------
-//		int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
-//							 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
-//		int64_t tic_toc_comp = ((int64_t)tv_comp.tv_sec * 1000000L + (int64_t)tv_comp.tv_usec)
-//							 - ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec);
-//		ESP_LOGI(TAG, "TicToc dt = %lli us, compensation = %lli us", tic_toc_dt, tic_toc_comp);
-		//------------------------------------
+		//send data to Web every 1000ms
+		if(((prevTickCountWeb + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
+			prevTickCountWeb = xLastWakeTime;
+			xQueueOverwrite(queue_MainToWeb, (void *)DataPackage_ptr); // add to Web queue
+		}
 
 	}
 	vTaskDelete(NULL);
@@ -132,7 +119,7 @@ void task_kpptr_telemetry(void *pvParameter){
 
 
 	while(LORA_init() != ESP_OK){
-		ESP_LOGE(TAG, "Telemetry task - failed to prepare Lora");
+		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
@@ -146,39 +133,26 @@ void task_kpptr_telemetry(void *pvParameter){
 }
 
 void task_kpptr_storage(void *pvParameter){
-	struct timeval tv_tic;
-	struct timeval tv_toc;
-
-	while(Storage_init(Storage_filesystem_littlefs, 0xAABBCCDD) != ESP_OK){
-		ESP_LOGE(TAG, "Storage task - failed to prepare storage");
+	TickType_t xLastWakeTime = 0;
+	while(Storage_init() != ESP_OK){
+		ESP_LOGW(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		vTaskDelay(pdMS_TO_TICKS( 3000 ));
 	}
 
 	DataPackage_t * DataPackage_ptr;
-	Web_driver_live_t 	live_web;
 	uint32_t write_error_cnt = 0;
-	uint32_t web_live_cnt = 0;
 
 	vTaskDelay(pdMS_TO_TICKS( 2000 ));
 	ESP_LOGI(TAG, "Task Storage - ready!");
 	SysMgr_checkout(checkout_storage, check_ready);
 
-	int counter = 0;
-
+	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
-		if(0 /*counter < 1000*/){	//(flightstate >= Launch) && (flightstate < Landed_delay)
+		vTaskDelayUntil(&xLastWakeTime, 2);	// Minimum 2 Ticks for 1 loop - avoid blocking Flash memory for too long
+
+		if((FSD_getState() >= FLIGHTSTATE_ME_ACCELERATING) && (FSD_getState() < FLIGHTSTATE_SHUTDOWN)){
 			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
-				if(counter == 0){
-					gettimeofday(&tv_tic, NULL);
-				}
-				counter++;
-				if(counter == 1000){
-					gettimeofday(&tv_toc, NULL);
-					int64_t tic_toc_dt =   ((int64_t)tv_toc.tv_sec  * 1000000L + (int64_t)tv_toc.tv_usec)
-												 - ((int64_t)tv_tic.tv_sec  * 1000000L + (int64_t)tv_tic.tv_usec);
-					ESP_LOGI(TAG, "1000 packet saved in %lli us", tic_toc_dt);
-				}
 				if(write_error_cnt < 1000){
 					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
 						ESP_LOGE(TAG, "Storage task - packet write fail");
@@ -189,63 +163,7 @@ void task_kpptr_storage(void *pvParameter){
 				}
 				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			} else {
-				//ESP_LOGI(TAG, "Storage timeout");
-			}
-		} else {
-			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){
-				web_live_cnt++;
-				if(web_live_cnt > 10){
-					web_live_cnt = 0;
-					live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
-					live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
-					live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;
-					live_web.LSM6DS32_0.ax = DataPackage_ptr->sensors.accX;
-					live_web.LSM6DS32_0.ay = DataPackage_ptr->sensors.accY;
-					live_web.LSM6DS32_0.az = DataPackage_ptr->sensors.accZ;
-					live_web.LSM6DS32_0.gx = DataPackage_ptr->sensors.gyroX;
-					live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
-					live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
-					live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
-					live_web.LSM6DS32_1.ax = 10.0f;
-					live_web.LSM6DS32_1.ay = 0.0f;
-					live_web.LSM6DS32_1.az = 0.0f;
-					live_web.LSM6DS32_1.gx = 0.0f;
-					live_web.LSM6DS32_1.gy = 0.0f;
-					live_web.LSM6DS32_1.gz = 0.0f;
-					live_web.LSM6DS32_1.temperature = 0.0f;
-					live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
-					live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
-					live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
-					live_web.MS5607.altitude = 0.0f;
-					live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
-					live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
-					live_web.anglex = 0.0f;
-					live_web.angley = 0.0f;
-					live_web.anglez = 0.0f;
-					live_web.gps.fix = DataPackage_ptr->sensors.gnss_fix;
-					live_web.gps.latitude = DataPackage_ptr->sensors.latitude;
-					live_web.gps.longitude = DataPackage_ptr->sensors.longitude;
-					live_web.gps.sats = DataPackage_ptr->sensors.gnss_fix;
-					Web_live_exchange(live_web);
-
-					Web_status_updateGNSS(DataPackage_ptr->sensors.latitude, DataPackage_ptr->sensors.longitude,
-										DataPackage_ptr->sensors.gnss_fix >> 6, DataPackage_ptr->sensors.gnss_fix & 0x3F);
-					Web_status_updateADCS(0, 0);
-
-					// change GNSS component status if fix is OK
-					if(GPS_checkStatus() == ESP_OK){
-						static sysmgr_checkout_state_t gnss_ready_check = check_void;
-						if((gnss_ready_check == check_void)
-								&& (DataPackage_ptr->sensors.gnss_fix)){
-							gnss_ready_check = check_ready;
-							SysMgr_checkout(checkout_gnss, check_ready);
-						}
-					} else {
-						SysMgr_checkout(checkout_gnss, check_fail);
-					}
-
-				}
-				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
+				ESP_LOGI(TAG, "Storage timeout");
 			}
 		}
 	}
@@ -254,6 +172,7 @@ void task_kpptr_storage(void *pvParameter){
 void task_kpptr_utils(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	uint32_t interval_ms = 20;
+	DataPackage_t DataPackage_d;
 
 	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
@@ -261,7 +180,7 @@ void task_kpptr_utils(void *pvParameter){
 		status |= LED_init(interval_ms);
 		status |= BUZZER_init();
 		status |= IGN_init();
-		ESP_LOGI(TAG, "Task Utils - failed to init!");
+		ESP_LOGW(TAG, "Task Utils - failed to init!");
 		SysMgr_checkout(checkout_utils, check_fail);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
@@ -274,18 +193,35 @@ void task_kpptr_utils(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		LED_srv();
 		IGN_srv(pdTICKS_TO_MS(xTaskGetTickCount ()));
+
+		if(xQueueReceive(queue_MainToWeb, &DataPackage_d, 0)){
+			Web_live_from_DataPackage(&DataPackage_d);
+
+			// change GNSS component status if fix is OK
+			if(GPS_checkStatus() == ESP_OK){
+				static sysmgr_checkout_state_t gnss_ready_check = check_void;
+				if((gnss_ready_check == check_void)
+						/*&& (DataPackage_ptr->sensors.gnss_fix)*/){
+					gnss_ready_check = check_ready;
+					SysMgr_checkout(checkout_gnss, check_ready);
+				}
+			} else {
+				SysMgr_checkout(checkout_gnss, check_fail);
+			}
+
+		}
 	}
 	vTaskDelete(NULL);
 }
 
 void task_kpptr_analog(void *pvParameter){
-	TickType_t xLastWakeTime = 0;
-	uint32_t interval_ms = 100;
+	TickType_t 				xLastWakeTime = 0;
+	uint32_t 				interval_ms = 100;
 	sysmgr_checkout_state_t vbat_ok = check_void;
-	Analog_meas_t Analog_meas;
+	Analog_meas_t 			Analog_meas;
 
-	while(Analog_init(100, 0.1f) != ESP_OK){
-		ESP_LOGI(TAG, "Task Analog - failed to init!");
+	while(Analog_init(100, 0.2f) != ESP_OK){
+		ESP_LOGW(TAG, "Task Analog - failed to init!");
 		SysMgr_checkout(checkout_analog, check_fail);
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
@@ -401,14 +337,15 @@ void app_main(void)
     //----- Create queues ----------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t ) );
     queue_MainToTelemetry = xQueueCreate( 1, sizeof( DataPackageRF_t ) );
+    queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t ) );
 
     //----- Check queues -----------
     if(queue_AnalogToMain == 0)
     	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
 
-    xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 12, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 11, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 14, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));

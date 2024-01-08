@@ -21,25 +21,28 @@ esp_err_t Sensors_init(){
 	MMC5983MA_init();
 	LSM6DSO32_init();
 	LIS331_init(LIS331_IC_100G);
+
+	Sensors_d.ref_press = 100930.0f;
+
 	return ESP_OK; 	//ESP_FAIL
 }
 
-esp_err_t Sensors_update(){
+esp_err_t  Sensors_update(){
 	//get new data from sensors
 
 	MS5607_getReloadSmart();
 	LIS331_readMeas();
-	LSM6DSO32_readMeas();
+	LSM6DSO32_readMeasAll();
 	MMC5983MA_readMeas();
 
-	MS5607_getMeas(&(Sensors_d.MS5607));
-	LIS331_getMeas(&(Sensors_d.LIS331));
-	LSM6DSO32_getMeas(&(Sensors_d.LSM6DSO32));
+	MS5607_getMeas	 (&(Sensors_d.MS5607));
+	LIS331_getMeas	 (&(Sensors_d.LIS331));
+	LSM6DSO32_getMeasAll(&(Sensors_d.LSM6DSO32[0]));
 	MMC5983MA_getMeas(&(Sensors_d.MMC5983MA));
 
 	Sensors_axes_translation();
 
-	return ESP_OK; 	//ESP_FAIL
+	return ESP_OK;
 }
 
 esp_err_t Sensors_axes_translation(){
@@ -49,13 +52,13 @@ esp_err_t Sensors_axes_translation(){
 	Sensors_d.LIS331.accY     = -Sensors_b.LIS331.accY;
 	Sensors_d.LIS331.accZ     = -Sensors_b.LIS331.accZ;
 
-	Sensors_d.LSM6DSO32.accX  =  Sensors_b.LSM6DSO32.accY;
-	Sensors_d.LSM6DSO32.accY  =  Sensors_b.LSM6DSO32.accX;
-	Sensors_d.LSM6DSO32.accZ  = -Sensors_b.LSM6DSO32.accZ;
+	Sensors_d.LSM6DSO32[0].accX  =  Sensors_b.LSM6DSO32[0].accY;
+	Sensors_d.LSM6DSO32[0].accY  =  Sensors_b.LSM6DSO32[0].accX;
+	Sensors_d.LSM6DSO32[0].accZ  = -Sensors_b.LSM6DSO32[0].accZ;
 
-	Sensors_d.LSM6DSO32.gyroX =  Sensors_b.LSM6DSO32.gyroY;
-	Sensors_d.LSM6DSO32.gyroY =  Sensors_b.LSM6DSO32.gyroX;
-	Sensors_d.LSM6DSO32.gyroZ = -Sensors_b.LSM6DSO32.gyroZ;
+	Sensors_d.LSM6DSO32[0].gyroX =  Sensors_b.LSM6DSO32[0].gyroY;
+	Sensors_d.LSM6DSO32[0].gyroY =  Sensors_b.LSM6DSO32[0].gyroX;
+	Sensors_d.LSM6DSO32[0].gyroZ = -Sensors_b.LSM6DSO32[0].gyroZ;
 
 	Sensors_d.MMC5983MA.magX  = -Sensors_b.MMC5983MA.magY;
 	Sensors_d.MMC5983MA.magY  = -Sensors_b.MMC5983MA.magX;
@@ -66,4 +69,16 @@ esp_err_t Sensors_axes_translation(){
 
 Sensors_t * Sensors_get(){
 	return &Sensors_d;
+}
+
+esp_err_t Sensors_UpdateReferencePressure(){
+	Sensors_d.ref_press  = 0.005f*Sensors_d.MS5607.press + 0.995f*(Sensors_d.ref_press);
+
+	return ESP_OK;
+}
+
+esp_err_t Sensors_calibrateGyro(float gain){
+	LSM6DSO32_calibrateGyro(0, gain);
+	LSM6DSO32_calibrateGyro(1, gain);
+	return ESP_OK;
 }
