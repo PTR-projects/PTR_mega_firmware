@@ -141,13 +141,6 @@ uint32_t Analog_getVBAT(){
 
     voltage_vbat = filter_coeff * vbat_mV_raw + (1-filter_coeff) * voltage_vbat;
 
-
-    static float raw = 0.0f;
-    raw = (float)adc_reading * 0.05f + raw * 0.95f;
-
-    static float bat = 0.0f;
-    bat = (float)voltage * 0.05f + bat * 0.95f;
-
    
     ESP_LOGV(TAG, "Raw: %i,   voltage: %i	Vbat: %imV", ulp_VBAT_RAW, voltage, voltage_vbat);
 
