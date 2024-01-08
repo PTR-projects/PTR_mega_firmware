@@ -2,6 +2,22 @@ var getDataIntervalID;
 var getDataLiveIntervalID;
 var current_tab = 1;
 
+const preferencesData = {
+	wifi_pass: "your_wifi_pass",
+	main_alt: 200,
+	drouge_alt: 0,
+	rail_height: 2,
+	max_tilt: 45,
+	staging_delay: 0,
+	staging_max_tilt: 45,
+	auto_arming_time_s: 60,
+	auto_arming: true,
+	key: 12345678, // Replace with your key value
+	lora_freq: 433125,
+	lora_network_mode: true, //true for network, false for exclusive
+	crc32: 0, // Initialize CRC32 to 0
+};
+
 function SelectSection_Home() {
 	window.scrollTo(0, 0);
 	TabsSelect(1);
@@ -516,7 +532,7 @@ function ign_ign3_fire_handler() {
 function ign_ign4_fire_handler() {
 	console.log("Igniters - Fire ign 4");
 	vibrate(200); 
-	POST_simple("/cmd", '{"cmd":"ign_set","arg1":4,"key":2137}');
+	console.log(POST_simple("/cmd", '{"cmd":"ign_set","arg1":4,"key":2137}'));
 }
 
 function POST_simple(url, data) {
@@ -815,3 +831,81 @@ function initDataLive() {
 		  console.error(error);
 		});
   }
+
+
+  // Function to calculate CRC32 checksum
+  function calculateCRC32(input) {
+	let crc = 0;
+	const table = new Uint32Array(256);
+
+	for (let i = 0; i < 256; i++) {
+		let c = i;
+		for (let j = 0; j < 8; j++) {
+			if (c & 1) {
+				c = 0xedb88320 ^ (c >>> 1);
+			} else {
+				c >>>= 1;
+			}
+		}
+		table[i] = c;
+	}
+
+	for (let i = 0; i < input.length; i++) {
+		crc = (crc >>> 8) ^ table[(crc ^ input.charCodeAt(i)) & 0xff];
+	}
+
+	return crc ^ 0xffffffff;
+}
+
+// Function to send the JSON data as a POST request
+function sendPreferencesData(preferencesData) {
+	// Calculate CRC32 checksum for the JSON data
+	const jsonData = JSON.stringify(preferencesData,null,"	");
+	const crc32 = calculateCRC32(jsonData);
+
+	preferencesData.crc32 = crc32;
+
+	console.log("Sending preferencesData:", preferencesData);
+	// Convert the JavaScript object with CRC32 to a JSON string
+	const finalJsonData = JSON.stringify(preferencesData,null,"	");
+	console.log(finalJsonData);
+	// Define the URL to which you want to send the POST request
+	const apiUrl = '/config'; // Replace with your API URL
+
+	// Send the JSON data as a POST request
+	console.log(POST_simple("/config", finalJsonData));
+}
+
+function formatWifiPass(wifiPass) {
+	if (wifiPass.length > 12) {
+		return wifiPass.substring(0, 12);
+	} else {
+		return wifiPass;
+	}
+}
+
+
+function updatePreferencesData() {
+	preferencesData.rail_height = parseFloat(document.getElementById("pref-launchpad-height").value);
+	preferencesData.main_alt = parseFloat(document.getElementById("pref-main-alt").value);
+	preferencesData.drouge_alt = parseFloat(document.getElementById("pref-drouge-alt").value);
+	preferencesData.staging_delay = parseFloat(document.getElementById("pref-staging-delay").value);
+	preferencesData.staging_max_tilt = parseFloat(document.getElementById("pref-staging-tilt").value);
+	preferencesData.auto_arming_time_s = parseFloat(document.getElementById("pref-autoarm_delay").value);
+	preferencesData.lora_freq = parseFloat(document.getElementById("pref-lora-frequency").value);
+	
+	preferencesData.wifi_pass = document.getElementById("pref-wifi-pass").value;
+	
+
+	// Add similar lines for other properties as needed
+
+	console.log("Updated preferencesData:", preferencesData);
+}
+
+function preferencesDataLoraMode(state) {
+	preferencesData.lora_network_mode = state;
+}
+
+function preferencesDataAutoarming(state) {
+	preferencesData.auto_arming = state;
+}
