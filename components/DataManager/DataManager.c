@@ -143,10 +143,18 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->ahrs.q3 = ahrs->orientation.quaternions.q3;
 	package->ahrs.tilt = (uint8_t)ahrs->orientation.euler.tilt;
 
-	package->ign.ign1_cont 		= analog->IGN1_det;
-	package->ign.ign2_cont 		= analog->IGN2_det;
-	package->ign.ign3_cont 		= analog->IGN3_det;
-	package->ign.ign4_cont 		= analog->IGN4_det;
+#if IGN_NUM > 0
+	package->ign.ign1_cont 		= analog->IGN_det[0];
+#if IGN_NUM > 1
+	package->ign.ign2_cont 		= analog->IGN_det[1];
+#if IGN_NUM > 2
+	package->ign.ign3_cont 		= analog->IGN_det[2];
+#if IGN_NUM > 3
+	package->ign.ign4_cont 		= analog->IGN_det[3];
+#endif
+#endif
+#endif
+#endif
 
 	package->vbat_mV 			= (uint16_t)analog->vbat_mV;
 

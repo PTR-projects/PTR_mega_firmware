@@ -114,7 +114,9 @@ void task_kpptr_main(void *pvParameter){
 	vTaskDelete(NULL);
 }
 
+
 void task_kpptr_telemetry(void *pvParameter){
+#if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 	DataPackageRF_t DataPackageRF_d;
 
 
@@ -130,7 +132,16 @@ void task_kpptr_telemetry(void *pvParameter){
 			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), LORA_TX_NO_WAIT);
 		}
 	}
+#else
+	SysMgr_checkout(checkout_lora, check_ready);
+	while(1){
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	}
+#endif
+
+
 }
+
 
 void task_kpptr_storage(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
@@ -180,9 +191,12 @@ void task_kpptr_utils(void *pvParameter){
 		status |= LED_init(interval_ms);
 		status |= BUZZER_init();
 		status |= IGN_init();
-		ESP_LOGW(TAG, "Task Utils - failed to init!");
-		SysMgr_checkout(checkout_utils, check_fail);
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+
+		if(status != ESP_OK){
+			ESP_LOGW(TAG, "Task Utils - failed to init!");
+			SysMgr_checkout(checkout_utils, check_fail);
+			vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		}
 	}
 
 	ESP_LOGI(TAG, "Task Utils - ready!");
@@ -232,18 +246,17 @@ void task_kpptr_analog(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		Analog_update(&Analog_meas);
 		Web_status_updateAnalog(Analog_meas.vbat_mV/1000.0f,
-								Analog_meas.IGN1_det, Analog_meas.IGN2_det,
-								Analog_meas.IGN3_det, Analog_meas.IGN4_det);
+								Analog_getIGNstate(&Analog_meas, 0), Analog_getIGNstate(&Analog_meas, 1),
+								Analog_getIGNstate(&Analog_meas, 2), Analog_getIGNstate(&Analog_meas, 3));
 
 		if((vbat_ok != check_ready) && (Analog_meas.vbat_mV > 3700.0f)){
 			vbat_ok = check_ready;
 			SysMgr_checkout(checkout_analog, check_ready);
 		}
 
-		LED_setIGN1(20, Analog_meas.IGN1_det);
-		LED_setIGN2(20, Analog_meas.IGN2_det);
-		LED_setIGN3(20, Analog_meas.IGN3_det);
-		LED_setIGN4(20, Analog_meas.IGN4_det);
+		for(uint8_t i=0; i<IGN_NUM; i++){
+			LED_setIGN(i, 20, Analog_meas.IGN_det[i]);
+		}
 
 		xQueueOverwrite(queue_AnalogToMain, (void *)&Analog_meas);
 	}
@@ -350,7 +363,6 @@ void app_main(void)
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
-
 
     while (true) {
     	vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz

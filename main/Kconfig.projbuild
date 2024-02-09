@@ -16,6 +16,8 @@ menu "KP-PTR Configuration"
             bool "Version 0 revision 1"
         config BOARD_KPPTR_VER_1_REV_0
             bool "Version 1 revision 0"
+        config BOARD_ARECORDER_VER_3_REV_0
+        	bool "Arecorder v3.0"
     endchoice
     
     choice KPPTR_FS

@@ -29,24 +29,19 @@ static void ulp_riscv_reset();
 
 static const char* TAG = "Analog";
 
+uint32_t ADC_CHANNELS[ADC_CHANNELS_NUM] = {ADC_CHANNELS_LIST};
 static esp_adc_cal_characteristics_t  adc_chars;
 static uint32_t ign_det_thr = 50;
 
 static float    filter_coeff	 = 0.6f;
 static float    filter_coeff_ign = 0.5f;
-static uint32_t voltage_ign1 = 0;
-static uint32_t voltage_ign2 = 0;
-static uint32_t voltage_ign3 = 0;
-static uint32_t voltage_ign4 = 0;
+static uint32_t voltage_ign[IGN_NUM] = {0};
 static uint32_t voltage_vbat = 0;
 static float	mcu_temp	 = 0.0f;
 static uint32_t vbat_mV_raw = 0;
 
 
-uint32_t Analog_getIGN1(uint32_t vbat);
-uint32_t Analog_getIGN2(uint32_t vbat);
-uint32_t Analog_getIGN3(uint32_t vbat);
-uint32_t Analog_getIGN4(uint32_t vbat);
+uint32_t Analog_getIGN(uint32_t ign_num, uint32_t vbat);
 uint32_t Analog_getVBAT();
 
 esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
@@ -89,40 +84,13 @@ esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 	return ESP_OK;
 }
 
-uint32_t Analog_getIGN1(uint32_t vbat){
-	uint32_t voltage = esp_adc_cal_raw_to_voltage(ulp_IGN1_RAW, &adc_chars);
+uint32_t Analog_getIGN(uint32_t ign_num, uint32_t vbat){
+	uint32_t voltage = esp_adc_cal_raw_to_voltage((&ulp_IGN_RAW)[ign_num], &adc_chars);
 	ESP_LOGV(TAG, "IGN1 voltage: %dmV", voltage);
 
-    voltage_ign1 = filter_coeff_ign * voltage + (1-filter_coeff_ign) * voltage_ign1;
+    voltage_ign[ign_num] = filter_coeff_ign * voltage + (1-filter_coeff_ign) * voltage_ign[ign_num];
 
-    return voltage_ign1;
-}
-
-uint32_t Analog_getIGN2(uint32_t vbat){
-	uint32_t voltage = esp_adc_cal_raw_to_voltage(ulp_IGN2_RAW, &adc_chars);
-	ESP_LOGV(TAG, "IGN2 voltage: %dmV", voltage);
-
-    voltage_ign2 = filter_coeff_ign * voltage + (1-filter_coeff_ign) * voltage_ign2;
-
-    return voltage_ign2;
-}
-
-uint32_t Analog_getIGN3(uint32_t vbat){
-	uint32_t voltage = esp_adc_cal_raw_to_voltage(ulp_IGN3_RAW, &adc_chars);
-	ESP_LOGV(TAG, "IGN3 voltage: %dmV", voltage);
-
-    voltage_ign3 = filter_coeff_ign * voltage + (1-filter_coeff_ign) * voltage_ign3;
-
-    return voltage_ign3;
-}
-
-uint32_t Analog_getIGN4(uint32_t vbat){
-	uint32_t voltage = esp_adc_cal_raw_to_voltage(ulp_IGN4_RAW, &adc_chars);
-	ESP_LOGV(TAG, "IGN$ voltage: %dmV", voltage);
-
-    voltage_ign4 = filter_coeff_ign * voltage + (1-filter_coeff_ign) * voltage_ign4;
-
-    return voltage_ign4;
+    return voltage_ign[ign_num];
 }
 
 uint32_t Analog_getVBAT(){
@@ -153,18 +121,26 @@ void Analog_update(Analog_meas_t * meas){
 	//TODO support variable threshold and fuse check
 	if(vbat_mV_raw > 3200){
 		ign_det_thr = (meas->vbat_mV*12 - 12619)/1000;
-		meas->IGN1_det = (Analog_getIGN1(vbat_mV_raw) < ign_det_thr);
-		meas->IGN2_det = (Analog_getIGN2(vbat_mV_raw) < ign_det_thr);
-		meas->IGN3_det = (Analog_getIGN3(vbat_mV_raw) < ign_det_thr);
-		meas->IGN4_det = (Analog_getIGN4(vbat_mV_raw) < ign_det_thr);
+		for(uint8_t i=0; i<IGN_NUM; i++){
+			meas->IGN_det[i] = (Analog_getIGN(i, vbat_mV_raw) < ign_det_thr);
+		}
 	} else if(meas->vbat_mV < 3200){
-		meas->IGN1_det = -1;
-		meas->IGN2_det = -1;
-		meas->IGN3_det = -1;
-		meas->IGN4_det = -1;
+		for(uint8_t i=0; i<IGN_NUM; i++){
+			meas->IGN_det[i] = -1;
+		}
 	}
 
 	meas->temp = Analog_getTempMCU();
+}
+
+int8_t Analog_getIGNstate(Analog_meas_t * meas, uint8_t ign_no){
+	if(ign_no > IGN_NUM)
+		return -1;
+
+	if(meas == NULL)
+		return -1;
+
+	return meas->IGN_det[ign_no];
 }
 
 //---------------------------------- ULP ---------------------------------
@@ -183,15 +159,14 @@ static esp_err_t ulp_init_analog()
 	esp_err_t err = ESP_OK;
 	// Init ADC (modified version of ulp_riscv_adc_init() with multi-channel support)
 	adc1_config_width(ADC_WIDTH_BIT_12);
-	adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_DB_2_5); //IGN4
-	adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_DB_2_5); //IGN1
-	adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_DB_2_5); //IGN2
-	adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5); //IGN3
-	adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_2_5); //BAT
+
+	for(uint8_t i=0; i<ADC_CHANNELS_NUM; i++){
+		adc1_config_channel_atten(ADC_CHANNELS[i], ADC_ATTEN_DB_2_5);
+	}
 
 	//Calibrate the ADC
 	extern uint32_t get_calibration_offset(adc_unit_t adc_n, adc_channel_t chan);
-	uint32_t cal_val = get_calibration_offset(ADC_NUM_1, ADC_CHANNEL_7);
+	uint32_t cal_val = get_calibration_offset(ADC_NUM_1, ADC_CHANNELS[0]);
 	adc_hal_set_calibration_param(ADC_NUM_1, cal_val);
 
 	//Temp sensor init

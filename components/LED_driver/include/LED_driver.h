@@ -2,6 +2,7 @@
 #define WS2812_CONTROL_H
 #include <stdint.h>
 #include "sdkconfig.h"
+#include "BOARD.h"
 #include "driver/rmt.h"
 
 //Pulse mode names
@@ -25,14 +26,14 @@ typedef enum{
 } led_colour_t; //Colours in GRB NOT RGB
 
 typedef enum{
-	LED_READY 	= 0,
-	LED_ARM 	= 1,
-	LED_STAT 	= 2,
-	LED_RF 		= 3,
-	LED_IGN1 	= 4,
-	LED_IGN2 	= 5,
-	LED_IGN3 	= 6,
-	LED_IGN4 	= 7,
+	LED_READY 	= LED_POS_READY,
+	LED_ARM 	= LED_POS_ARM,
+	LED_STAT 	= LED_POS_STAT,
+	LED_RF 		= LED_POS_RF,
+	LED_IGN1 	= LED_POS_IGN1,
+	LED_IGN2 	= LED_POS_IGN2,
+	LED_IGN3 	= LED_POS_IGN3,
+	LED_IGN4 	= LED_POS_IGN4,
 	BUZZER		= 100
 } led_enum_t;
 
@@ -88,7 +89,7 @@ esp_err_t LED_blinkSTD(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint
 
 //Strip LED
 esp_err_t LED_setWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint8_t state); 	//Set strip LED ON/OFF Brightness 0-255
-esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);	// Blink strip LED on/off time in MS 0 beeps number means infinite
+esp_err_t LED_blinkWS(int16_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);	// Blink strip LED on/off time in MS 0 beeps number means infinite
 
 //Buzzer
 esp_err_t BUZZER_init(); //Initialize Buzzer
@@ -99,10 +100,7 @@ esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number
 esp_err_t LED_setARM(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
-esp_err_t LED_setIGN1(uint8_t brightness_percent, int8_t state);
-esp_err_t LED_setIGN2(uint8_t brightness_percent, int8_t state);
-esp_err_t LED_setIGN3(uint8_t brightness_percent, int8_t state);
-esp_err_t LED_setIGN4(uint8_t brightness_percent, int8_t state);
+esp_err_t LED_setIGN(uint8_t ign_no, uint8_t brightness_percent, int8_t state);
 esp_err_t LED_setRF(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setBrigthnessGlobal(uint8_t percentage);
 

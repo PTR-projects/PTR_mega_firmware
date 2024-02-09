@@ -24,6 +24,7 @@ static uint32_t loop_interval_ms = 100;
 static SemaphoreHandle_t mutex_LED;
 static StaticSemaphore_t xMutexBuffer_LED;
 static uint8_t LED_brightness_percentage = 100;
+static int32_t LED_POS_IGN[LED_IGN_NUM] = {LED_POS_IGN_LIST};
 
 rmt_item32_t led_data_buffer[LED_WS_BUFFER_ITEMS]; 	//Strip LED set buffer
 static LED_t led_array[LED_ARRAY_SIZE]; 			//LED BUZZER STATUS ARRAY
@@ -171,8 +172,11 @@ esp_err_t LED_blinkSTD(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint
 	return ESP_OK;
 }
 
-esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+esp_err_t LED_blinkWS(int16_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
 #if (LED_WS_COUNT > 0)
+	if(led_no == -1)
+		return ESP_FAIL;
+
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(100)) == pdTRUE){
 		if (blinks_number == 0) {
 			strip_led_colour(led_no, colour, brightness_percent);
@@ -199,9 +203,11 @@ esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_pe
 }
 
 esp_err_t LED_setARM(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
-#if LED_CHECK_IF_WS(LED_POS_ARM)
+#if !defined(LED_POS_ARM)
+	return ESP_FAIL;
+#elif LED_CHECK_IF_WS(LED_POS_ARM)
 	return LED_blinkWS(LED_POS_ARM, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
-#elif LED_CHECK_IF_STD()
+#elif LED_CHECK_IF_STD(LED_POS_ARM)
 	return LED_blinkSTD(LED_POS_ARM, t_on_ms, t_off_ms, blinks_number);
 #elif (LED_POS_ARM == -1)
 	return ESP_FAIL;
@@ -211,7 +217,9 @@ esp_err_t LED_setARM(led_colour_t colour, uint8_t brightness_percent, uint16_t t
 }
 
 esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
-#if LED_CHECK_IF_WS(LED_POS_STAT)
+#if !defined(LED_POS_STAT)
+	return ESP_FAIL;
+#elif LED_CHECK_IF_WS(LED_POS_STAT)
 	return LED_blinkWS(LED_POS_STAT, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
 #elif LED_CHECK_IF_STD(LED_POS_READY)
 	return LED_blinkSTD(LED_POS_STAT, t_on_ms, t_off_ms, blinks_number);
@@ -223,7 +231,9 @@ esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t 
 }
 
 esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
-#if LED_CHECK_IF_WS(LED_POS_READY)
+#if !defined(LED_POS_READY)
+	return ESP_FAIL;
+#elif LED_CHECK_IF_WS(LED_POS_READY)
 	return LED_blinkWS(LED_POS_READY, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
 #elif LED_CHECK_IF_STD(LED_POS_READY)
 	return LED_blinkSTD(LED_POS_READY, t_on_ms, t_off_ms, blinks_number);
@@ -234,60 +244,26 @@ esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t
 #endif
 }
 
-esp_err_t LED_setIGN1(uint8_t brightness_percent, int8_t state){
-#if LED_CHECK_IF_WS(LED_POS_IGN1)
-	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
-	return LED_blinkWS(LED_POS_IGN1, colour, brightness_percent, 100, 0, 0);
-#elif LED_CHECK_IF_STD(LED_POS_IGN1)
-	return LED_blinkSTD(LED_POS_IGN1, t_on_ms, t_off_ms, blinks_number);
-#elif (LED_POS_IGN1 == -1)
-	return ESP_FAIL;
-#else
-#error "LED READY not found in configuration"
-#endif
-}
+esp_err_t LED_setIGN(uint8_t ign_no, uint8_t brightness_percent, int8_t state){
+	if(ign_no > LED_IGN_NUM)
+		return ESP_ERR_NOT_SUPPORTED;
 
-esp_err_t LED_setIGN2(uint8_t brightness_percent, int8_t state){
-#if LED_CHECK_IF_WS(LED_POS_IGN2)
-	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
-	return LED_blinkWS(LED_POS_IGN2, colour, brightness_percent, 100, 0, 0);
-#elif LED_CHECK_IF_STD(LED_POS_IGN2)
-	return LED_blinkSTD(LED_POS_IGN2, t_on_ms, t_off_ms, blinks_number);
-#elif (LED_POS_IGN2 == -1)
-	return ESP_FAIL;
-#else
-#error "LED READY not found in configuration"
-#endif
-}
+	if(LED_CHECK_IF_WS(LED_POS_IGN[ign_no])){
+		led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
+		return LED_blinkWS(LED_POS_IGN[ign_no], colour, brightness_percent, 100, 0, 0);
+	}
+	else if(LED_CHECK_IF_STD(LED_POS_IGN[ign_no])){
+		//return LED_blinkSTD(LED_POS_IGN1, t_on_ms, t_off_ms, blinks_number);
+		return 0;
+	}
 
-esp_err_t LED_setIGN3(uint8_t brightness_percent, int8_t state){
-#if LED_CHECK_IF_WS(LED_POS_IGN3)
-	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
-	return LED_blinkWS(LED_POS_IGN3, colour, brightness_percent, 100, 0, 0);
-#elif LED_CHECK_IF_STD(LED_POS_IGN3)
-	return LED_blinkSTD(LED_POS_IGN3, t_on_ms, t_off_ms, blinks_number);
-#elif (LED_POS_IGN3 == -1)
-	return ESP_FAIL;
-#else
-#error "LED READY not found in configuration"
-#endif
-}
-
-esp_err_t LED_setIGN4(uint8_t brightness_percent, int8_t state){
-#if LED_CHECK_IF_WS(LED_POS_IGN4)
-	led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
-	return LED_blinkWS(LED_POS_IGN4, colour, brightness_percent, 100, 0, 0);
-#elif LED_CHECK_IF_STD(LED_POS_IGN4)
-	return LED_blinkSTD(LED_POS_IGN4, t_on_ms, t_off_ms, blinks_number);
-#elif (LED_POS_IGN4 == -1)
-	return ESP_FAIL;
-#else
-#error "LED READY not found in configuration"
-#endif
+	return ESP_ERR_INVALID_ARG;
 }
 
 esp_err_t LED_setRF(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
-#if LED_CHECK_IF_WS(LED_POS_RF)
+#if !defined(LED_POS_RF)
+	return ESP_FAIL;
+#elif LED_CHECK_IF_WS(LED_POS_RF)
 	return LED_blinkWS(LED_POS_RF, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
 #elif LED_CHECK_IF_STD(LED_POS_RF)
 	return LED_blinkSTD(LED_POS_RF, t_on_ms, t_off_ms, blinks_number);
