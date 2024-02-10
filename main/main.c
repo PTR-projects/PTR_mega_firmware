@@ -97,12 +97,14 @@ void task_kpptr_main(void *pvParameter){
 			ESP_LOGE(TAG, "Main RB error!");
 		}
 
+#if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 		//send data to RF every 1000ms
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
 		}
+#endif
 
 		//send data to Web every 1000ms
 		if(((prevTickCountWeb + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
@@ -116,10 +118,10 @@ void task_kpptr_main(void *pvParameter){
 
 
 void task_kpptr_telemetry(void *pvParameter){
-#if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 	DataPackageRF_t DataPackageRF_d;
 
 
+#if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 	while(LORA_init() != ESP_OK){
 		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);
@@ -201,6 +203,10 @@ void task_kpptr_utils(void *pvParameter){
 
 	ESP_LOGI(TAG, "Task Utils - ready!");
 
+#if !defined GNSS_UART
+	SysMgr_checkout(checkout_gnss, check_ready);
+#endif
+
 	SysMgr_checkout(checkout_utils, check_ready);
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -211,6 +217,7 @@ void task_kpptr_utils(void *pvParameter){
 		if(xQueueReceive(queue_MainToWeb, &DataPackage_d, 0)){
 			Web_live_from_DataPackage(&DataPackage_d);
 
+#if defined GNSS_UART
 			// change GNSS component status if fix is OK
 			if(GPS_checkStatus() == ESP_OK){
 				static sysmgr_checkout_state_t gnss_ready_check = check_void;
@@ -222,6 +229,7 @@ void task_kpptr_utils(void *pvParameter){
 			} else {
 				SysMgr_checkout(checkout_gnss, check_fail);
 			}
+#endif
 
 		}
 	}
