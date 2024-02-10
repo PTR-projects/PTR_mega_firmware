@@ -39,6 +39,7 @@
 #include "sx126x_hal.h"
 #include "sx126x_regs.h"
 #include "esp_log.h"
+#include "BOARD.h"
 
 #if !(defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN))
 
