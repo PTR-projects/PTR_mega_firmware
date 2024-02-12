@@ -306,6 +306,10 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain){
 	static bool first_run = false;
 
+	if((sensor+1) >= LSM6DSO32_COUNT){
+		return ESP_ERR_NOT_SUPPORTED;
+	}
+
 	if(first_run == false){
 		first_run = true;
 		LSM6DSO32_d[sensor].gyroXoffset = (float)LSM6DSO32_d[sensor].rawData.gyroX_raw;
