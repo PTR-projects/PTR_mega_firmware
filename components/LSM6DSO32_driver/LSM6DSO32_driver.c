@@ -7,6 +7,15 @@
 static const char *TAG = "LSM6DSO32";
 
 
+#if !defined SPI_SLAVE_LSM6DSO32_0_PIN
+esp_err_t LSM6DSO32_init() {return ESP_OK;}
+esp_err_t LSM6DSO32_readMeasAll() {return ESP_OK;}
+esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t * meas) {return ESP_OK;}
+esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting) {return ESP_OK;}
+esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting) {return ESP_OK;}
+esp_err_t LSM6DSO32_calibrateGyroAll(float gain) {return ESP_OK;}
+#else
+
 /**
  * @brief LSM6DSO32 accelerometer initial sensitivity settings.
  */
@@ -19,14 +28,13 @@ static const char *TAG = "LSM6DSO32";
 static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
 static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t * rx, uint8_t length);
 static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
+uint8_t LSM6DSO32_WhoAmI(uint8_t sensor);
+esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
+esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas);
+esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
 
 
-#ifdef SPI_SLAVE_LSM6DSO32_2_PIN
-#define SPI_SLAVE_LSM6DSO32_PIN_NUM(x) ((x==0) ? SPI_SLAVE_LSM6DSO32_PIN:SPI_SLAVE_LSM6DSO32_2_PIN)
-#else
-#define SPI_SLAVE_LSM6DSO32_PIN_NUM(x) SPI_SLAVE_LSM6DSO32_PIN
-#endif
-
+static int SPI_SLAVE_LSM6DSO32_PIN_ARRAY[LSM6DSO32_COUNT] = SPI_SLAVE_LSM6DSO32_PINS;
 static LSM6DSO32_t LSM6DSO32_d[LSM6DSO32_COUNT];
 
 /**
@@ -44,7 +52,7 @@ esp_err_t LSM6DSO32_SPIinit(){
 	/* Max SCK frequency - 10MHz */
 	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
 	{
-		ESP_RETURN_ON_ERROR(SPI_registerDevice(&LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN_NUM(sensor),
+		ESP_RETURN_ON_ERROR(SPI_registerDevice(&LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN_ARRAY[sensor],
 												SPI_SCK_10MHZ, 1, 1, 7), TAG, "SPI register for LSM6DS number: %d sensor failed", sensor);
 	}
 
@@ -391,3 +399,4 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
 
 	return ESP_OK;
 }
+#endif /* SPI_SLAVE_LSM6DSO32_PIN */

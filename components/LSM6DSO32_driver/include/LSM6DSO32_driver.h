@@ -9,14 +9,6 @@
 #include "SPI_driver.h"
 #include "esp_log.h"
 
-#ifdef SPI_SLAVE_LSM6DSO32_2_PIN
-#define LSM6DSO32_COUNT			 2
-#else
-#define LSM6DSO32_COUNT			 1
-#endif
-
-
-
 typedef struct{
 	float temp;
 
@@ -206,12 +198,8 @@ typedef union{
 // CTRL10_C
 
 esp_err_t LSM6DSO32_init();
-uint8_t LSM6DSO32_WhoAmI(uint8_t sensor);
-esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
-esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas);
 esp_err_t LSM6DSO32_readMeasAll();
 esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t * meas);
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting);
 esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting);
-esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
 esp_err_t LSM6DSO32_calibrateGyroAll(float gain);
