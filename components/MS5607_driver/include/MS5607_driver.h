@@ -1,21 +1,11 @@
 #pragma once
 #include "esp_err.h"
-
+#include "SPI_driver.h"
 
 typedef struct{
 	float temp;
 	float press;
 } MS5607_meas_t;
-
-typedef struct {
-	uint32_t D1;
-	uint32_t D2;
-	int32_t dT;
-	int64_t SENS2;
-	int64_t OFF2;
-
-	MS5607_meas_t meas;
-} MS5607_t;
 
 typedef struct {
 	uint16_t C1;
@@ -26,13 +16,24 @@ typedef struct {
 	uint16_t C6;
 } MS5607_cal_t;
 
+typedef struct {
+	spi_dev_handle_t spi_handle;
+	MS5607_cal_t calibration;
 
+	uint32_t D1;
+	uint32_t D2;
+	int32_t dT;
+	int64_t SENS2;
+	int64_t OFF2;
+
+	MS5607_meas_t meas;
+} MS5607_t;
 
 esp_err_t MS5607_init();
 esp_err_t MS5607_getReloadSmart();
-float MS5607_getPress();
-float MS5607_getTemp();
-esp_err_t MS5607_getMeas(MS5607_meas_t * meas);
+float MS5607_getPress(uint8_t sensor);
+float MS5607_getTemp(uint8_t sensor);
+esp_err_t MS5607_getMeas(uint8_t sensor, MS5607_meas_t * meas);
 
 
 /*

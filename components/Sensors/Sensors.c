@@ -35,7 +35,7 @@ esp_err_t  Sensors_update(){
 	LSM6DSO32_readMeasAll();
 	MMC5983MA_readMeas();
 
-	MS5607_getMeas	 (&(Sensors_d.MS5607));
+	MS5607_getMeas	 (0, &(Sensors_d.MS5607));
 	LIS331_getMeas	 (&(Sensors_d.LIS331));
 	LSM6DSO32_getMeasAll(&(Sensors_d.LSM6DSO32[0]));
 	MMC5983MA_getMeas(&(Sensors_d.MMC5983MA));
