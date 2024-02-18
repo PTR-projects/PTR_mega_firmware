@@ -30,11 +30,10 @@ static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, 
 static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
 uint8_t LSM6DSO32_WhoAmI(uint8_t sensor);
 esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
-esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas);
 esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
 
 
-static int SPI_SLAVE_LSM6DSO32_PIN_ARRAY[LSM6DSO32_COUNT] = SPI_SLAVE_LSM6DSO32_PINS;
+static const int SPI_SLAVE_LSM6DSO32_PIN_ARRAY[LSM6DSO32_COUNT] = SPI_SLAVE_LSM6DSO32_PINS;
 static LSM6DSO32_t LSM6DSO32_d[LSM6DSO32_COUNT];
 
 /**
@@ -170,7 +169,7 @@ esp_err_t LSM6DSO32_readMeasAll(){
  * @param meas Pointer to LSM6DS_meas_t structure to store measurement data.
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
-esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas){
+esp_err_t LSM6DSO32_getMeas(uint8_t sensor, LSM6DS_meas_t * meas){
 	if(! (LSM6DSO32_COUNT > sensor) ){
 		ESP_LOGE(TAG,"Wrong sensor number!");
 		return ESP_ERR_NOT_SUPPORTED;

@@ -50,9 +50,9 @@ esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors){
 	AHRS_d.prev_time_us = time_us;
 
 	//Store raw accelerations in AHRS_d <<---- to be changed with more complex function (sensors fusion)
-	AHRS_d.acc_rf.x = GRAVITY * sensors->LSM6DSO32[0].accX;
-	AHRS_d.acc_rf.y = GRAVITY * sensors->LSM6DSO32[0].accY;
-	AHRS_d.acc_rf.z = GRAVITY * sensors->LSM6DSO32[0].accZ;
+	AHRS_d.acc_rf.x = GRAVITY * sensors->LSM6DSO32.accX;
+	AHRS_d.acc_rf.y = GRAVITY * sensors->LSM6DSO32.accY;
+	AHRS_d.acc_rf.z = GRAVITY * sensors->LSM6DSO32.accZ;
 
 	AHRS_CalcAltitudeP(sensors->MS5607.press, sensors->ref_press);
 	AHRS_d.acc_axis_lowpass = 0.05f*AHRS_d.acc_rf.x + 0.95f*AHRS_d.acc_axis_lowpass;
@@ -148,8 +148,8 @@ static void AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro){
 	float dcmKpGain = 2.5f;
 
 	AHRS_MahonyUpdate(AHRS_d.dt,
-						useGyro, sensors->LSM6DSO32[0].gyroX, sensors->LSM6DSO32[0].gyroY, sensors->LSM6DSO32[0].gyroZ,
-						useAcc,  sensors->LSM6DSO32[0].accX,  sensors->LSM6DSO32[0].accY,  sensors->LSM6DSO32[0].accZ,
+						useGyro, sensors->LSM6DSO32.gyroX, sensors->LSM6DSO32.gyroY, sensors->LSM6DSO32.gyroZ,
+						useAcc,  sensors->LSM6DSO32.accX,  sensors->LSM6DSO32.accY,  sensors->LSM6DSO32.accZ,
 						useMag,  sensors->MMC5983MA.magX,  sensors->MMC5983MA.magY,  sensors->MMC5983MA.magZ,
 						dcmKpGain, &(AHRS_d.orientation));
 

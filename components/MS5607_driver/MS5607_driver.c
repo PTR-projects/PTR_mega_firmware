@@ -10,16 +10,15 @@
 #include <string.h>
 
 static const char *TAG = "MS5607";
-static const int SPI_SLAVE_MS5607_PIN_ARRAY[MS5607_COUNT] = SPI_SLAVE_MS5607_PINS;
 
 #if !defined SPI_SLAVE_MS5607_0_PIN
-esp_err_t MS5607_init(uint8_t sensor) {return ESP_OK;}
-esp_err_t MS5607_getReloadSmart(uint8_t sensor) {return ESP_OK;}
+esp_err_t MS5607_init() {return ESP_OK;}
+esp_err_t MS5607_getReloadSmart() {return ESP_OK;}
 float MS5607_getPress(uint8_t sensor) {return 0.0f;}
 float MS5607_getTemp(uint8_t sensor) {return -100.0f;}
 esp_err_t MS5607_getMeas(uint8_t sensor, MS5607_meas_t * meas) {return ESP_OK;}
 #else
-
+static const int SPI_SLAVE_MS5607_PIN_ARRAY[MS5607_COUNT] = SPI_SLAVE_MS5607_PINS;
 static esp_err_t MS5607_read(uint8_t sensor, uint8_t addr, uint8_t * data_in, uint16_t length);
 static esp_err_t MS5607_write(uint8_t sensor, uint8_t addr);
 static esp_err_t MS5607_resetDevice(uint8_t sensor);
