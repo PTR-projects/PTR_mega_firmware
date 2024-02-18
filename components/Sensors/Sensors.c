@@ -20,7 +20,7 @@ esp_err_t Sensors_init(){
 	MS5607_init();
 	MMC5983MA_init();
 	LSM6DSO32_init();
-	LIS331_init(LIS331_IC_100G);
+	LIS331_init(LIS331_RANGE_LOW);
 
 	Sensors_d.ref_press = 100930.0f;
 
@@ -36,7 +36,7 @@ esp_err_t  Sensors_update(){
 	MMC5983MA_readMeas();
 
 	MS5607_getMeas	 (0, &(Sensors_d.MS5607));
-	LIS331_getMeas	 (&(Sensors_d.LIS331));
+	LIS331_getMeas	 (0, &(Sensors_d.LIS331));
 	LSM6DSO32_getMeasAll(&(Sensors_d.LSM6DSO32[0]));
 	MMC5983MA_getMeas(&(Sensors_d.MMC5983MA));
 

@@ -1,19 +1,13 @@
 #pragma once
 #include "esp_err.h"
 #include <stdbool.h>
+#include "SPI_driver.h"
 
-typedef enum LIS331_type
-{
-	LIS331_IC_2G 		= 2,
-	LIS331_IC_4G 		= 4,
-	LIS331_IC_8G 		= 8,
-	LIS331HH_IC_6G 		= 6,
-	LIS331HH_IC_12G 	= 12,
-	LIS331HH_IC_24G 	= 24,
-	LIS331_IC_100G 	= 100,
-	LIS331_IC_200G 	= 200,
-	LIS331_IC_400G 	= 400
-} LIS331_type_t;
+typedef enum{
+	LIS331_RANGE_LOW  = 0,
+	LIS331_RANGE_MID  = 1,
+	LIS331_RANGE_HIGH = 3
+} LIS331_range_e;
 
 typedef struct{
 	float accX;
@@ -22,6 +16,8 @@ typedef struct{
 } LIS331_meas_t;
 
 typedef struct {
+	spi_dev_handle_t spi_handle;
+
 	union{
 		uint8_t raw[6];
 		struct{
@@ -37,7 +33,7 @@ typedef struct {
 	float accYoffset;
 	float accZoffset;
 
-	float sensor_range;
+	int sensor_range;
 } LIS331_t;
 
 
@@ -167,34 +163,33 @@ typedef enum LIS331_hp_cutoff
 
 }LIS331_hp_cutoff_t;
 
-esp_err_t 	LIS331_init(LIS331_type_t type); 	//Base init
-uint8_t 	LIS331_WhoAmI(void); 				//read device ID default respond 32
+esp_err_t 	LIS331_init(LIS331_range_e range); 	//Base init
 
-esp_err_t LIS331_readMeas(void);
-esp_err_t LIS331_getMeas(LIS331_meas_t * meas);
-esp_err_t LIS331_getMeasurementXYZ(float* X, float* Y, float* Z); //Get and calculate readings
+esp_err_t LIS331_readMeas();
+esp_err_t LIS331_getMeas(uint8_t sensor, LIS331_meas_t * meas);
+esp_err_t LIS331_getMeasurementXYZ(uint8_t sensor, float* X, float* Y, float* Z); //Get and calculate readings
 
-esp_err_t		 	LIS331_x_axis_set(bool val); 		//Enable/Disable X Axis measurments
-bool 				LIS331_x_axis_get(void);				//Check if X Axis measurments are ON
-esp_err_t 			LIS331_y_axis_set(bool val); 		//Enable/Disable Y Axis measurments
-bool 				LIS331_y_axis_get(void);				//Check if Y Axis measurments are ON
-esp_err_t 			LIS331_z_axis_set(bool val);		//Enable/Disable Z Axis measurments
-bool 				LIS331_z_axis_get(void);				//Check if Z Axis measurments are ON
+esp_err_t		 	LIS331_x_axis_set(uint8_t sensor, bool val); 		//Enable/Disable X Axis measurments
+bool 				LIS331_x_axis_get(uint8_t sensor);					//Check if X Axis measurments are ON
+esp_err_t 			LIS331_y_axis_set(uint8_t sensor, bool val); 		//Enable/Disable Y Axis measurments
+bool 				LIS331_y_axis_get(uint8_t sensor);					//Check if Y Axis measurments are ON
+esp_err_t 			LIS331_z_axis_set(uint8_t sensor, bool val);		//Enable/Disable Z Axis measurments
+bool 				LIS331_z_axis_get(uint8_t sensor);					//Check if Z Axis measurments are ON
 
-esp_err_t 			LIS331_power_mode_set(LIS331_power_mode_t val);
-LIS331_power_mode_t LIS331_power_mode_get(void);
-esp_err_t 			LIS331_data_rate_set(LIS331_data_rate_t val);
-LIS331_data_rate_t 	LIS331_data_rate_get(void);
-esp_err_t 			LIS331_boot(void);
-esp_err_t 			LIS331_hp_filter_set(LIS331_hp_mode_t val);
-LIS331_hp_mode_t 	LIS331_hp_filter_get(void);
-esp_err_t 			LIS331_hp_en_set(uint8_t interup, bool val);
-bool 				LIS331_hp_en_get(uint8_t interup);
-esp_err_t 			LIS331_hp_cutoff_set(LIS331_hp_cutoff_t val);
-LIS331_hp_cutoff_t 	LIS331_hp_cutoff_get(void);
-esp_err_t 			LIS331_bdu_set(bool val);
-bool 				LIS331_bdu_get(void);
-esp_err_t 			LIS331_ble_set(bool val);
-bool 				LIS331_ble_get(void);
-esp_err_t 			LIS331_range_set(LIS331_range_t val);
-LIS331_range_t 		LIS331_range_get(void);
+esp_err_t 			LIS331_power_mode_set(uint8_t sensor, LIS331_power_mode_t val);
+LIS331_power_mode_t LIS331_power_mode_get(uint8_t sensor);
+esp_err_t 			LIS331_data_rate_set(uint8_t sensor, LIS331_data_rate_t val);
+LIS331_data_rate_t 	LIS331_data_rate_get(uint8_t sensor);
+esp_err_t 			LIS331_boot(uint8_t sensor);
+esp_err_t 			LIS331_hp_filter_set(uint8_t sensor, LIS331_hp_mode_t val);
+LIS331_hp_mode_t 	LIS331_hp_filter_get(uint8_t sensor);
+esp_err_t 			LIS331_hp_en_set(uint8_t sensor, uint8_t interrupt, bool val);
+bool 				LIS331_hp_en_get(uint8_t sensor, uint8_t interrupt);
+esp_err_t 			LIS331_hp_cutoff_set(uint8_t sensor, LIS331_hp_cutoff_t val);
+LIS331_hp_cutoff_t 	LIS331_hp_cutoff_get(uint8_t sensor);
+esp_err_t 			LIS331_bdu_set(uint8_t sensor, bool val);
+bool 				LIS331_bdu_get(uint8_t sensor);
+esp_err_t 			LIS331_ble_set(uint8_t sensor, bool val);
+bool 				LIS331_ble_get(uint8_t sensor);
+esp_err_t 			LIS331_range_set(uint8_t sensor, LIS331_range_t val);
+LIS331_range_t 		LIS331_range_get(uint8_t sensor);
