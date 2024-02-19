@@ -7,6 +7,7 @@
 #include "Analog_driver.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
+#include "Servo_driver.h"
 
 typedef struct __attribute__((__packed__)){
 	uint32_t sys_time;
@@ -93,7 +94,7 @@ typedef struct __attribute__((__packed__)){
 	int16_t tilt_100;	//Tilt*100 [deg]
 	float pressure;		//Pressure [Pa]
 	int16_t velocity_10;	//Velocity*10 [m/s]
-	uint16_t altitude;		//Altitude [m]
+	uint16_t altitude;		//Altitude [m] 
 
 	int32_t lat;		//[1e-7 deg]
 	int32_t lon;		//[1e-7 deg]
@@ -108,5 +109,5 @@ esp_err_t DM_getUsedPointerFromMainRB_wait(DataPackage_t ** ptr);
 esp_err_t DM_returnUsedPointerToMainRB(DataPackage_t ** ptr);
 esp_err_t DM_getFreePointerToMainRB(DataPackage_t ** ptr);
 esp_err_t DM_addToMainRB(DataPackage_t ** ptr);
-void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog);
+void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, Servo_t * servo);
 void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign);
