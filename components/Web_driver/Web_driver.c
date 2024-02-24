@@ -20,6 +20,8 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
+#include "Preferences.h"
+#include "DataManager.h"
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
 
@@ -57,7 +59,7 @@ esp_err_t Web_wifi_stop					(void);
 esp_vfs_spiffs_conf_t conf = {
      .base_path = "/www",
      .partition_label = "www",
-     .max_files = 5,
+     .max_files = 6,
      .format_if_mount_failed = false
 };
 
@@ -87,7 +89,9 @@ esp_err_t Web_init(void){
 		ret = Web_http_init(base_path);
 	}
 
-    Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
+	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
+	//Preferences_init();
+	
 	return ret;
 }
 
@@ -566,6 +570,21 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/*!
+ * @brief Handler responsible for serving json with configuration data.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t preferences_get_config(httpd_req_t *req){
+	char *string = Preferences_send_config_web();
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
 
 /*!
  * @brief Handler responsible for serving json with status data.
@@ -640,7 +659,40 @@ esp_err_t cmd_post_handler(httpd_req_t *req){
     return ESP_OK;
 }
 
+/*!
+ * @brief Handler responsible for sending config file  through wifi.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t config_post_handler(httpd_req_t *req){
+	int total_len = req->content_len;
+	    int cur_len = 0;
+	    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	    int received = 0;
+	    if (total_len >= SCRATCH_BUFSIZE) {
+	        /* Respond with 500 Internal Server Error */
+	        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+	        return ESP_FAIL;
+	    }
+	    while (cur_len < total_len) {
+	        received = httpd_req_recv(req, buf + cur_len, total_len);
+	        if (received <= 0) {
+	            /* Respond with 500 Internal Server Error */
+	            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+	            return ESP_FAIL;
+	        }
+	        cur_len += received;
+	    }
+	    buf[total_len] = '\0';
 
+	    Prefences_update_web(buf);
+
+	    httpd_resp_sendstr(req, "Post control value successfully");
+
+    return ESP_OK;
+}
 
 /*!
  * @brief Initialize HTTP server, create soft access point.
@@ -653,6 +705,7 @@ esp_err_t Web_http_init(const char *base_path){
 
 	httpd_handle_t server = NULL;
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+	config.max_uri_handlers = 16;
 
 	static struct file_server_data *server_data = NULL;
 	if(server_data){
@@ -685,6 +738,14 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &index_get);
 
+	httpd_uri_t pref_get = {
+			.uri      = "/pref_get",
+			.method   = HTTP_GET,
+			.handler  = preferences_get_config,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &pref_get);
+
 	httpd_uri_t jsonStatus_get = {
 		    .uri      = "/status",
 		    .method   = HTTP_GET,
@@ -708,7 +769,14 @@ esp_err_t Web_http_init(const char *base_path){
 			    .user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &cmd_send);
-
+	
+	httpd_uri_t config_send = {
+			    .uri      = "/config",
+			    .method   = HTTP_POST,
+			    .handler  = config_post_handler,
+			    .user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &config_send);
 
 	httpd_uri_t file_delete = {
 			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
@@ -917,4 +985,3 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     Web_live_exchange(live_web);
     return ESP_OK;
 }
-

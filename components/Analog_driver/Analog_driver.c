@@ -84,16 +84,6 @@ esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 		return ESP_FAIL;
 	}
 
-	// Run ULP program and wait for results - use them to init filters
-//	if(ulp_execute_and_wait() != ESP_OK){
-//		ESP_LOGE(TAG, "ULP execution failed!");
-//		return ESP_FAIL;
-//	}
-//	voltage_ign1 = esp_adc_cal_raw_to_voltage(ulp_IGN1_RAW, &adc_chars);
-//	voltage_ign2 = esp_adc_cal_raw_to_voltage(ulp_IGN2_RAW, &adc_chars);
-//	voltage_ign3 = esp_adc_cal_raw_to_voltage(ulp_IGN3_RAW, &adc_chars);
-//	voltage_ign4 = esp_adc_cal_raw_to_voltage(ulp_IGN4_RAW, &adc_chars);
-//	voltage_vbat = esp_adc_cal_raw_to_voltage(ulp_VBAT_RAW, &adc_chars) * 11;
 	//temp_sensor_read_celsius(&mcu_temp);	// Not implemented for ULP yet
 
 	return ESP_OK;
