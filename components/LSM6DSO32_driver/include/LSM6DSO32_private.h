@@ -1,32 +1,11 @@
 #include "LSM6DSO32_driver.h"
 
-/*
-const LSM6DSO32_register_addr_t LSM6DSO32_register_addr[LSM6DS_NUMBER_OF_REGISTERS]={
-	LSM6DS_WHOAMI_RESPONSE_ADDR,
-	LSM6DS_FUNC_CFG_ACCESS_ADDR,
-	LSM6DS_INT1_CTRL_ADDR,
-	LSM6DS_INT2_CTRL_ADDR,
-	LSM6DS_WHOAMI_ADDR,
-	LSM6DS_CTRL1_XL_ADDR,
-	LSM6DS_CTRL2_G_ADDR,
-	LSM6DS_CTRL3_C_ADDR,
-	LSM6DS_CTRL4_C_ADDR,
-	LSM6DS_CTRL5_C_ADDR,
-	LSM6DS_CTRL6_C_ADDR,
-	LSM6DS_CTRL7_G_ADDR,
-	LSM6DS_CTRL8_XL_ADDR,
-	LSM6DS_CTRL9_XL_ADDR,
-	LSM6DS_CTRL10_C_ADDR,
-	LSM6DS_WAKEUP_SRC_ADDR,
-	LSM6DS_STATUS_REG_ADDR,
-	LSM6DS_OUT_TEMP_L_ADDR,
-	LSM6DS_OUTX_L_G_ADDR,
-	LSM6DS_OUTX_L_A_ADDR,
-	LSM6DS_STEPCOUNTER_ADDR,
-	LSM6DS_TAP_CFG_ADDR
-};
 
-*/
+
+static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
+static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const * rx, uint8_t length);
+static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
+
 /**
  * @brief Array of accelerometer sensitivity bits for LSM6DSO32.
  */
@@ -84,6 +63,32 @@ typedef struct
 	float LSM6DSGyroDpsPerLsb;
 } LSM6DS_config_t;
 
+
+typedef union{
+		uint8_t raw[14];
+		struct{
+			int16_t temp_raw;
+
+			int16_t gyroX_raw;
+			int16_t gyroY_raw;
+			int16_t gyroZ_raw;
+
+			int16_t accX_raw;
+			int16_t accY_raw;
+			int16_t accZ_raw;
+		};
+} LSM6DSO32_raw_data_t;
+
+typedef union{
+		uint8_t raw[7];
+		struct{
+			uint8_t tag;
+			int16_t dataOutRaw[3];
+		};
+} LSM6DSO32_fifo_data_t;	
+
+
+
 /**
  * @brief Structure holding raw data and measurements for LSM6DSO32.
  */
@@ -99,6 +104,8 @@ typedef struct
 	float gyroYoffset;
 	float gyroZoffset;
 } LSM6DSO32_t;
+
+
 
 esp_err_t LSM6DSO32_readTempByID(uint8_t sensor);
 esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor);

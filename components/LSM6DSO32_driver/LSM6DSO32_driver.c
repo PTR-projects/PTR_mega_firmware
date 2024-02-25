@@ -1,31 +1,28 @@
 #include "LSM6DSO32_driver.h"
-#include "LSM6DSO32_privat.h"
+#include "LSM6DSO32_private.h"
 
 /**
  * @brief Tag for identifying log messages related to LSM6DSO32.
  */
 static const char *TAG = "LSM6DSO32";
 
-
 /**
  * @brief LSM6DSO32 accelerometer initial sensitivity settings.
  */
 #define INIT_LSM6DS_ACC_SENS LSM6DS_ACC_FS_32G
+#define LSM6DS_ACC_RATE LSM6DS_CTRL1_XL_ACC_RATE_1_66K_HZ
+
 /**
  * @brief LSM6DSO32 gyroscope initial sensitivity settings.
  */
 #define LSM6DS_GYRO_RATE LSM6DS_CTRL2_G_GYRO_RATE_1_66K_HZ
-#define LSM6DS_ACC_RATE LSM6DS_CTRL1_XL_ACC_RATE_1_66K_HZ
-#define LSM6DS_FIFO_BATCH_SIZE 16 //To be moved to config
-
-LSM6DSO32_fifo_data_t fifoBuffer; //ACC + GYRO
-
 #define INIT_LSM6DS_GYRO_DPS LSM6DS_GYRO_FS_2000_DPS
 
-static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
-static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const * rx, uint8_t length);
-static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
-
+/**
+ * @brief LSM6DSO32 fifoBuffer.
+ */
+#define LSM6DS_FIFO_BATCH_SIZE 16 //To be moved to config
+LSM6DSO32_fifo_data_t fifoBuffer; //ACC + GYRO
 
 #ifdef SPI_SLAVE_LSM6DSO32_2_PIN
 #define SPI_SLAVE_LSM6DSO32_PIN_NUM(x) ((x==0) ? SPI_SLAVE_LSM6DSO32_PIN:SPI_SLAVE_LSM6DSO32_2_PIN)
@@ -93,9 +90,12 @@ esp_err_t LSM6DSO32_init(){
 		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[INIT_LSM6DS_GYRO_DPS]; 
 		LSM6DSO32_configure_fifo(sensor);
 		retVal &= (LSM6DSO32_WhoAmI(sensor) == LSM6DS_WHOAMI_RESPONSE ? ESP_OK : ESP_FAIL);
-		
 	}
 
+	if(retVal != ESP_OK){
+		ESP_LOGE(TAG, "Problem with initialiation of LSM6DSO32");
+	}
+	
 	return retVal;
 }
 
@@ -209,9 +209,9 @@ esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t *meas){
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t eRegisterToSet, uint8_t val){
-	esp_err_t retval = ESP_FAIL;
-	retval = LSM6DSO32_Write(sensor, eRegisterToSet, val);
-	if(ESP_OK == retval)
+	esp_err_t retVal = ESP_FAIL;
+	retVal = LSM6DSO32_Write(sensor, eRegisterToSet, val);
+	if(ESP_OK == retVal)
 	{
 		ESP_LOGD(TAG,"LSM6DSO32 no.%d register no.0x%x set to 0x%x", sensor, eRegisterToSet, val);
 	}
@@ -219,7 +219,7 @@ static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t
 	{
 		ESP_LOGE(TAG,"LSM6DSO32 no.%d EROOR setting register no.0x%x to 0x%x", sensor, eRegisterToSet, val);
 	}
-	return ESP_OK;
+	return retVal;
 }
 
 /**
@@ -236,13 +236,13 @@ static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, 
         return ESP_ERR_INVALID_STATE;
     }
 
-    esp_err_t result = SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 0, reg, &val, NULL, 1);
+    esp_err_t retVal = SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 0, reg, &val, NULL, 1);
 
-    if (result != ESP_OK) {
-        ESP_LOGE(TAG, "Sensor %d: Failed to write data to LSM6DSO32: %d", sensor, result);
+    if (retVal != ESP_OK) {
+        ESP_LOGE(TAG, "Sensor %d: Failed to write data to LSM6DSO32: %d", sensor, retVal);
     }
   
-    return result;
+    return retVal;
 }
 
 /**
@@ -255,18 +255,20 @@ static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, 
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const *rx, uint8_t length) {
-    if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
+    
+	
+	if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
         ESP_LOGE(TAG, "Sensor %d: Null pointer while reading!", sensor);
         return ESP_ERR_INVALID_STATE;
     }
 
-    esp_err_t result = SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 1, reg, NULL, rx, length);
+    esp_err_t retVal = SPI_transfer(LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, 1, reg, NULL, rx, length);
 
-    if (result != ESP_OK) {
-        ESP_LOGE(TAG, "Sensor %d: Failed to read data from LSM6DSO32: %d", sensor, result);
+    if (retVal != ESP_OK) {
+        ESP_LOGE(TAG, "Sensor %d: Failed to read data from LSM6DSO32: %d", sensor, retVal);
     }
 
-    return result;
+    return retVal;
 }
 
 /**

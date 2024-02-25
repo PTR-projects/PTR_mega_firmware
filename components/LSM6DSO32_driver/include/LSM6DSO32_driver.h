@@ -89,28 +89,6 @@ const typedef enum {
 }LSM6DS_gyro_dps_setting_t;
 
 
-typedef union{
-		uint8_t raw[14];
-		struct{
-			int16_t temp_raw;
-
-			int16_t gyroX_raw;
-			int16_t gyroY_raw;
-			int16_t gyroZ_raw;
-
-			int16_t accX_raw;
-			int16_t accY_raw;
-			int16_t accZ_raw;
-		};
-	} LSM6DSO32_raw_data_t;
-
-typedef union{
-		uint8_t raw[7];
-		struct{
-			uint8_t tag;
-			int16_t dataOutRaw[3];
-		};
-	} LSM6DSO32_fifo_data_t;	
 
 
 
