@@ -107,7 +107,7 @@ esp_err_t DM_addToMainRB(DataPackage_t ** ptr){
 void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
 		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
 
-	package->sys_time = time_us;
+	package->sys_time = time_us/100;	// 0.1ms resolution
 
 	package->sensors.accHX 		= sensors->LIS331.accX;
 	package->sensors.accHY 		= sensors->LIS331.accY;
