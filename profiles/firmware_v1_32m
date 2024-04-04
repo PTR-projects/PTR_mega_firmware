@@ -1,0 +1,1 @@
+-B build-v1-32m -DSDKCONFIG=build-v1-32m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_v1_32m" 
