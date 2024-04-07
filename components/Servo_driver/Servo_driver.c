@@ -21,7 +21,7 @@ Servo_t Servo_d;
  */
 uint32_t example_angle_to_compare(float position, Servo_config_t Servo_config)
 {
-    return (uint32_t)((position - Servo_config.SERVO_MIN_DEGREE) * (float)(Servo_config.SERVO_MAX_PULSEWIDTH_US - Servo_config.SERVO_MIN_PULSEWIDTH_US) / (Servo_config.SERVO_MAX_DEGREE - Servo_config.SERVO_MIN_DEGREE) + (float)Servo_config.SERVO_MIN_PULSEWIDTH_US);
+    return (uint32_t)((position + 100) * (Servo_config.SERVO_MAX_PULSEWIDTH_US - Servo_config.SERVO_MIN_PULSEWIDTH_US) / 200 + Servo_config.SERVO_MIN_PULSEWIDTH_US);
 }
 
 
@@ -33,19 +33,13 @@ uint32_t example_angle_to_compare(float position, Servo_config_t Servo_config)
  * Maximum servo pulsewidth in microseconds
  * @param frequency
  * Servo operating frequency
- * @param min_pos
- * Lower servo range 
- * @param max_pos
- * Upper servo range
  * @return `ESP_OK` if done
  * @return `ESP_FAIL` otherwise.
  */
-esp_err_t Servo_init(int min_pulsewidth, int max_pulsewidth, int frequency, float min_pos, float max_pos){
+esp_err_t Servo_init(int min_pulsewidth, int max_pulsewidth, int frequency){
 
     Servo_config_d.SERVO_MIN_PULSEWIDTH_US = min_pulsewidth;
     Servo_config_d.SERVO_MAX_PULSEWIDTH_US = max_pulsewidth;
-    Servo_config_d.SERVO_MIN_DEGREE = min_pos;
-    Servo_config_d.SERVO_MAX_DEGREE = max_pos;
     Servo_config_d.SERVO_TIMEBASE_FREQUENCY = frequency;
 
    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, SERVO1_PIN); 
@@ -69,10 +63,10 @@ esp_err_t Servo_init(int min_pulsewidth, int max_pulsewidth, int frequency, floa
     gpio_set_direction(SERVO_EN_PIN, GPIO_MODE_INPUT_OUTPUT);
    
 
-    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, example_angle_to_compare(0.0f, Servo_config_d));
-    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, example_angle_to_compare(0.0f, Servo_config_d));
-    mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_B, example_angle_to_compare(0.0f, Servo_config_d));
-    mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_1, MCPWM_OPR_B, example_angle_to_compare(0.0f, Servo_config_d));
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, example_angle_to_compare(0, Servo_config_d));
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, example_angle_to_compare(0, Servo_config_d));
+    mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_B, example_angle_to_compare(0, Servo_config_d));
+    mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_1, MCPWM_OPR_B, example_angle_to_compare(0, Servo_config_d));
 
     return ESP_OK;
 }
@@ -108,7 +102,7 @@ esp_err_t Servo_disable(){
  * @return `ESP_OK` if done
  * @return `ESP_FAIL` otherwise.
  */
-esp_err_t Servo_drive(float S1_position, float S2_position, float S3_position, float S4_position){
+esp_err_t Servo_drive(int8_t S1_position, int8_t S2_position, int8_t S3_position, int8_t S4_position){
     mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, example_angle_to_compare(S1_position, Servo_config_d));
     mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, example_angle_to_compare(S2_position, Servo_config_d));
     mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_B, example_angle_to_compare(S3_position, Servo_config_d));
