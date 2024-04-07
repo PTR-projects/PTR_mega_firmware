@@ -14,8 +14,30 @@ typedef struct{
 	float ref_press;
 } Sensors_t;
 
+
+/**
+ * @brief Initialize all the sensors present
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *	- ESP_FAIL: Other errors
+ */
 esp_err_t Sensors_init();
+
+/**
+ * @brief Update all the present sensors and perform exes translation 
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *	- ESP_FAIL: Other errors
+ */
 esp_err_t Sensors_update();
+
+/**
+ * @brief Extract sensor data from the component
+ *
+ * @return Sensors_t
+ */
 Sensors_t * Sensors_get();
 esp_err_t Sensors_UpdateReferencePressure();
 esp_err_t Sensors_calibrateGyro(float gain);

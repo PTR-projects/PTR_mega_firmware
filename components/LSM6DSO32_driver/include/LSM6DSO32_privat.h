@@ -92,10 +92,12 @@ typedef struct
 	LSM6DSO32_raw_data_t rawData;
 	LSM6DS_meas_t meas;
 	LSM6DS_config_t config;
-	float accXoffset;
-	float accYoffset;
-	float accZoffset;
-	float gyroXoffset;
-	float gyroYoffset;
-	float gyroZoffset;
+	
+	float accXoffset;					/*!< X axis acceleration offset */
+	float accYoffset;					/*!< Y axis acceleration offset */
+	float accZoffset;					/*!< Z axis acceleration offset */
+
+	float gyroXoffset;					/*!< X axis angular velocity offset*/
+	float gyroYoffset;					/*!< Y axis angular velocity offset*/	
+	float gyroZoffset;					/*!< Z axis angular velocity offset*/
 } LSM6DSO32_t;
