@@ -28,9 +28,44 @@ typedef struct{
 
 }Preferences_data_t;
 
+/**
+ * @brief Initialize Preferences component with default values and check for existing config file
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_ERR_NO_MEM: Cannot allocate memory 
+ *	- ESP_FAIL: Other errors
+ */
 esp_err_t Preferences_init(Preferences_data_t * data);
+
+/*!
+ * @brief Update configuration, firstly update in RAM then copy to file to prevent reading errors
+ * @param config
+ * Struct with new config data
+ * @return esp_err_t
+ *	- ESP_OK: Success 
+ *	- ESP_ERR_NOT_FOUND: Cannot find file for writing
+ *	- ESP_FAIL: Other errors
+ */
 esp_err_t Preferences_update(Preferences_data_t config);
+
+/**
+ * @brief Get struct with all the configuration data
+ *
+ * @return Preferences_data_t 
+ *	- Configuration struct
+ */
 Preferences_data_t Preferences_get();
+
+/**
+ * @brief Restore deafault configuration parameters
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_ERR_NO_MEM: Cannot allocate memory 
+ *	- ESP_FAIL: Other errors
+ */
 esp_err_t Preferences_restore_dafaults();
+
 esp_err_t Prefences_update_web(char *buf);
 char* Preferences_send_config_web();

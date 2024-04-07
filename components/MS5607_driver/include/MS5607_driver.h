@@ -1,37 +1,84 @@
 #pragma once
 #include "esp_err.h"
 
-
+/**
+ * @brief Barometer final measurement data
+ */
 typedef struct{
-	float temp;
-	float press;
+	float temp;		/*!< Temperature */
+	float press;	/*!< Pressure */
 } MS5607_meas_t;
 
+
+/**
+ * @brief Barometer measurement data
+ */
 typedef struct {
-	uint32_t D1;
-	uint32_t D2;
-	int32_t dT;
-	int64_t SENS2;
-	int64_t OFF2;
+	uint32_t D1;		/*!< Digital pressure value */
+	uint32_t D2;		/*!< Digital temperature value */
+	int32_t dT;			/*!< Difference between actual and reference temperature */
+	int64_t SENS2;		/*!< Sensitivity at actual temperature */
+	int64_t OFF2;		/*!< Offset at actual temperature */
 
 	MS5607_meas_t meas;
 } MS5607_t;
 
+
+/**
+ * @brief Barometer calibration constants
+ */
 typedef struct {
-	uint16_t C1;
-	uint16_t C2;
-	uint16_t C3;
-	uint16_t C4;
-	uint16_t C5;
-	uint16_t C6;
+	uint16_t C1;		/*!< Pressure sensitivity */
+	uint16_t C2;		/*!< Pressure offset */
+	uint16_t C3;		/*!< Temperature coefficient of pressure sensitivity */
+	uint16_t C4;		/*!< Temperature coefficient of pressure offset */
+	uint16_t C5;		/*!< Reference temperature */
+	uint16_t C6;		/*!< Temperature coefficient of the temperature */
 } MS5607_cal_t;
 
 
-
+/**
+ * @brief Initialize MS5607 barometer sensor
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t MS5607_init();
+
+/**
+ * @brief Perform sensor data read with different data rates for temperature and pressure
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *	- ESP_FAIL: Fail
+ */
 esp_err_t MS5607_getReloadSmart();
+
+/**
+ * @brief Get computed pressure 
+ *
+ * @return float
+ * - Pressure value in Pascals
+ */
 float MS5607_getPress();
+
+/**
+ * @brief Get computed temperature 
+ *
+ * @return float
+ * - Pressure value in degrees Celcius
+ */
 float MS5607_getTemp();
+
+/**
+ * @brief Get computed pressure and temperature written into pointed struct 
+ *
+ * @param meas struct to wchich we need to write data
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *	- ESP_FAIL: Fail
+ */
 esp_err_t MS5607_getMeas(MS5607_meas_t * meas);
 
 

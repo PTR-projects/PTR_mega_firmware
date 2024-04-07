@@ -51,15 +51,7 @@ esp_err_t LSM6DSO32_SPIinit(){
 	return ESP_OK;
 }
 
-/**
- * @brief Initializes LSM6DSO32 sensors.
- *
- * This function initializes the SPI communication for LSM6DSO32 sensors and configures
- * each sensor with default settings. It sets up the accelerometer and gyroscope parameters,
- * performs a WHO_AM_I check, and initializes internal data structures.
- *
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_init(){
 	LSM6DSO32_SPIinit();
 	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
@@ -79,12 +71,7 @@ esp_err_t LSM6DSO32_init(){
 	return ESP_OK;
 }
 
-/**
- * @brief Retrieves the WHO_AM_I response from the LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @return uint8_t WHO_AM_I response.
- */
+
 uint8_t LSM6DSO32_WhoAmI(uint8_t sensor){
 	uint8_t rxBuff[1] = {0U};
 	LSM6DSO32_Read(sensor, LSM6DS_WHOAMI_ADDR, rxBuff, 1);
@@ -100,15 +87,6 @@ uint8_t LSM6DSO32_WhoAmI(uint8_t sensor){
 }
 
 
-/**
- * @brief Reads measurement data from a specified LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- *
- * This function reads measurement data from the LSM6DSO32 sensor specified by the sensor number.
- * It performs the read operation and, if successful, calculates the accelerometer, gyroscope, and temperature measurements.
- */
 esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	esp_err_t readResult = LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L_ADDR, LSM6DSO32_d[sensor].rawData.raw, 14);
 	
@@ -131,11 +109,7 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	return readResult;
 }
 
-/**
- * @brief Reads all measurement data from all LSM6DSO32 sensors.
- *
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_readMeasAll(){
 	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
 		{
@@ -144,24 +118,13 @@ esp_err_t LSM6DSO32_readMeasAll(){
 	return ESP_OK;
 }
 
-/**
- * @brief Retrieves measurement data from a specified LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @param meas Pointer to LSM6DS_meas_t structure to store measurement data.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas){
 	*meas = LSM6DSO32_d[sensor].meas;
 	return ESP_OK;
 }
 
-/**
- * @brief Retrieves measurement data from all LSM6DSO32 sensors.
- *
- * @param meas Pointer to an array of LSM6DS_meas_t structures to store measurement data.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t *meas){
 	for(uint8_t x = 0; x < LSM6DSO32_COUNT; x++)
 		{
@@ -277,13 +240,7 @@ esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
 	return ESP_OK;
 }
 
-/**
- * @brief Sets the accelerometer sensitivity for the LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @param setting New sensitivity setting.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting)
 {
 	if( (LSM6DSO32_COUNT > sensor) )
@@ -324,13 +281,7 @@ esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain){
 
 
 
-/**
- * @brief Sets the gyroscope sensitivity for the LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @param setting New sensitivity setting.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting)
 {
 	if( (LSM6DSO32_COUNT > sensor) )
