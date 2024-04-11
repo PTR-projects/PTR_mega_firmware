@@ -12,6 +12,7 @@
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
+#include "esp_system.h"
 
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
@@ -164,7 +165,9 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	fclose(f);
 	ESP_LOGI(TAG, "Updated config successfully");
 	
-	return ESP_OK;
+	esp_restart();
+
+	return ESP_FAIL; //If it returns it means that esp failed to restart
 }
 
 esp_err_t Preferences_restore_dafaults(){
@@ -210,6 +213,7 @@ esp_err_t Prefences_update_web(char *buf){
 	temp.lora_freq = cJSON_GetObjectItem(json, "lora_freq")->valueint;
 	
 	return Preferences_update(temp);
+	
 }
 
 char* Preferences_send_config_web(){

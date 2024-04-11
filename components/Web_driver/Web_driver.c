@@ -68,6 +68,7 @@ typedef struct rest_server_context {
     char scratch[SCRATCH_BUFSIZE];
 } rest_server_context_t;
 
+
 /*!
  * @brief Initialize web component by calling init functions for wifi and http server.
  * @return `ESP_OK` if initialized
@@ -124,11 +125,14 @@ esp_err_t Web_wifi_init(void){
     		.ssid = CONFIG_ESP_WIFI_SSID,
     		.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
     		.channel = WIFI_CHANNEL,
-    		.password = CONFIG_ESP_WIFI_PASSWORD,
+    		.password =  CONFIG_ESP_WIFI_PASSWORD,
     		.max_connection = MAX_STA_CONN,
     		.authmode = WIFI_AUTH_WPA_WPA2_PSK
     	},
     };
+
+    char *pass = Preferences_get().wifi_pass; 
+    strncpy((char *)wifi_config.ap.password, pass, sizeof(wifi_config.ap.password) - 1);
 
 
     if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
