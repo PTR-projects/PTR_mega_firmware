@@ -1,5 +1,9 @@
 #pragma once
 
+
+/**
+ * @brief Enum representing the different flight states.
+ */
 typedef enum{
 	FLIGHTSTATE_STARTUP,
 	FLIGHTSTATE_PREFLIGHT,
@@ -12,11 +16,20 @@ typedef enum{
 	FLIGHTSTATE_SHUTDOWN
 } flightstate_t;
 
+
+/**
+ * @brief Data structure representing the flight state.
+ * @var FlightState_t::state Current flight state.
+ * @var FlightState_t::state_ready Flag indicating if the state is ready.
+ */
 typedef struct{
 	flightstate_t state;
 	uint8_t state_ready;
 } FlightState_t;
 
+/**
+ * @brief Enum representing the arming status.
+ */
 typedef enum{
 	ARMED,
 	DISARMED,
