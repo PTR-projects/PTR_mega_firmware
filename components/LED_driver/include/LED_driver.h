@@ -137,7 +137,7 @@ esp_err_t LED_setWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_perc
  * @param[in] blinks_number The number of times to blink the LED. If set to 0, the LED will blink indefinitely.
  * @return esp_err_t ESP_OK if successful, ESP_FAIL otherwise.
  */
-esp_err_t LED_blinkWS(uint8_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);	// Blink strip LED on/off time in MS 0 beeps number means infinite
+esp_err_t LED_blinkWS(int16_t led_no, led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);	// Blink strip LED on/off time in MS 0 beeps number means infinite
 
 
 

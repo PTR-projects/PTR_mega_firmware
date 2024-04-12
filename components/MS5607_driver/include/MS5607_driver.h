@@ -26,16 +26,6 @@ typedef struct {
  * @brief Barometer data
  */
 typedef struct {
-	uint32_t D1;		/*!< Digital pressure value */
-	uint32_t D2;		/*!< Digital temperature value */
-	int32_t dT;			/*!< Difference between actual and reference temperature */
-	int64_t SENS2;		/*!< Sensitivity at actual temperature */
-	int64_t OFF2;		/*!< Offset at actual temperature */
-
-	MS5607_meas_t meas;
-} MS5607_t;
-
-typedef struct {
 	spi_dev_handle_t spi_handle;
 	MS5607_cal_t calibration;
 
@@ -69,18 +59,20 @@ esp_err_t MS5607_getReloadSmart();
 /**
  * @brief Get computed pressure 
  *
+ * @param sensor specifies sensor number
  * @return float
  * - Pressure value in Pascals
  */
-float MS5607_getPress();
+float MS5607_getPress(uint8_t sensor);
 
 /**
  * @brief Get computed temperature 
  *
+ * @param sensor specifies sensor number
  * @return float
  * - Pressure value in degrees Celcius
  */
-float MS5607_getTemp();
+float MS5607_getTemp(uint8_t sensor);
 
 /**
  * @brief Get computed pressure and temperature written into pointed struct 

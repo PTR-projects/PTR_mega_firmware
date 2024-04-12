@@ -181,12 +181,6 @@ typedef enum LIS331_hp_cutoff
 esp_err_t 	LIS331_init(LIS331_range_e range); 	//Base init
 
 /**
-* @brief Reads the device ID of the LIS331 sensor.
-* @return The device ID of the LIS331 sensor. The correct response is 0x0F.
-*/
-uint8_t 	LIS331_WhoAmI(void); 				//read device ID default respond 32
-
-/**
 * @brief Reads the raw measurement data from the LIS331 sensor.
 * @return ESP_OK if the measurement was successful, ESP_FAIL otherwise.
 */
@@ -194,6 +188,8 @@ esp_err_t LIS331_readMeas();
 
 /**
 * @brief Gets the processed measurement data from the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[out] meas A pointer to the measurement data structure.
 * @return ESP_OK if the measurement was successful, ESP_FAIL otherwise.
 */
@@ -201,6 +197,8 @@ esp_err_t LIS331_getMeas(uint8_t sensor, LIS331_meas_t * meas);
 
 /**
 * @brief Gets and calculates the X, Y, and Z readings from the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[out] X The X reading.
 * @param[out] Y The Y reading.
 * @param[out] Z The Z reading.
@@ -210,6 +208,8 @@ esp_err_t LIS331_getMeasurementXYZ(uint8_t sensor, float* X, float* Y, float* Z)
 
 /**
 * @brief Enables or disables measurement on the X axis of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val True to enable measurement, false to disable.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
@@ -217,12 +217,16 @@ esp_err_t		 	LIS331_x_axis_set(uint8_t sensor, bool val);
 
 /**
 * @brief Gets the status of measurement on the X axis of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return True if measurement is enabled, false if disabled.
 */
 bool 				LIS331_x_axis_get(uint8_t sensor);
 
 /**
 * @brief Enables or disables measurement on the Y axis of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val True to enable measurement, false to disable.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
@@ -230,12 +234,16 @@ esp_err_t 			LIS331_y_axis_set(uint8_t sensor, bool val); 		//Enable/Disable Y A
 
 /**
 * @brief Gets the status of measurement on the Y axis of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return True if measurement is enabled, false if disabled.
 */
 bool 				LIS331_y_axis_get(uint8_t sensor);					//Check if Y Axis measurments are ON
 
 /**
 * @brief Enables or disables measurement on the Z axis of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val True to enable measurement, false to disable.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
@@ -243,12 +251,16 @@ esp_err_t 			LIS331_z_axis_set(uint8_t sensor, bool val);		//Enable/Disable Z Ax
 
 /**
 * @brief Gets the status of measurement on the Z axis of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return True if measurement is enabled, false if disabled.
 */
 bool 				LIS331_z_axis_get(uint8_t sensor);					//Check if Z Axis measurments are ON
 
 /**
 * @brief Sets the power mode of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val The power mode to set.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
@@ -256,12 +268,16 @@ esp_err_t 			LIS331_power_mode_set(uint8_t sensor, LIS331_power_mode_t val);
 
 /**
 * @brief Gets the current power mode of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return The current power mode.
 */
 LIS331_power_mode_t LIS331_power_mode_get(uint8_t sensor);
 
 /**
 * @brief Sets the data rate of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val The data rate to set.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
@@ -269,92 +285,120 @@ esp_err_t 			LIS331_data_rate_set(uint8_t sensor, LIS331_data_rate_t val);
 
 /**
 * @brief Gets the current data rate of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return The current data rate.
 */
 LIS331_data_rate_t 	LIS331_data_rate_get(uint8_t sensor);
 
 /**
 * @brief Boots the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
-esp_err_t 			LIS331_boot(void);
+esp_err_t 			LIS331_boot(uint8_t sensor);
 
 /**
 * @brief Sets the high-pass filter mode of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val The high-pass filter mode to set.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
-esp_err_t 			LIS331_hp_filter_set(LIS331_hp_mode_t val);
+esp_err_t 			LIS331_hp_filter_set(uint8_t sensor, LIS331_hp_mode_t val);
 
 /**
 * @brief Gets the current high-pass filter mode of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return The current high-pass filter mode.
 */
-LIS331_hp_mode_t 	LIS331_hp_filter_get(void);
+LIS331_hp_mode_t 	LIS331_hp_filter_get(uint8_t sensor);
 
 /**
 * @brief Enables or disables the high-pass filter for a specific interrupt on the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] interup The interrupt to enable or disable the high-pass filter for.
 * @param[in] val True to enable the high-pass filter, false to disable.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
-esp_err_t 			LIS331_hp_en_set(uint8_t interup, bool val);
+esp_err_t 			LIS331_hp_en_set(uint8_t sensor, uint8_t interup, bool val);
 
 /**
 * @brief Gets the status of the high-pass filter for a specific interrupt on the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] interup The interrupt to check the status of the high-pass filter for.
 * @return True if the high-pass filter is enabled, false if disabled.
 */
-bool 				LIS331_hp_en_get(uint8_t interup);
+bool 				LIS331_hp_en_get(uint8_t sensor, uint8_t interup);
 
 /**
 * @brief Sets the high pass filter cutoff frequency of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val The cutoff frequency to set.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
-esp_err_t 			LIS331_hp_cutoff_set(LIS331_hp_cutoff_t val);
+esp_err_t 			LIS331_hp_cutoff_set(uint8_t sensor, LIS331_hp_cutoff_t val);
 
 /**
 * @brief Gets the current high-pass filter cutoff frequency of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return The current high-pass filter cutoff frequency.
 */
-LIS331_hp_cutoff_t 	LIS331_hp_cutoff_get(void);
+LIS331_hp_cutoff_t 	LIS331_hp_cutoff_get(uint8_t sensor);
 
 /**
 * @brief Enables or disables the block data update mode of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val True to enable block data update mode, false to disable.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
-esp_err_t 			LIS331_bdu_set(bool val);
+esp_err_t 			LIS331_bdu_set(uint8_t sensor, bool val);
 
 /**
 * @brief Gets the status of the block data update mode of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return True if block data update mode is enabled, false if disabled.
 */
-bool 				LIS331_bdu_get(void);
+bool 				LIS331_bdu_get(uint8_t sensor);
 
 /**
-* @brief Enables or disables the Bluetooth Low Energy (BLE) feature of the LIS331 sensor.
-* @param[in] val True to enable BLE, false to disable.
+* @brief Sets big (1) or little (0) endian data selection
+*
+* @param sensor specifies sensor number
+* @param[in] val Big (true) or little (false) endian
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
-esp_err_t 			LIS331_ble_set(bool val);
+esp_err_t 			LIS331_ble_set(uint8_t sensor, bool val);
 
 /**
-* @brief Gets the status of the Bluetooth Low Energy (BLE) feature of the LIS331 sensor.
+* @brief Gets big/little endian settings.
+*
+* @param sensor specifies sensor number
 * @return True if BLE is enabled, false if disabled.
 */
-bool 				LIS331_ble_get(void);
+bool 				LIS331_ble_get(uint8_t sensor);
 
 /**
 * @brief Sets the measurement range of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @param[in] val The range to set.
 * @return ESP_OK if the operation was successful, ESP_FAIL otherwise.
 */
-esp_err_t 			LIS331_range_set(LIS331_range_t val);
+esp_err_t 			LIS331_range_set(uint8_t sensor, LIS331_range_t val);
 
 /**
 * @brief Gets the current measurement range of the LIS331 sensor.
+*
+* @param sensor specifies sensor number
 * @return The current measurement range.
 */
-LIS331_range_t 		LIS331_range_get(void);
+LIS331_range_t 		LIS331_range_get(uint8_t sensor);
