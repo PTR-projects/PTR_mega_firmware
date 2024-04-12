@@ -76,7 +76,7 @@
 #define LED_POS_IGN2			-1
 #define LED_POS_IGN3			-1
 #define LED_POS_IGN4			-1
-#define LED_IGN_NUM				0
+#define LED_IGN_NUM				4
 #define LED_POS_IGN_LIST		LED_POS_IGN1, LED_POS_IGN2, LED_POS_IGN3, LED_POS_IGN4
 #define LED_POS_RF				(LED_STD_POS0+0)
 
