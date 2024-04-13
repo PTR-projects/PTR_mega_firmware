@@ -36,7 +36,7 @@ typedef struct{
  *  - ESP_ERR_NO_MEM: Cannot allocate memory 
  *	- ESP_FAIL: Other errors
  */
-esp_err_t Preferences_init(Preferences_data_t * data);
+esp_err_t Preferences_init();
 
 /*!
  * @brief Update configuration, firstly update in RAM then copy to file to prevent reading errors

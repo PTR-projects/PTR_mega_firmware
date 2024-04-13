@@ -77,13 +77,7 @@ typedef struct rest_server_context {
  */
 esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
-
 	const char* base_path = "/www";
-	ret = esp_vfs_spiffs_register(&conf);
-
-	 if(ret != ESP_OK){
-		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
-	 }
 
 	ret = Web_wifi_init();
 	if(ret == ESP_OK){
@@ -91,9 +85,20 @@ esp_err_t Web_init(void){
 	}
 
 	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
-	//Preferences_init();
 	
 	return ret;
+}
+
+esp_err_t Web_storageInit(){
+	esp_err_t ret = ESP_FAIL;
+
+	ret = esp_vfs_spiffs_register(&conf);
+
+	 if(ret != ESP_OK){
+		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
+	 }
+
+	 return ret;
 }
 
 /*!
@@ -587,6 +592,8 @@ esp_err_t preferences_get_config(httpd_req_t *req){
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+    free(string);
     return ESP_OK;
 }
 

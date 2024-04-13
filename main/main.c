@@ -323,11 +323,18 @@ void task_kpptr_sysmgr(void *pvParameter){
 void app_main(void)
 {
     nvs_flash_init();
+    Web_storageInit();
+
+    Preferences_init();
+    while(1) {
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz
+	}
+
     SysMgr_init();
     if(Web_init() == ESP_OK){
     	SysMgr_checkout(checkout_web, check_ready);
     }
-	Preferences_init(&Preferences_data_d);
+
     SPI_init();
     DM_init();
 

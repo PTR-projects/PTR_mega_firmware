@@ -12,10 +12,9 @@ const preferencesData = {
 	staging_max_tilt: 45,
 	auto_arming_time_s: 60,
 	auto_arming: true,
-	key: 12345678, // Replace with your key value
+	key: 12345678, /* Replace with your key value */
 	lora_freq: 433125,
-	lora_network_mode: true, //true for network, false for exclusive
-	crc32: 0, // Initialize CRC32 to 0
+	lora_network_mode: true, /* true for network, false for exclusive */
 };
 
 function SelectSection_Home() {
@@ -833,47 +832,35 @@ function initDataLive() {
   }
 
 
-  // Function to calculate CRC32 checksum
-  function calculateCRC32(input) {
-	let crc = 0;
-	const table = new Uint32Array(256);
+// Function to calculate CRC16 checksum
+function calculateCRC16(data) {
+	const polynomial = 0x1021;
+    let crc = 0xFFFF;
 
-	for (let i = 0; i < 256; i++) {
-		let c = i;
-		for (let j = 0; j < 8; j++) {
-			if (c & 1) {
-				c = 0xedb88320 ^ (c >>> 1);
-			} else {
-				c >>>= 1;
-			}
-		}
-		table[i] = c;
-	}
+    for (let i = 0; i < data.length; i++) {
+        crc ^= (data[i] << 8);
 
-	for (let i = 0; i < input.length; i++) {
-		crc = (crc >>> 8) ^ table[(crc ^ input.charCodeAt(i)) & 0xff];
-	}
+        for (let j = 0; j < 8; j++) {
+            crc = (crc & 0x8000) ? ((crc << 1) ^ polynomial) : (crc << 1);
+        }
+    }
 
-	return crc ^ 0xffffffff;
+    return new Uint16Array([crc & 0xFFFF]);
 }
 
 // Function to send the JSON data as a POST request
 function sendPreferencesData(preferencesData) {
-	// Calculate CRC32 checksum for the JSON data
+	// Calculate CRC16 checksum for the JSON data
 	const jsonData = JSON.stringify(preferencesData,null,"	");
-	const crc32 = calculateCRC32(jsonData);
-
-	preferencesData.crc32 = crc32;
-
+	const crc16 = calculateCRC16(jsonData);
+	
 	console.log("Sending preferencesData:", preferencesData);
-	// Convert the JavaScript object with CRC32 to a JSON string
-	const finalJsonData = JSON.stringify(preferencesData,null,"	");
-	console.log(finalJsonData);
+	
 	// Define the URL to which you want to send the POST request
 	const apiUrl = '/config'; // Replace with your API URL
 
 	// Send the JSON data as a POST request
-	console.log(POST_simple("/config", finalJsonData));
+	console.log(POST_simple("/config", String.fromCharCode(crc16) + jsonData));
 }
 
 function formatWifiPass(wifiPass) {
