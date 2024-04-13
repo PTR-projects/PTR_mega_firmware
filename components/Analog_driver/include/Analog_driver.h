@@ -4,10 +4,7 @@
  * @brief Data structure representing analog measurements.
  */
 typedef struct{
-	int8_t IGN1_det;
-	int8_t IGN2_det;
-	int8_t IGN3_det;
-	int8_t IGN4_det;
+	int8_t IGN_det[IGN_NUM];
 	uint32_t vbat_mV;
 	float temp;
 } Analog_meas_t;
@@ -31,3 +28,4 @@ float Analog_getTempMCU();
  * @param[out] analog Pointer to a ::Analog_meas_t structure where the measurements will be stored.
  */
 void Analog_update(Analog_meas_t *);
+int8_t Analog_getIGNstate(Analog_meas_t * meas, uint8_t ign_no);

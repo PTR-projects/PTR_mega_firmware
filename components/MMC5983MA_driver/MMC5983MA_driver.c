@@ -8,9 +8,16 @@
 #include "BOARD.h"
 #include <string.h>
 
-#define READ_REG(x) (0x80 | x)
-#define SPI_BUS SPI2_HOST
+static const char* TAG = "MMC5983MA";
+MMC5983MA_t MMC5983MA_d;
 
+#if !defined SPI_SLAVE_MMC5983MA_PIN
+esp_err_t MMC5983MA_init() {return ESP_OK;}
+esp_err_t MMC5983MA_readMeas() {return ESP_OK;}
+esp_err_t MMC5983MA_getMeas(MMC5983MA_meas_t * meas) {return ESP_OK;}
+
+#else
+#define READ_REG(x) (0x80 | x)
 static esp_err_t MMC5983MA_read(uint8_t addr, uint8_t * data_in, uint16_t length) __attribute__((unused));
 static uint8_t MMC5983MA_readSingleByte(uint8_t  address) __attribute__((unused));
 static esp_err_t MMC5983MA_writeSingleByte(uint8_t adress, uint8_t value) __attribute__((unused));
@@ -61,13 +68,8 @@ static uint32_t MMC5983MA_getMeasurementX() __attribute__((unused));
 static uint32_t MMC5983MA_getMeasurementY() __attribute__((unused));
 static uint32_t MMC5983MA_getMeasurementZ() __attribute__((unused));
 
-
-static const char* TAG = "MMC5983MA";
 static controlBitMemory_t controlBitMemory;
-MMC5983MA_t MMC5983MA_d;
-
 static spi_dev_handle_t spi_dev_handle_MMC5983MA;
-
 
 esp_err_t MMC5983MA_spi_init(void)
 {
@@ -1023,3 +1025,4 @@ static uint32_t MMC5983MA_getMeasurementZ()
     result |= temp;
     return result;
 }
+#endif

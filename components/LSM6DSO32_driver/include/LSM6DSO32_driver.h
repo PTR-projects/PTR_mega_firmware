@@ -9,13 +9,6 @@
 #include "SPI_driver.h"
 #include "esp_log.h"
 
-#ifdef SPI_SLAVE_LSM6DSO32_2_PIN
-#define LSM6DSO32_COUNT			 2
-#else
-#define LSM6DSO32_COUNT			 1
-#endif
-
-
 /**
  * @brief IMU measurement data
  */
@@ -30,9 +23,6 @@ typedef struct{
 	float gyroY;		/*!< Y axis angular velocity */
 	float gyroZ;		/*!< Z axis angular velocity */
 } LSM6DS_meas_t;
-
-
-
 
 const typedef enum LSM6DSO32_register_addr_t{
 	LSM6DS_WHOAMI_RESPONSE = 0x6C,   ///< Fixed response value
@@ -243,7 +233,7 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
  * @param meas Pointer to LSM6DS_meas_t structure to store measurement data.
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
-esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas);
+esp_err_t LSM6DSO32_getMeas(uint8_t sensor, LSM6DS_meas_t * meas);
 
 /**
  * @brief Reads all measurement data from all LSM6DSO32 sensors.
@@ -267,6 +257,7 @@ esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t * meas);
  * @param setting New sensitivity setting.
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
+
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting);
 
 /**
@@ -281,4 +272,4 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
 /**
  * @brief TODO
  */
-esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
+esp_err_t LSM6DSO32_calibrateGyroAll(float gain);

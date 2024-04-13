@@ -9,18 +9,20 @@
 #include <math.h>
 static const char *TAG = "GNSS";
 
-static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
+#if !(defined(GNSS_UART) && defined(GNSS_RX_PIN) && defined(GNSS_TX_PIN))
+esp_err_t GPS_init() {return ESP_OK;}
+esp_err_t GPS_checkStatus() {return ESP_OK;}
+uint32_t GPS_getData(gps_t * data, uint16_t ms) {return 0;}
+
+#else
+ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
+static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static MessageBufferHandle_t xMessageBuffer_GNSS2Storage;
 static uint8_t xMessageBuffer_GNSS2Storage_buffer[1 + (4 + sizeof(gps_t)) * 10];
 static StaticMessageBuffer_t  xMessageBuffer_GNSS2Storage_struct;
 static char txMessageBuffer[64];
 static uint64_t last_msg_timestamp = 0;
-
-ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
-
-
-
 
 esp_err_t GPS_init(void)
 {
@@ -973,4 +975,4 @@ void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uin
 	GPS_send_cmd(message);
 	ESP_LOGI(TAG, "NMEA OUTPUT SET TO:\nGLL %d\nRMC %d\nVTG %d\nGGA %d\nGSA %d\nGSV %d",  GLL , RMC , VTG , GGA , GSA , GSV);
 }
-
+#endif
