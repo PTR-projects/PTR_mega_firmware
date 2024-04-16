@@ -27,6 +27,17 @@ typedef struct{
 	uint8_t state_ready;
 } FlightState_t;
 
+typedef struct{
+	float main_alt;
+	float drouge_alt;
+
+	float rail_height;
+	float max_tilt;
+
+	float staging_delay_s;
+	float staging_max_tilt;
+} FSD_settings_t;
+
 /**
  * @brief Enum representing the arming status.
  */
