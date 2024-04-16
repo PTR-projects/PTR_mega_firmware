@@ -136,19 +136,24 @@ esp_err_t Web_wifi_init(void){
     	},
     };
 
-    char *pass = Preferences_get().wifi_pass; 
-    strncpy((char *)wifi_config.ap.password, pass, sizeof(wifi_config.ap.password) - 1);
-
-
-    if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    Preferences_data_t pref;
+    if(Preferences_get(&pref) == ESP_OK){
+    	memset((void *)wifi_config.ap.password, 0, sizeof(wifi_config.ap.password));
+    	strncpy((char *)wifi_config.ap.password, pref.wifi_pass, sizeof(wifi_config.ap.password));
+    	ESP_LOGV(TAG, "WiFi Pass from pref.: %s", (char *)wifi_config.ap.password);
     }
+    else if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
+        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+        ESP_LOGI(TAG, "WiFi Open");
+    }
+
+
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD, WIFI_CHANNEL);
+    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", wifi_config.ap.ssid, wifi_config.ap.password, wifi_config.ap.channel);
 
     tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));

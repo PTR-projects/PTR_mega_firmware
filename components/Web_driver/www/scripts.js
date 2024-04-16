@@ -834,18 +834,18 @@ function initDataLive() {
 
 // Function to calculate CRC16 checksum
 function calculateCRC16(data) {
-	const polynomial = 0x1021;
-    let crc = 0xFFFF;
+	 const poly = 0x1021;
+    let crc = 0xffff;
 
     for (let i = 0; i < data.length; i++) {
-        crc ^= (data[i] << 8);
+        crc ^= (data.charCodeAt(i) << 8);
 
         for (let j = 0; j < 8; j++) {
-            crc = (crc & 0x8000) ? ((crc << 1) ^ polynomial) : (crc << 1);
+            crc = (crc & 0x8000) ? ((crc << 1) ^ poly) : (crc << 1);
         }
     }
 
-    return new Uint16Array([crc & 0xFFFF]);
+    return crc & 0xffff;
 }
 
 // Function to send the JSON data as a POST request
@@ -860,7 +860,7 @@ function sendPreferencesData(preferencesData) {
 	const apiUrl = '/config'; // Replace with your API URL
 
 	// Send the JSON data as a POST request
-	console.log(POST_simple("/config", String.fromCharCode(crc16) + jsonData));
+	console.log(POST_simple("/config", crc16 + ',' + jsonData));
 }
 
 function formatWifiPass(wifiPass) {

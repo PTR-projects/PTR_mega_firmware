@@ -24,8 +24,9 @@
 static const char *TAG = "Preferences_driver";
 const char* preferences_path = "/www/preferences.txt";
 
-Preferences_data_t Preferences_data_d;
-Preferences_data_t Preferences_default;
+static bool pref_init_done = false;
+static Preferences_data_t Preferences_data_d;
+static Preferences_data_t Preferences_default;
 static volatile char wifi_pass[64] = {CONFIG_ESP_WIFI_PASSWORD};	// max password length for WPA2 is 63 characters - we need 1 more for '/0'
 
 esp_err_t Preferences_init(){
@@ -64,6 +65,7 @@ esp_err_t Preferences_init(){
 	if(f == NULL){
 		ESP_LOGE(TAG, "Failed to open file for reading");
 		Preferences_data_d = Preferences_default;
+		pref_init_done = true;
 		return ESP_ERR_NOT_FOUND;
 	}
 
@@ -111,19 +113,26 @@ esp_err_t Preferences_init(){
 		memcpy(Preferences_data_d.wifi_pass, cJSON_GetObjectItem(json, "wifi_pass")->valuestring,
 				strlen(cJSON_GetObjectItem(json, "wifi_pass")->valuestring));
 		cJSON_Delete(json);
+		pref_init_done = true;
 	}
 	else {	// file corrupted
 		ESP_LOGE(TAG, "CRC ERROR!");
 		Preferences_update(Preferences_default);
 		Preferences_data_d = Preferences_default;
+		pref_init_done = true;
 		return ESP_ERR_INVALID_CRC;
 	}
 	
 	return ret;
 }
 
-Preferences_data_t Preferences_get(){
-	return Preferences_data_d;
+esp_err_t Preferences_get(Preferences_data_t * ptr){
+	if(pref_init_done){
+		*ptr = Preferences_data_d;
+		return ESP_OK;
+	}
+
+	return ESP_ERR_NOT_FINISHED;
 }
 
 
@@ -194,11 +203,17 @@ esp_err_t Prefences_update_web(char *buf){
 
 	Preferences_data_t temp = Preferences_data_d;
 
-	cJSON *json = cJSON_Parse(buf+2);
-	ESP_LOGE(TAG, "%s", buf+2);
+	uint16_t crc_from_json = atoi(buf);
+	ESP_LOGE(TAG, "CRC from json: %i", crc_from_json);
+
+	buf = strchr(buf, '{');
+	if(buf == NULL)
+		return ESP_FAIL;
+
+	cJSON *json = cJSON_Parse(buf);
+	ESP_LOGI(TAG, "%s", buf);
 
 	if(json == NULL
-			|| NULL == cJSON_GetObjectItem(json, "crc32")
 			|| NULL == cJSON_GetObjectItem(json, "wifi_pass")
 			|| NULL == cJSON_GetObjectItem(json, "main_alt")
 			|| NULL == cJSON_GetObjectItem(json, "drouge_alt")
@@ -215,9 +230,13 @@ esp_err_t Prefences_update_web(char *buf){
 		return ESP_FAIL;
 	}
 	
-	uint16_t crc16_received = *((uint16_t*)buf);
-	uint16_t romCRC = crc16_le(0, 2+(const uint8_t*)buf, strlen(buf+2));
-	
+	uint16_t crc16_received = crc_from_json;
+	uint16_t romCRC = ~crc16_be((uint16_t)~0xffff, (const uint8_t*)buf, strlen(buf));
+//#error - dokończyć sprawdzanie CRC16 z JSON. Podejrzane jest liczenie wbudowanego CRC na ESP32 - sprawdzić inne typy
+
+	ESP_LOGI(TAG, "JSON len: %i, first char: %c, last char: %c", strlen(buf), *buf, *(buf + strlen(buf) - 1));
+	ESP_LOGI(TAG, "JSON CRC: 0x%x, ROM CRC: 0x%x", crc16_received, romCRC);
+
 	if(crc16_received == romCRC){
 		temp.wifi_pass 			= cJSON_GetObjectItem(json, "wifi_pass")->valuestring;
 		temp.main_alt 			= cJSON_GetObjectItem(json, "main_alt")->valueint;
@@ -233,6 +252,8 @@ esp_err_t Prefences_update_web(char *buf){
 
 		return Preferences_update(temp);
 	}
+
+	ESP_LOGE(TAG, "CRC error");
 
 	return ESP_FAIL;
 }

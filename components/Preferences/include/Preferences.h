@@ -26,7 +26,7 @@ typedef struct{
 
 	uint32_t key;
 
-}Preferences_data_t;
+} Preferences_data_t;
 
 /**
  * @brief Initialize Preferences component with default values and check for existing config file
@@ -52,10 +52,12 @@ esp_err_t Preferences_update(Preferences_data_t config);
 /**
  * @brief Get struct with all the configuration data
  *
- * @return Preferences_data_t 
- *	- Configuration struct
+ * @param ptr Pointer to return config data
+ * @return esp_err_t
+ *	- ESP_OK: Success
+ *	- ESP_FAIL: Config not initialized
  */
-Preferences_data_t Preferences_get();
+esp_err_t Preferences_get(Preferences_data_t * ptr);
 
 /**
  * @brief Restore deafault configuration parameters
