@@ -8,21 +8,21 @@
 typedef struct{
 	char *wifi_pass;
 
-	int main_alt;
-	int drouge_alt;
+	int main_alt_m;
+	int drouge_alt_m;
 
-	int rail_height;
-	int max_tilt;
+	int rail_height_mm;
+	int max_tilt_deg;
 	
-	int staging_delay;	//ms
+	int staging_delay_ms;
 	int staging_max_tilt;
 
 	bool auto_arming;
 	int auto_arming_time_s;
 
-	int lora_freq;		//kHz
-	bool lora_network_mode;
-
+	int lora_freq_khz;
+	bool lora_mode;
+	uint64_t lora_key;
 
 	uint32_t key;
 
@@ -41,13 +41,14 @@ esp_err_t Preferences_init();
 /*!
  * @brief Update configuration, firstly update in RAM then copy to file to prevent reading errors
  * @param config
+ * @param req_restart
  * Struct with new config data
  * @return esp_err_t
  *	- ESP_OK: Success 
  *	- ESP_ERR_NOT_FOUND: Cannot find file for writing
  *	- ESP_FAIL: Other errors
  */
-esp_err_t Preferences_update(Preferences_data_t config);
+esp_err_t Preferences_update(Preferences_data_t config, bool req_restart);
 
 /**
  * @brief Get struct with all the configuration data

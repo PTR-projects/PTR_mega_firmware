@@ -36,15 +36,16 @@ esp_err_t Preferences_init(){
 	char buf[512];
 
 	//Deafult KPPTR configuration
-	Preferences_default.main_alt = 200;
-	Preferences_default.drouge_alt = 0;
-	Preferences_default.max_tilt = 45;
-	Preferences_default.staging_delay = 0;
-	Preferences_default.rail_height = 2;
+	Preferences_default.main_alt_m = 200;
+	Preferences_default.drouge_alt_m = 0;
+	Preferences_default.max_tilt_deg = 45;
+	Preferences_default.staging_delay_ms = 0;
+	Preferences_default.rail_height_mm = 2000;
 	Preferences_default.auto_arming = true;
 	Preferences_default.auto_arming_time_s = 60;
-	Preferences_default.lora_freq = 433125;
+	Preferences_default.lora_freq_khz = 433125;
 	Preferences_default.wifi_pass = (char*) wifi_pass;
+	Preferences_default.lora_key = 0;
 
 	// Check if configuration file exists
 	struct stat st;
@@ -52,7 +53,7 @@ esp_err_t Preferences_init(){
 
 	if(FileStatus == -1){
 		ESP_LOGW(TAG, "Config file not present, creating file");
-		Preferences_update(Preferences_default);
+		Preferences_update(Preferences_default, false);
 		ret = ESP_OK;
 	}
 	else{
@@ -78,37 +79,44 @@ esp_err_t Preferences_init(){
 	fclose(f);
 
 	// Check file checksum using ESP32 ROM CRC library
-	uint16_t romCRC = crc16_le(0, 2+(const uint8_t*)buf, size-2);
+	uint16_t romCRC = crc16_le(0, 2+(const uint8_t*)buf, strlen(buf+2));
 	ESP_LOGI(TAG, "Config file: %s", buf+2);
-	ESP_LOGI(TAG, "Config CRC:  0x%x", *((uint16_t*)buf));
-	ESP_LOGI(TAG, "ROM CRC:  0x%x", romCRC);
 
 	if(romCRC == *((uint16_t*)buf)){
 		ESP_LOGI(TAG, "CRC OK!");
 		cJSON *json = cJSON_Parse(buf+2);
 
-		ESP_LOGI(TAG, "Read: %s", buf+2);
 		if(	  NULL == cJSON_GetObjectItem(json, "main_alt")
 		   || NULL == cJSON_GetObjectItem(json, "drouge_alt")
 		   || NULL == cJSON_GetObjectItem(json, "max_tilt")
 		   || NULL == cJSON_GetObjectItem(json, "staging_delay")
+		   || NULL == cJSON_GetObjectItem(json, "staging_max_tilt")
 		   || NULL == cJSON_GetObjectItem(json, "rail_height")
 		   || NULL == cJSON_GetObjectItem(json, "auto_arming")
 		   || NULL == cJSON_GetObjectItem(json, "auto_arming_time_s")
 		   || NULL == cJSON_GetObjectItem(json, "lora_freq")
+		   || NULL == cJSON_GetObjectItem(json, "lora_mode")
+		   || NULL == cJSON_GetObjectItem(json, "lora_key")
 		   || NULL == cJSON_GetObjectItem(json, "wifi_pass"))
 		{
-				return ESP_FAIL;
+			ESP_LOGE(TAG, "File format not up-to-date! Changing...");
+			Preferences_update(Preferences_default, false);
+			Preferences_data_d = Preferences_default;
+			pref_init_done = true;
+			return ESP_FAIL;
 		}
 		ESP_LOGI(TAG, "JSON OK");
-		Preferences_data_d.main_alt 			= cJSON_GetObjectItem(json, "main_alt")->valueint;
-		Preferences_data_d.drouge_alt 			= cJSON_GetObjectItem(json, "drouge_alt")->valueint;
-		Preferences_data_d.max_tilt 			= cJSON_GetObjectItem(json, "max_tilt")->valueint;
-		Preferences_data_d.staging_delay 		= cJSON_GetObjectItem(json, "staging_delay")->valueint;
-		Preferences_data_d.rail_height 			= cJSON_GetObjectItem(json, "rail_height")->valueint;
+		Preferences_data_d.main_alt_m 			= cJSON_GetObjectItem(json, "main_alt")->valueint;
+		Preferences_data_d.drouge_alt_m 		= cJSON_GetObjectItem(json, "drouge_alt")->valueint;
+		Preferences_data_d.max_tilt_deg 		= cJSON_GetObjectItem(json, "max_tilt")->valueint;
+		Preferences_data_d.staging_delay_ms 	= cJSON_GetObjectItem(json, "staging_delay")->valueint;
+		Preferences_data_d.staging_max_tilt 	= cJSON_GetObjectItem(json, "staging_max_tilt")->valueint;
+		Preferences_data_d.rail_height_mm 		= cJSON_GetObjectItem(json, "rail_height")->valueint;
 		Preferences_data_d.auto_arming 			= cJSON_GetObjectItem(json, "auto_arming")->valueint;
 		Preferences_data_d.auto_arming_time_s 	= cJSON_GetObjectItem(json, "auto_arming_time_s")->valueint;
-		Preferences_data_d.lora_freq 			= cJSON_GetObjectItem(json, "lora_freq")->valueint;
+		Preferences_data_d.lora_freq_khz 		= cJSON_GetObjectItem(json, "lora_freq")->valueint;
+		Preferences_data_d.lora_mode 			= cJSON_GetObjectItem(json, "lora_mode")->valueint;
+		Preferences_data_d.lora_key 			= cJSON_GetObjectItem(json, "lora_key")->valueint;
 		Preferences_data_d.wifi_pass 			= (char*)wifi_pass;
 		memcpy(Preferences_data_d.wifi_pass, cJSON_GetObjectItem(json, "wifi_pass")->valuestring,
 				strlen(cJSON_GetObjectItem(json, "wifi_pass")->valuestring));
@@ -117,7 +125,7 @@ esp_err_t Preferences_init(){
 	}
 	else {	// file corrupted
 		ESP_LOGE(TAG, "CRC ERROR!");
-		Preferences_update(Preferences_default);
+		Preferences_update(Preferences_default, false);
 		Preferences_data_d = Preferences_default;
 		pref_init_done = true;
 		return ESP_ERR_INVALID_CRC;
@@ -143,25 +151,26 @@ esp_err_t Preferences_get(Preferences_data_t * ptr){
  * @return `ESP_OK` if
  * @return `ESP_ERR_NOT_FOUND`
  */
-esp_err_t Preferences_update(Preferences_data_t config){
+esp_err_t Preferences_update(Preferences_data_t config, bool req_restart){
 	ESP_LOGI(TAG, "Config update");
 	char conf_file[1024] = {0};
 	cJSON *json = cJSON_CreateObject();
 	
 	//Update current config stored in RAM
 	Preferences_data_d = config;
-	cJSON_AddStringToObject(json, "wifi_pass", Preferences_data_d.wifi_pass);
-	cJSON_AddNumberToObject(json, "main_alt", Preferences_data_d.main_alt);
-	cJSON_AddNumberToObject(json, "drouge_alt", Preferences_data_d.drouge_alt);
-	cJSON_AddNumberToObject(json, "rail_height", Preferences_data_d.rail_height);
-	cJSON_AddNumberToObject(json, "max_tilt", Preferences_data_d.max_tilt);
-	cJSON_AddNumberToObject(json, "staging_delay", Preferences_data_d.staging_delay);
-	cJSON_AddNumberToObject(json, "staging_max_tilt", Preferences_data_d.staging_max_tilt);
+	cJSON_AddStringToObject(json, "wifi_pass", 			Preferences_data_d.wifi_pass);
+	cJSON_AddNumberToObject(json, "main_alt", 			Preferences_data_d.main_alt_m);
+	cJSON_AddNumberToObject(json, "drouge_alt",			Preferences_data_d.drouge_alt_m);
+	cJSON_AddNumberToObject(json, "rail_height", 		Preferences_data_d.rail_height_mm);
+	cJSON_AddNumberToObject(json, "max_tilt", 			Preferences_data_d.max_tilt_deg);
+	cJSON_AddNumberToObject(json, "staging_delay", 		Preferences_data_d.staging_delay_ms);
+	cJSON_AddNumberToObject(json, "staging_max_tilt", 	Preferences_data_d.staging_max_tilt);
 	cJSON_AddNumberToObject(json, "auto_arming_time_s", Preferences_data_d.auto_arming_time_s);
-	cJSON_AddNumberToObject(json, "auto_arming", Preferences_data_d.auto_arming);
-	cJSON_AddNumberToObject(json, "lora_freq", Preferences_data_d.lora_freq);
-	cJSON_AddNumberToObject(json, "lora_mode", 0);
-	cJSON_AddNumberToObject(json, "key", 2137);
+	cJSON_AddNumberToObject(json, "auto_arming", 		Preferences_data_d.auto_arming);
+	cJSON_AddNumberToObject(json, "lora_freq", 			Preferences_data_d.lora_freq_khz);
+	cJSON_AddNumberToObject(json, "lora_mode", 			Preferences_data_d.lora_mode);
+	cJSON_AddNumberToObject(json, "lora_key", 			Preferences_data_d.lora_key);
+	cJSON_AddNumberToObject(json, "key",				Preferences_data_d.lora_key);
 	
 	if(cJSON_PrintPreallocated(json, conf_file+2, sizeof(conf_file), 0) == 0){
 		ESP_LOGE(TAG, "Cannot create JSON string");
@@ -173,11 +182,10 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	uint32_t romCRC = crc16_le(0, 2+(const uint8_t*)conf_file, strlen(conf_file+2));
 	*((uint16_t*)conf_file) = romCRC;
 
-	ESP_LOGI(TAG, "New Config size: %i", 2+strlen(conf_file+2));
 	ESP_LOGI(TAG, "New Config file: %s", conf_file+2);
-	ESP_LOGI(TAG, "New Config CRC:  0x%x", *((uint16_t*)conf_file));
 	
 	//Update config stored on FLASH chip
+	remove(preferences_path);
 	FILE* f = fopen(preferences_path, "w");
 	if(f == NULL){
 		ESP_LOGE(TAG, "Failed to open file for writing");
@@ -185,16 +193,19 @@ esp_err_t Preferences_update(Preferences_data_t config){
 	}
 
 	fwrite(conf_file, 1, 2+strlen(conf_file+2), f);
+	fwrite("\0", 1, 1, f);
 	fclose(f);
 	ESP_LOGI(TAG, "Updated config successfully");
 	
-	//esp_restart();
+	if(req_restart){
+		esp_restart();
+	}
 
 	return ESP_FAIL; //If it returns it means that esp failed to restart
 }
 
 esp_err_t Preferences_restore_dafaults(){
-	return Preferences_update(Preferences_default);
+	return Preferences_update(Preferences_default, false);
 }
 
 esp_err_t Prefences_update_web(char *buf){
@@ -204,14 +215,13 @@ esp_err_t Prefences_update_web(char *buf){
 	Preferences_data_t temp = Preferences_data_d;
 
 	uint16_t crc_from_json = atoi(buf);
-	ESP_LOGE(TAG, "CRC from json: %i", crc_from_json);
 
 	buf = strchr(buf, '{');
 	if(buf == NULL)
 		return ESP_FAIL;
 
 	cJSON *json = cJSON_Parse(buf);
-	ESP_LOGI(TAG, "%s", buf);
+	ESP_LOGI(TAG, "New from web:\n%s", buf);
 
 	if(json == NULL
 			|| NULL == cJSON_GetObjectItem(json, "wifi_pass")
@@ -224,7 +234,9 @@ esp_err_t Prefences_update_web(char *buf){
 			|| NULL == cJSON_GetObjectItem(json, "auto_arming_time_s")
 			|| NULL == cJSON_GetObjectItem(json, "auto_arming")
 			|| NULL == cJSON_GetObjectItem(json, "key")
-			|| NULL == cJSON_GetObjectItem(json, "lora_freq"))
+			|| NULL == cJSON_GetObjectItem(json, "lora_freq")
+			|| NULL == cJSON_GetObjectItem(json, "lora_mode")
+			|| NULL == cJSON_GetObjectItem(json, "lora_key"))
 	{
 		ESP_LOGE(TAG, "Cannot read json!");
 		return ESP_FAIL;
@@ -232,57 +244,28 @@ esp_err_t Prefences_update_web(char *buf){
 	
 	uint16_t crc16_received = crc_from_json;
 	uint16_t romCRC = ~crc16_be((uint16_t)~0xffff, (const uint8_t*)buf, strlen(buf));
-//#error - dokończyć sprawdzanie CRC16 z JSON. Podejrzane jest liczenie wbudowanego CRC na ESP32 - sprawdzić inne typy
-
-	ESP_LOGI(TAG, "JSON len: %i, first char: %c, last char: %c", strlen(buf), *buf, *(buf + strlen(buf) - 1));
-	ESP_LOGI(TAG, "JSON CRC: 0x%x, ROM CRC: 0x%x", crc16_received, romCRC);
 
 	if(crc16_received == romCRC){
+		ESP_LOGI(TAG, "JSON CRC OK: 0x%x", crc16_received);
 		temp.wifi_pass 			= cJSON_GetObjectItem(json, "wifi_pass")->valuestring;
-		temp.main_alt 			= cJSON_GetObjectItem(json, "main_alt")->valueint;
-		temp.drouge_alt 		= cJSON_GetObjectItem(json, "drouge_alt")->valueint;
-		temp.rail_height 		= cJSON_GetObjectItem(json, "rail_height")->valueint;
-		temp.max_tilt 			= cJSON_GetObjectItem(json, "max_tilt")->valueint;
-		temp.staging_delay 		= cJSON_GetObjectItem(json, "staging_delay")->valueint;
+		temp.main_alt_m 		= cJSON_GetObjectItem(json, "main_alt")->valueint;
+		temp.drouge_alt_m 		= cJSON_GetObjectItem(json, "drouge_alt")->valueint;
+		temp.rail_height_mm 	= cJSON_GetObjectItem(json, "rail_height")->valueint;
+		temp.max_tilt_deg 		= cJSON_GetObjectItem(json, "max_tilt")->valueint;
+		temp.staging_delay_ms 	= cJSON_GetObjectItem(json, "staging_delay")->valueint;
 		temp.staging_max_tilt 	= cJSON_GetObjectItem(json, "staging_max_tilt")->valueint;
 		temp.auto_arming_time_s = cJSON_GetObjectItem(json, "auto_arming_time_s")->valueint;
 		temp.auto_arming 		= cJSON_GetObjectItem(json, "auto_arming")->valueint;
 		temp.key 				= cJSON_GetObjectItem(json, "key")->valueint;
-		temp.lora_freq 			= cJSON_GetObjectItem(json, "lora_freq")->valueint;
+		temp.lora_freq_khz 		= cJSON_GetObjectItem(json, "lora_freq")->valueint;
+		temp.lora_mode 			= cJSON_GetObjectItem(json, "lora_mode")->valueint;
+		temp.lora_key 			= cJSON_GetObjectItem(json, "lora_key")->valueint;
 
-		return Preferences_update(temp);
+		return Preferences_update(temp, true);
 	}
 
 	ESP_LOGE(TAG, "CRC error");
 
 	return ESP_FAIL;
-}
-
-char* Preferences_send_config_web(){
-	char *string = NULL;
-	cJSON *json = cJSON_CreateObject();
-
-	cJSON_AddStringToObject(json, "wifi_pass", 			Preferences_data_d.wifi_pass);
-	cJSON_AddNumberToObject(json, "main_alt", 			Preferences_data_d.main_alt);
-	cJSON_AddNumberToObject(json, "drouge_alt", 		Preferences_data_d.drouge_alt);
-	cJSON_AddNumberToObject(json, "rail_height", 		Preferences_data_d.rail_height);
-	cJSON_AddNumberToObject(json, "max_tilt", 			Preferences_data_d.max_tilt);
-	cJSON_AddNumberToObject(json, "staging_delay", 		Preferences_data_d.staging_delay);
-	cJSON_AddNumberToObject(json, "staging_max_tilt", 	Preferences_data_d.staging_max_tilt);
-	cJSON_AddNumberToObject(json, "auto_arming_time_s", Preferences_data_d.auto_arming_time_s);
-	cJSON_AddNumberToObject(json, "auto_arming", 		Preferences_data_d.auto_arming);
-	cJSON_AddNumberToObject(json, "lora_freq", 			Preferences_data_d.lora_freq);
-	cJSON_AddNumberToObject(json, "lora_mode", 			0);
-	cJSON_AddNumberToObject(json, "key", 				2137);
-	
-	string = cJSON_Print(json);
-	if(string == NULL){
-		ESP_LOGE(TAG, "Cannot create JSON string");
-		return "";
-	}
-	cJSON_Delete(json); 
-	ESP_LOGI(TAG, "Config file: %s", string);
-
-	return string;
 }
 

@@ -585,24 +585,6 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
 }
 
 /*!
- * @brief Handler responsible for serving json with configuration data.
- * @param req
- * HTTP request
- * @return `ESP_OK` if done
- * @return `ESP_FAIL` otherwise.
- */
-esp_err_t preferences_get_config(httpd_req_t *req){
-	char *string = Preferences_send_config_web();
-
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
-
-    free(string);
-    return ESP_OK;
-}
-
-/*!
  * @brief Handler responsible for serving json with status data.
  * @param req
  * HTTP request
@@ -611,6 +593,9 @@ esp_err_t preferences_get_config(httpd_req_t *req){
  */
 esp_err_t jsonStatus_get_handler(httpd_req_t *req){
 	char *string = Web_driver_json_statusCreate(status_web);
+
+	if(string == NULL)
+		return ESP_FAIL;
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -630,6 +615,32 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req){
  */
 esp_err_t jsonLive_get_handler(httpd_req_t *req){
 	char *string = Web_driver_json_liveCreate(live_web);
+
+	if(string == NULL)
+		return ESP_FAIL;
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+    free(string);
+    return ESP_OK;
+}
+
+/*!
+ * @brief Handler responsible for serving json with current settings.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t jsonPref_get_handler(httpd_req_t *req){
+	char *string = Web_driver_json_prefCreate();
+
+	if(string == NULL){
+		ESP_LOGE(TAG, "Req failed");
+		return ESP_FAIL;
+	}
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -754,14 +765,6 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &index_get);
 
-	httpd_uri_t pref_get = {
-			.uri      = "/pref_get",
-			.method   = HTTP_GET,
-			.handler  = preferences_get_config,
-			.user_ctx = server_data
-	};
-	httpd_register_uri_handler(server, &pref_get);
-
 	httpd_uri_t jsonStatus_get = {
 		    .uri      = "/status",
 		    .method   = HTTP_GET,
@@ -778,6 +781,14 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &jsonLive_get);
 
+	httpd_uri_t jsonPref_get = {
+			.uri      = "/pref",
+			.method   = HTTP_GET,
+			.handler  = jsonPref_get_handler,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &jsonPref_get);
+
 	httpd_uri_t cmd_send = {
 			    .uri      = "/cmd",
 			    .method   = HTTP_POST,
@@ -785,12 +796,12 @@ esp_err_t Web_http_init(const char *base_path){
 			    .user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &cmd_send);
-	
+
 	httpd_uri_t config_send = {
-			    .uri      = "/config",
-			    .method   = HTTP_POST,
-			    .handler  = config_post_handler,
-			    .user_ctx = server_data
+				.uri      = "/config",
+				.method   = HTTP_POST,
+				.handler  = config_post_handler,
+				.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &config_send);
 

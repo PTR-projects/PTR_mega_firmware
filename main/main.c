@@ -340,7 +340,7 @@ void app_main(void)
     //-----
     Preferences_data_t pref;
 	if(Preferences_get(&pref) == ESP_OK){
-		Web_status_updateconfig(0, 12345, pref.drouge_alt, pref.main_alt);
+		Web_status_updateconfig(0, 12345, pref.drouge_alt_m, pref.main_alt_m);
 	}
 
     //----- Create queues ----------

@@ -53,11 +53,11 @@ esp_err_t FSD_init(AHRS_t * ahrs){
 
 	Preferences_data_t pref;
 	if(Preferences_get(&pref) == ESP_OK){
-		FSD_settings_d.drouge_alt 		= (float)pref.drouge_alt;
-		FSD_settings_d.main_alt 		= (float)pref.main_alt;
-		FSD_settings_d.max_tilt 		= (float)pref.max_tilt;
-		FSD_settings_d.rail_height 		= (float)pref.rail_height;
-		FSD_settings_d.staging_delay_s 	= (float)pref.staging_delay / 1000.0f;
+		FSD_settings_d.drouge_alt 		= (float)pref.drouge_alt_m;
+		FSD_settings_d.main_alt 		= (float)pref.main_alt_m;
+		FSD_settings_d.max_tilt 		= (float)pref.max_tilt_deg;
+		FSD_settings_d.rail_height 		= (float)pref.rail_height_mm;
+		FSD_settings_d.staging_delay_s 	= (float)pref.staging_delay_ms / 1000.0f;
 		FSD_settings_d.staging_max_tilt = (float)pref.staging_max_tilt;
 	}
 	else {

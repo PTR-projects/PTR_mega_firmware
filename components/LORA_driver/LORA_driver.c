@@ -23,8 +23,8 @@ esp_err_t LORA_init()
 	Preferences_data_t pref;
 	if(Preferences_get(&pref) == ESP_OK){
 		Lora_settings_d.tx_dbm			= 0;	//(uint8_t)pref.lora_tx_dbm;
-		Lora_settings_d.freq_hz 		= (uint32_t)pref.lora_freq * 1000UL;	// kHz -> Hz
-		Lora_settings_d.network_mode 	= (uint8_t)pref.lora_network_mode;
+		Lora_settings_d.freq_hz 		= (uint32_t)pref.lora_freq_khz * 1000UL;	// kHz -> Hz
+		Lora_settings_d.network_mode 	= (uint8_t)pref.lora_mode;
 		Lora_settings_d.security_key	= 0;	//(uint8_t)pref.lora_key;
 	}
 	else {
