@@ -2,6 +2,13 @@
 
 #define LORA_TX_NO_WAIT 0
 
+typedef struct {
+	int8_t tx_dbm;
+	uint32_t freq_hz;
+	uint8_t network_mode;
+	uint64_t security_key;
+} Lora_settings_t;
+
 
 /**
 * @brief Initializes the LORA module to default settings.
