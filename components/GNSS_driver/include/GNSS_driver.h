@@ -251,13 +251,87 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
  *  - Others: Fail
  */
 esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler);
+
+/**
+ * @brief Initialize GPS task
+ *
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t GPS_init();
+
+/**
+ * @brief Check size of GPS message received 
+ *
+ * @return uint8_t
+ *  - size of GPS message struct
+ */
 uint8_t GNSS_message_size(void);
-uint32_t GPS_getData(gps_t * data, uint16_t ms); // Send GPS DATA to
+
+/**
+ * @brief Get GPS positional data
+ *
+ * @param data received data container
+ * @param ms waiting for receive timeout
+ * @return uint32_t GPS data
+ */
+uint32_t GPS_getData(gps_t * data, uint16_t ms); 
+
+/**
+ * @brief TODO
+ *
+ */
 esp_err_t GPS_checkStatus();
+
+/**
+ * @brief Test if GPS is responding by sending command to release software information
+ *
+ */
 void GPS_test(void);
+
+/**
+ * @brief Set GPS baud rate
+ *
+ * @param baud desired baudrate, default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t GPS_baud_rate_set(uint32_t baud);
+
+/**
+ * @brief Set GPS baud rate and ESP UART baudrate to same value
+ *
+ * @param baud desired baudrate, default:9600, 4800, 9600, 14400, 19200, 38400, 57600, 115200
+ * @return esp_err_t
+ *  - ESP_OK: Success
+ *  - ESP_FAIL: Fail
+ */
 esp_err_t GPS_baud_rate_set_extra(uint32_t baud);
+
+/**
+ * @brief Set GPS fix interval
+ *
+ * @param time time in millis 100-10000
+ */
 void GPS_fix_interval_set(uint16_t time);
+
+/**
+ * @brief Set navigation mode for your specific use case
+ *
+ * @param mode mode of GPS to use 
+ */
 void GPS_nav_mode_set(gps_nav_mode_t mode);
+
+/**
+ * @brief Set GPS fix interval for specified messages
+ *
+ * @param GLL Geographic position – latitude and longitude
+ * @param RMC Recommended minimum specific GPS/Transit data
+ * @param VTG Course Over Ground and Ground Speed
+ * @param GGA Global Positioning System Fix Data
+ * @param GSA GNSS DOP and Active Satellites
+ * @param GSV GNSS Satellites in View
+ */
 void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV);

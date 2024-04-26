@@ -113,13 +113,13 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->sensors.accHY 		= sensors->LIS331.accY;
 	package->sensors.accHZ 		= sensors->LIS331.accZ;
 
-	package->sensors.accX 		= sensors->LSM6DSO32[0].accX;
-	package->sensors.accY 		= sensors->LSM6DSO32[0].accY;
-	package->sensors.accZ 		= sensors->LSM6DSO32[0].accZ;
+	package->sensors.accX 		= sensors->LSM6DSO32.accX;
+	package->sensors.accY 		= sensors->LSM6DSO32.accY;
+	package->sensors.accZ 		= sensors->LSM6DSO32.accZ;
 
-	package->sensors.gyroX 		= sensors->LSM6DSO32[0].gyroX;
-	package->sensors.gyroY 		= sensors->LSM6DSO32[0].gyroY;
-	package->sensors.gyroZ 		= sensors->LSM6DSO32[0].gyroZ;
+	package->sensors.gyroX 		= sensors->LSM6DSO32.gyroX;
+	package->sensors.gyroY 		= sensors->LSM6DSO32.gyroY;
+	package->sensors.gyroZ 		= sensors->LSM6DSO32.gyroZ;
 
 	package->sensors.magX 		= sensors->MMC5983MA.magX;
 	package->sensors.magY 		= sensors->MMC5983MA.magY;
@@ -143,10 +143,18 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->ahrs.q3 = ahrs->orientation.quaternions.q3;
 	package->ahrs.tilt = (uint8_t)ahrs->orientation.euler.tilt;
 
-	package->ign.ign1_cont 		= analog->IGN1_det;
-	package->ign.ign2_cont 		= analog->IGN2_det;
-	package->ign.ign3_cont 		= analog->IGN3_det;
-	package->ign.ign4_cont 		= analog->IGN4_det;
+#if IGN_NUM > 0
+	package->ign.ign1_cont 		= analog->IGN_det[0];
+#if IGN_NUM > 1
+	package->ign.ign2_cont 		= analog->IGN_det[1];
+#if IGN_NUM > 2
+	package->ign.ign3_cont 		= analog->IGN_det[2];
+#if IGN_NUM > 3
+	package->ign.ign4_cont 		= analog->IGN_det[3];
+#endif
+#endif
+#endif
+#endif
 
 	package->vbat_mV 			= (uint16_t)analog->vbat_mV;
 
@@ -166,13 +174,13 @@ void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_
 	package->timestamp_ms = (uint32_t)(time_us/1000);
 
 	package->vbat_10  = 0;						// 1mV/LSB -> 100mV/LSB
-	package->accX_100 = (int16_t)(sensors->LSM6DSO32[0].accX * 100.0f);
-	package->accY_100 = (int16_t)(sensors->LSM6DSO32[0].accY * 100.0f);
-	package->accZ_100 = (int16_t)(sensors->LSM6DSO32[0].accZ * 100.0f);
+	package->accX_100 = (int16_t)(sensors->LSM6DSO32.accX * 100.0f);
+	package->accY_100 = (int16_t)(sensors->LSM6DSO32.accY * 100.0f);
+	package->accZ_100 = (int16_t)(sensors->LSM6DSO32.accZ * 100.0f);
 
-	package->gyroX_10 = (int16_t)(sensors->LSM6DSO32[0].gyroX * 100.0f);
-	package->gyroY_10 = (int16_t)(sensors->LSM6DSO32[0].gyroY * 100.0f);
-	package->gyroZ_10 = (int16_t)(sensors->LSM6DSO32[0].gyroZ * 100.0f);
+	package->gyroX_10 = (int16_t)(sensors->LSM6DSO32.gyroX * 100.0f);
+	package->gyroY_10 = (int16_t)(sensors->LSM6DSO32.gyroY * 100.0f);
+	package->gyroZ_10 = (int16_t)(sensors->LSM6DSO32.gyroZ * 100.0f);
 
 	package->pressure = sensors->MS5607.press;
 

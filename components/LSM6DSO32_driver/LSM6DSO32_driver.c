@@ -6,6 +6,16 @@
  */
 static const char *TAG = "LSM6DSO32";
 
+
+#if !defined SPI_SLAVE_LSM6DSO32_0_PIN
+esp_err_t LSM6DSO32_init() {return ESP_OK;}
+esp_err_t LSM6DSO32_readMeasAll() {return ESP_OK;}
+esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t * meas) {return ESP_OK;}
+esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting) {return ESP_OK;}
+esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting) {return ESP_OK;}
+esp_err_t LSM6DSO32_calibrateGyroAll(float gain) {return ESP_OK;}
+#else
+
 /**
  * @brief LSM6DSO32 accelerometer initial sensitivity settings.
  */
@@ -23,13 +33,15 @@ static const char *TAG = "LSM6DSO32";
  */
 #define LSM6DS_FIFO_BATCH_SIZE 16 //To be moved to config
 LSM6DSO32_fifo_data_t fifoBuffer; //ACC + GYRO
+static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
+static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t * rx, uint8_t length);
+static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
+uint8_t LSM6DSO32_WhoAmI(uint8_t sensor);
+esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
+esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
 
-#ifdef SPI_SLAVE_LSM6DSO32_2_PIN
-#define SPI_SLAVE_LSM6DSO32_PIN_NUM(x) ((x==0) ? SPI_SLAVE_LSM6DSO32_PIN:SPI_SLAVE_LSM6DSO32_2_PIN)
-#else
-#define SPI_SLAVE_LSM6DSO32_PIN_NUM(x) SPI_SLAVE_LSM6DSO32_PIN
-#endif
 
+static const int SPI_SLAVE_LSM6DSO32_PIN_ARRAY[LSM6DSO32_COUNT] = SPI_SLAVE_LSM6DSO32_PINS;
 static LSM6DSO32_t LSM6DSO32_d[LSM6DSO32_COUNT];
 
 /**
@@ -47,7 +59,7 @@ esp_err_t LSM6DSO32_SPIinit(){
 	/* Max SCK frequency - 10MHz */
 	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
 	{
-		ESP_RETURN_ON_ERROR(SPI_registerDevice(&LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN_NUM(sensor),
+		ESP_RETURN_ON_ERROR(SPI_registerDevice(&LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32, SPI_SLAVE_LSM6DSO32_PIN_ARRAY[sensor],
 												SPI_SCK_10MHZ, 1, 1, 7), TAG, "SPI register for LSM6DS number: %d sensor failed", sensor);
 	}
 
@@ -99,37 +111,34 @@ esp_err_t LSM6DSO32_init(){
 	return retVal;
 }
 
-/**
- * @brief Retrieves the WHO_AM_I response from the LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @return uint8_t WHO_AM_I response.
- */
+
 uint8_t LSM6DSO32_WhoAmI(uint8_t sensor){
+	if(! (LSM6DSO32_COUNT > sensor) ){
+		ESP_LOGE(TAG,"Wrong sensor number!");
+		return 0;
+	}
+
 	uint8_t rxBuff[1] = {0U};
 	LSM6DSO32_Read(sensor, LSM6DS_WHOAMI_ADDR, rxBuff, 1);
 	if(LSM6DS_WHOAMI_RESPONSE == rxBuff[0])
-		{
-			ESP_LOGI(TAG, "LSM6DSO32 %x correct response", sensor);
-		}
-		else
-		{
-			ESP_LOGI(TAG, "LSM6DSO32 %x wrong response: %x\n", sensor, rxBuff[0]);
-		}
+	{
+		ESP_LOGI(TAG, "LSM6DSO32 %x correct response", sensor);
+	}
+	else
+	{
+		ESP_LOGI(TAG, "LSM6DSO32 %x wrong response: %x\n", sensor, rxBuff[0]);
+	}
+
 	return rxBuff[0];
 }
 
 
-/**
- * @brief Reads measurement data from a specified LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- *
- * This function reads measurement data from the LSM6DSO32 sensor specified by the sensor number.
- * It performs the read operation and, if successful, calculates the accelerometer, gyroscope, and temperature measurements.
- */
 esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
+	if(! (LSM6DSO32_COUNT > sensor) ){
+		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
+	}
+
 	esp_err_t readResult = LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L_ADDR, LSM6DSO32_d[sensor].rawData.raw, 14);
 	
 	if (readResult == ESP_OK) 
@@ -151,11 +160,7 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	return readResult;
 }
 
-/**
- * @brief Reads all measurement data from all LSM6DSO32 sensors.
- *
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_readMeasAll(){
 	#ifdef LSM6DS_FIFO_BATCH_SIZE
 	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
@@ -181,7 +186,12 @@ esp_err_t LSM6DSO32_readMeasAll(){
  * @param meas Pointer to LSM6DS_meas_t structure to store measurement data.
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
-esp_err_t LSM6DSO32_getMeasByID(uint8_t sensor, LSM6DS_meas_t * meas){
+esp_err_t LSM6DSO32_getMeas(uint8_t sensor, LSM6DS_meas_t * meas){
+	if(! (LSM6DSO32_COUNT > sensor) ){
+		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
+	}
+  
 	*meas = LSM6DSO32_d[sensor].meas;
 	return ESP_OK;
 }
@@ -209,9 +219,14 @@ esp_err_t LSM6DSO32_getMeasAll(LSM6DS_meas_t *meas){
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t eRegisterToSet, uint8_t val){
-	esp_err_t retVal = ESP_FAIL;
-	retVal = LSM6DSO32_Write(sensor, eRegisterToSet, val);
-	if(ESP_OK == retVal)
+	if(! (LSM6DSO32_COUNT > sensor) ){
+		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
+	}
+
+	esp_err_t retval = ESP_FAIL;
+	retval = LSM6DSO32_Write(sensor, eRegisterToSet, val);
+	if(ESP_OK == retval)
 	{
 		ESP_LOGD(TAG,"LSM6DSO32 no.%d register no.0x%x set to 0x%x", sensor, eRegisterToSet, val);
 	}
@@ -231,6 +246,11 @@ static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val) {
+	if(! (LSM6DSO32_COUNT > sensor) ){
+		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
+	}
+
     if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
         ESP_LOGE(TAG, "Sensor %d: Null pointer while writing!", sensor);
         return ESP_ERR_INVALID_STATE;
@@ -254,10 +274,13 @@ static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, 
  * @param length Number of bytes to read.
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
-static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const *rx, uint8_t length) {
-    
-	
-	if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
+static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t *rx, uint8_t length) {
+	if(!(LSM6DSO32_COUNT > sensor) || (rx == NULL)){
+		ESP_LOGE(TAG,"READ - Wrong argument!");
+		return ESP_ERR_INVALID_ARG;
+	}
+
+    if (LSM6DSO32_d[sensor].config.spi_dev_handle_LSM6DSO32 == NULL) {
         ESP_LOGE(TAG, "Sensor %d: Null pointer while reading!", sensor);
         return ESP_ERR_INVALID_STATE;
     }
@@ -281,10 +304,15 @@ static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, u
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 esp_err_t LSM6DSO32_SetBitInRegister(uint8_t sensor, LSM6DSO32_register_addr_t eRegisterToSet, uint8_t bitPos, bool bit){
+	if(! (LSM6DSO32_COUNT > sensor) ){
+		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
+	}
+
 	uint8_t val;
 	LSM6DSO32_Read(sensor, eRegisterToSet, &val, 1);
 	val = ((val & ~(1 << bitPos)) | (bit << bitPos));
-	
+
 	return LSM6DSO32_SetRegister(sensor, eRegisterToSet, val);
 }
 
@@ -295,43 +323,31 @@ esp_err_t LSM6DSO32_SetBitInRegister(uint8_t sensor, LSM6DSO32_register_addr_t e
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
 esp_err_t LSM6DSO32_Calibration(uint8_t sensor){
-	
-	if( !(LSM6DSO32_COUNT > sensor) )
-	{
-		ESP_LOGE(TAG,"Not implemented!");
-
-	}
-	else
-	{
+	if(! (LSM6DSO32_COUNT > sensor) ){
 		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
 	}
 	
+	ESP_LOGE(TAG,"Not implemented!");
+
 	return ESP_OK;
 }
 
-/**
- * @brief Sets the accelerometer sensitivity for the LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @param setting New sensitivity setting.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting)
 {
-	if( (LSM6DSO32_COUNT > sensor) )
-	{
-		uint8_t buffer;
-		LSM6DSO32_Read(sensor, LSM6DS_CTRL1_XL_ADDR, &buffer, 8);
-		buffer &= ~0b00001100;
-		buffer |= LSM6DSAccSensBits[setting];
-		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, buffer);
-		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[setting];
-	}
-	else
-	{
+	if(! (LSM6DSO32_COUNT > sensor) ){
 		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
 	}
 	
+	uint8_t buffer;
+	LSM6DSO32_Read(sensor, LSM6DS_CTRL1_XL_ADDR, &buffer, 8);
+	buffer &= ~0b00001100;
+	buffer |= LSM6DSAccSensBits[setting];
+	LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, buffer);
+	LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[setting];
+
 	return ESP_OK;
 }
 
@@ -339,25 +355,18 @@ esp_err_t LSM6DSO32_calibrateGyro(const uint8_t sensor, const float gain){
 	static bool first_run = false;
 	esp_err_t retVal = ESP_FAIL;
 
-	if( (LSM6DSO32_COUNT > sensor) )
-	{
-		if(first_run == false){
-			first_run = true;
-			LSM6DSO32_d[sensor].gyroXoffset = (float)LSM6DSO32_d[sensor].rawData.gyroX_raw;
-			LSM6DSO32_d[sensor].gyroYoffset = (float)LSM6DSO32_d[sensor].rawData.gyroY_raw;
-			LSM6DSO32_d[sensor].gyroZoffset = (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw;
-			retVal = ESP_OK;
-		}
-		else{
-			LSM6DSO32_d[sensor].gyroXoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroX_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroXoffset;
-			LSM6DSO32_d[sensor].gyroYoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroY_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroYoffset;
-			LSM6DSO32_d[sensor].gyroZoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroZoffset;
-			retVal = ESP_OK;
-		}
-	}
-	else{
-		retVal = ESP_ERR_NOT_SUPPORTED;
+	if(! (LSM6DSO32_COUNT > sensor) ){
 		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
+	}
+
+	if(first_run == false){
+		first_run = true;
+		LSM6DSO32_d[sensor].gyroXoffset = (float)LSM6DSO32_d[sensor].rawData.gyroX_raw;
+		LSM6DSO32_d[sensor].gyroYoffset = (float)LSM6DSO32_d[sensor].rawData.gyroY_raw;
+		LSM6DSO32_d[sensor].gyroZoffset = (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw;
+
+		return ESP_OK;
 	}
 
 	
@@ -365,31 +374,32 @@ esp_err_t LSM6DSO32_calibrateGyro(const uint8_t sensor, const float gain){
 	return retVal;
 }
 
+esp_err_t LSM6DSO32_calibrateGyroAll(float gain){
+	esp_err_t ret = ESP_OK;
+
+	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++){
+		ret |= LSM6DSO32_calibrateGyro(sensor, gain);
+	}
+
+	return ret;
+}
 
 
-/**
- * @brief Sets the gyroscope sensitivity for the LSM6DSO32 sensor.
- *
- * @param sensor Sensor number.
- * @param setting New sensitivity setting.
- * @return esp_err_t ESP_OK if successful, otherwise an error code.
- */
+
 esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting)
 {
-	if( (LSM6DSO32_COUNT > sensor) )
-	{
-		uint8_t buffer;
-		LSM6DSO32_Read(sensor, LSM6DS_CTRL2_G_ADDR, &buffer, 8);
-		buffer &= ~0b00001110;
-		buffer |= LSM6DSGyroDpsBits[setting];
-		LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR, buffer);
-		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[setting];
-	}
-	else
-	{
+	if(! (LSM6DSO32_COUNT > sensor) ){
 		ESP_LOGE(TAG,"Wrong sensor number!");
+		return ESP_ERR_NOT_SUPPORTED;
 	}
 	
+	uint8_t buffer;
+	LSM6DSO32_Read(sensor, LSM6DS_CTRL2_G_ADDR, &buffer, 8);
+	buffer &= ~0b00001110;
+	buffer |= LSM6DSGyroDpsBits[setting];
+	LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR, buffer);
+	LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[setting];
+
 	return ESP_OK;
 }
 
@@ -521,3 +531,4 @@ esp_err_t calc_gyro(uint8_t sensor, int32_t *rawData){
 	return ESP_OK;
 }
 
+#endif /* SPI_SLAVE_LSM6DSO32_PIN */

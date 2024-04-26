@@ -12,10 +12,12 @@ menu "KP-PTR Configuration"
         help
             Select hardware version and revision.
 
-        config BOARD_KPPTR_VER_0_REV_1
-            bool "Version 0 revision 1"
-        config BOARD_KPPTR_VER_1_REV_0
-            bool "Version 1 revision 0"
+        config BOARD_PTR_MEGA_VER_0_REV_1
+            bool "PTR Mega v0.1"
+        config BOARD_PTR_MEGA_VER_1_REV_0
+            bool "PTR Mega v1.0"
+        config BOARD_ARECORDER_VER_3_REV_0
+        	bool "Arecorder v3.0"
     endchoice
     
     choice KPPTR_FS
