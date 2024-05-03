@@ -33,9 +33,7 @@ esp_err_t LSM6DSO32_calibrateGyroAll(float gain) {return ESP_OK;}
  */
 #define LSM6DS_FIFO_BATCH_SIZE 16 //To be moved to config
 LSM6DSO32_fifo_data_t fifoBuffer; //ACC + GYRO
-static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
-static esp_err_t LSM6DSO32_Read (uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t * rx, uint8_t length);
-static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
+
 uint8_t LSM6DSO32_WhoAmI(uint8_t sensor);
 esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
 esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
@@ -224,9 +222,9 @@ static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t
 		return ESP_ERR_NOT_SUPPORTED;
 	}
 
-	esp_err_t retval = ESP_FAIL;
-	retval = LSM6DSO32_Write(sensor, eRegisterToSet, val);
-	if(ESP_OK == retval)
+	esp_err_t retVal = ESP_FAIL;
+	retVal = LSM6DSO32_Write(sensor, eRegisterToSet, val);
+	if(ESP_OK == retVal)
 	{
 		ESP_LOGD(TAG,"LSM6DSO32 no.%d register no.0x%x set to 0x%x", sensor, eRegisterToSet, val);
 	}
@@ -274,7 +272,7 @@ static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, 
  * @param length Number of bytes to read.
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
-static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t *rx, uint8_t length) {
+static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const * rx, uint8_t length) {
 	if(!(LSM6DSO32_COUNT > sensor) || (rx == NULL)){
 		ESP_LOGE(TAG,"READ - Wrong argument!");
 		return ESP_ERR_INVALID_ARG;
