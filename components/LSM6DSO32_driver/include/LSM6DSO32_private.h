@@ -3,7 +3,7 @@
 
 
 static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
-static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t const * rx, uint8_t length);
+static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t *rx, uint8_t length);
 static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
 
 /**
@@ -79,12 +79,9 @@ typedef union{
 		};
 } LSM6DSO32_raw_data_t;
 
-typedef union{
-		uint8_t raw[7];
-		struct{
+typedef struct{
 			uint8_t tag;
 			int16_t dataOutRaw[3];
-		};
 } LSM6DSO32_fifo_data_t;	
 
 
