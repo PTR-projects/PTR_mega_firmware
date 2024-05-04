@@ -1,10 +1,12 @@
+#ifndef LSM6DSO32_PRIVATE_H
+#define LSM6DSO32_PRIVATE_H
+
 #include "LSM6DSO32_driver.h"
 
 
-
-static esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
-static esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t *rx, uint8_t length);
-static esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
+extern esp_err_t LSM6DSO32_Write(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t val);
+extern esp_err_t LSM6DSO32_Read(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t *rx, uint8_t length);
+extern esp_err_t LSM6DSO32_SetRegister(uint8_t sensor, LSM6DSO32_register_addr_t, uint8_t val);
 
 /**
  * @brief Array of accelerometer sensitivity bits for LSM6DSO32.
@@ -79,10 +81,7 @@ typedef union{
 		};
 } LSM6DSO32_raw_data_t;
 
-typedef struct{
-			uint8_t tag;
-			int16_t dataOutRaw[3];
-} LSM6DSO32_fifo_data_t;	
+	
 
 
 
@@ -103,12 +102,8 @@ typedef struct
 } LSM6DSO32_t;
 
 
+static LSM6DSO32_t LSM6DSO32_d[LSM6DSO32_COUNT];
 
 esp_err_t LSM6DSO32_readTempByID(uint8_t sensor);
-esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor);
-esp_err_t parse_gyro_data(const uint8_t sampleNum, int32_t *gyroDataRaw);
-esp_err_t parse_acc_data(const uint8_t sampleNum, int32_t *accDataRaw);
-esp_err_t calc_acc(uint8_t sensor, int32_t *rawData);
-esp_err_t calc_gyro(uint8_t sensor, int32_t *rawData);
-esp_err_t collect_gyro_data(int32_t *gyroDataRaw, int16_t *sampleValue);
-esp_err_t collect_acc_data(int32_t *accDataRaw, int16_t *sampleValue);
+
+#endif // LSM6DSO32_PRIVATE_H

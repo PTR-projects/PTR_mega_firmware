@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LSM6DSO32_DRIVER_H
+#define LSM6DSO32_DRIVER_H
+
 
 #include <stdio.h>
 #include <string.h>
@@ -268,3 +270,8 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
  * @brief TODO
  */
 esp_err_t LSM6DSO32_calibrateGyroAll(float gain);
+
+esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
+esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
+
+#endif // LSM6DSO32_DRIVER_H
