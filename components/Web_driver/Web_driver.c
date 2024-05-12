@@ -925,7 +925,6 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
 								  uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage,
 								  uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web,
 								  uint8_t arm){
-    live_web.timestamp 					= timestamp_ms;
     status_web.timestamp_ms 			= timestamp_ms;
     status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
     status_web.sysmgr_analog_status     = state_analog;
@@ -965,7 +964,7 @@ esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats)
 
 
 esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        //ADCS = Attitude Determination and Control System
-    status_web.flight_state = flightstate;    //nowe
+    status_web.flight_state = flightstate;   //nowe
     status_web.rocket_tilt = rocket_tilt;    //zmian nazwy z angle
 
     return ESP_OK;
@@ -975,6 +974,7 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     Web_driver_live_t     live_web;
 
+    live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
     live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
     live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
     live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;
