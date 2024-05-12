@@ -25,6 +25,7 @@ struct file_server_data {
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Web_init(void);
+esp_err_t Web_storageInit();
 esp_err_t Web_off(void);
 
 void Web_status_exchange(Web_driver_status_t EX_status);

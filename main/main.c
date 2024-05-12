@@ -344,16 +344,25 @@ void task_kpptr_sysmgr(void *pvParameter){
 void app_main(void)
 {
     nvs_flash_init();
+    Web_storageInit();
+    Preferences_init();
     SysMgr_init();
     if(Web_init() == ESP_OK){
     	SysMgr_checkout(checkout_web, check_ready);
     }
-	Preferences_init(&Preferences_data_d);
+
+    while(1) {
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz
+	}
+
     SPI_init();
     DM_init();
 
     //-----
-    Web_status_updateconfig(0, 12345, Preferences_get().drouge_alt, Preferences_get().main_alt);
+    Preferences_data_t pref;
+	if(Preferences_get(&pref) == ESP_OK){
+		Web_status_updateconfig(0, 12345, pref.drouge_alt_m, pref.main_alt_m);
+	}
 
     //----- Create queues ----------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t ) );

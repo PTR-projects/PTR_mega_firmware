@@ -130,3 +130,4 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status);
 */
 char* Web_driver_json_liveCreate(Web_driver_live_t status);
 Web_driver_status_t Web_driver_json_parse(char* json);
+char* Web_driver_json_prefCreate();

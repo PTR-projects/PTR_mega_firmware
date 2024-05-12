@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "AHRS_driver.h"
+#include "Preferences.h"
 #include "FlightStateDetector.h"
 
 #define TIME_ELAPSED(start_ms, now_ms, wait_ms) (start_ms <= (now_ms - wait_ms))
@@ -20,6 +21,7 @@ static void FlightState_LANDING				(uint64_t time_ms, FlightState_t * currentSta
 //----- Private var -----
 static FlightState_t flightState_d;
 static AHRS_t * 	 AHRS_ptr;
+static FSD_settings_t FSD_settings_d;
 static const char *TAG = "FSD";
 
 static uint64_t stateChangeTime = 0;
@@ -48,6 +50,19 @@ void FSD_forceState(flightstate_t new_state){
 esp_err_t FSD_init(AHRS_t * ahrs){
 	if(ahrs == NULL)
 		return ESP_FAIL;
+
+	Preferences_data_t pref;
+	if(Preferences_get(&pref) == ESP_OK){
+		FSD_settings_d.drouge_alt 		= (float)pref.drouge_alt_m;
+		FSD_settings_d.main_alt 		= (float)pref.main_alt_m;
+		FSD_settings_d.max_tilt 		= (float)pref.max_tilt_deg;
+		FSD_settings_d.rail_height 		= (float)pref.rail_height_mm;
+		FSD_settings_d.staging_delay_s 	= (float)pref.staging_delay_ms / 1000.0f;
+		FSD_settings_d.staging_max_tilt = (float)pref.staging_max_tilt;
+	}
+	else {
+		return ESP_FAIL;
+	}
 
 	AHRS_ptr = ahrs;
 
@@ -224,7 +239,7 @@ static void FlightState_DRAGCHUTE_FALL (uint64_t time_ms, FlightState_t * curren
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100) && (ahrs->altitude < 200.0f))
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100) && (ahrs->altitude < FSD_settings_d.main_alt))
 		|| (TIME_ELAPSED(stateChangeTime, time_ms, 2000) && (ahrs->ascent_rate < -60.0f)) ) {
 		currentState->state = FLIGHTSTATE_MAINSHUTE_FALL;
 		currentState->state_ready = false;

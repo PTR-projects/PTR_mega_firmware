@@ -264,7 +264,7 @@
             <label>Launchpad height [m]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-launchpad-height" min="2" max="10" value="4" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-launchpad-height" min="2" max="20" step="0.5" value="4" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -272,7 +272,7 @@
             <label>Main parachute altitude [m]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-main-alt" min="0" max="10000" value="200" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-main-alt" min="-1" max="100000" value="200" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -280,7 +280,7 @@
             <label>Drouge parachute altitude [m]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-drouge-alt" min="0" max="100000" value="0" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-drouge-alt" min="-1" max="100000" value="-1" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -288,7 +288,7 @@
             <label>Staging delay [s]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-staging-delay" min="0" max="20000" value="0" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-staging-delay" min="0" max="60" step="0.1" value="0" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -315,7 +315,7 @@
             <label>Auto arming time [s]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-autoarm_delay" min="0" max="60" value="30" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-autoarm-delay" min="0" max="60" value="30" onchange="updatePreferencesData()">
           </td>
         </tr>
         <tr>
@@ -323,7 +323,7 @@
             <label>WiFi password</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="text" id="pref-wifi-pass" minlength="6" maxlength="10" size="16" value="your_wifi_pass" oninput="updatePreferencesData()">
+            <input class="tab-settings-input" type="text" id="pref-wifi-pass" minlength="8" maxlength="12" size="16" value="your_wifi_pass" oninput="updatePreferencesData()">
           </td>
         </tr>
 		<tr>
@@ -332,19 +332,27 @@
           </td>
           <td>
 			<select class="tab-settings-input" id="pref-lora-mode">
-          <option value="network">Network</option>
-          <option value="exclusive">Exclusive</option>
+          <option value="network">Exclusive</option>
+          <option value="exclusive">Network</option>
             </select>
           </td>
         </tr>
 		<tr>
           <td>
-            <label>LoRa frequency [kHz]</label>
+            <label>LoRa frequency [MHz]</label>
           </td>
           <td>
-            <input class="tab-settings-input" type="number" id="pref-lora-frequency" min="420000" max="450000" value="433125" step="1" size="12" onchange="updatePreferencesData()">
+            <input class="tab-settings-input" type="number" id="pref-lora-frequency" min="420" max="450" value="433.125" step="0.001" size="12" onchange="updatePreferencesData()">
           </td>
         </tr>
+        <tr>
+		  <td>
+			<label>LoRa encryption key</label>
+		  </td>
+		  <td>
+			<input class="tab-settings-input" type="number" id="pref-lora-key" min="0" max="18446744073709551616" value="0" step="216498" size="12" onchange="updatePreferencesData()">
+		  </td>
+		</tr>
         <tr>
           <td>
             <label>Undo unsaved changes</label>

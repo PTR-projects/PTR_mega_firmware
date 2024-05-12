@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
+#include "Preferences.h"
 #include "SX126x_driver.h"
 #include "LORA_driver.h"
 
@@ -12,13 +13,27 @@ static const char *TAG = "LORA driver";
 
 esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower);
 
+Lora_settings_t Lora_settings_d;
+
 esp_err_t LORA_init()
 {
 	ESP_RETURN_ON_ERROR(SX126X_initIO(), TAG, "SX1262_initIO fail!");
 	vTaskDelay(pdMS_TO_TICKS( 20 ));
 
+	Preferences_data_t pref;
+	if(Preferences_get(&pref) == ESP_OK){
+		Lora_settings_d.tx_dbm			= 0;	//(uint8_t)pref.lora_tx_dbm;
+		Lora_settings_d.freq_hz 		= (uint32_t)pref.lora_freq_khz * 1000UL;	// kHz -> Hz
+		Lora_settings_d.network_mode 	= (uint8_t)pref.lora_mode;
+		Lora_settings_d.security_key	= 0;	//(uint8_t)pref.lora_key;
+	}
+	else {
+		return ESP_FAIL;
+	}
+
 	ESP_LOGI(TAG, "SX1262 init...");
-	ESP_RETURN_ON_ERROR(LORA_modeLORA(433000000UL, 0), TAG, "Error setting LORA mode");	//433MHz, 0dBm
+	ESP_RETURN_ON_ERROR(LORA_modeLORA(Lora_settings_d.freq_hz,
+			Lora_settings_d.tx_dbm), TAG, "Error setting LORA mode");
 
 	ESP_LOGI(TAG, "SX1262 ready");
 
