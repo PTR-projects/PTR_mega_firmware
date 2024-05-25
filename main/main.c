@@ -35,17 +35,21 @@ QueueHandle_t queue_AnalogToMain;
 QueueHandle_t queue_MainToTelemetry;
 QueueHandle_t queue_MainToWeb;
 
-// periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
-
+/**
+ * @brief Main Task with sensors handling, data managment, AHRS calculations
+ * and Flight State Detection
+ *
+ * @param pvParameter
+ */
 void task_kpptr_main(void *pvParameter){
-	TickType_t xLastWakeTime = 0;
-	TickType_t prevTickCountRF = 0;
-	TickType_t prevTickCountWeb = 0;
+	TickType_t 		 xLastWakeTime = 0;
+	TickType_t 		 prevTickCountRF = 0;
+	TickType_t 		 prevTickCountWeb = 0;
 	DataPackage_t *  DataPackage_ptr = NULL;
-	DataPackage_t DataPackage_d;
+	DataPackage_t    DataPackage_d;
 	DataPackageRF_t  DataPackageRF_d;
-	gps_t gps_d;
-	Analog_meas_t Analog_meas;
+	gps_t 			 gps_d;
+	Analog_meas_t 	 Analog_meas;
 
 	int64_t time_us = esp_timer_get_time();
 
@@ -113,7 +117,11 @@ void task_kpptr_main(void *pvParameter){
 	vTaskDelete(NULL);
 }
 
-
+/**
+ * @brief Task dedicatet to telemetry handling
+ *
+ * @param pvParameter
+ */
 void task_kpptr_telemetry(void *pvParameter){
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 	DataPackageRF_t DataPackageRF_d;
@@ -135,11 +143,13 @@ void task_kpptr_telemetry(void *pvParameter){
 		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
 #endif
-
-
 }
 
-
+/**
+ * @brief Task that manages data storage
+ *
+ * @param pvParameter
+ */
 void task_kpptr_storage(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
 	while(Storage_init() != ESP_OK){
@@ -177,12 +187,17 @@ void task_kpptr_storage(void *pvParameter){
 	}
 }
 
+/**
+ * @brief Utility task for low priority functions
+ *
+ * @param pvParameter
+ */
 void task_kpptr_utils(void *pvParameter){
-	TickType_t xLastWakeTime = 0;
-	uint32_t interval_ms = 20;
+	TickType_t 	  xLastWakeTime = 0;
+	uint32_t 	  interval_ms = 20;
 	DataPackage_t DataPackage_d;
+	esp_err_t 	  status = ESP_FAIL;
 
-	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
 		status  = ESP_OK;
 		status |= LED_init(interval_ms);
@@ -231,6 +246,11 @@ void task_kpptr_utils(void *pvParameter){
 	vTaskDelete(NULL);
 }
 
+/**
+ * @brief Task handling Analog measurements
+ *
+ * @param pvParameter
+ */
 void task_kpptr_analog(void *pvParameter){
 	TickType_t 				xLastWakeTime = 0;
 	uint32_t 				interval_ms = 100;
@@ -266,6 +286,11 @@ void task_kpptr_analog(void *pvParameter){
 	vTaskDelete(NULL);
 }
 
+/**
+ * @brief System Manager Task - checks components health
+ *
+ * @param pvParameter
+ */
 void task_kpptr_sysmgr(void *pvParameter){
 	int64_t ready_to_arm_time = 0;
 	ESP_LOGI(TAG, "SysMgr ready");
@@ -334,6 +359,10 @@ void task_kpptr_sysmgr(void *pvParameter){
 	}
 }
 
+/**
+ * @brief Main entry task
+ *
+ */
 void app_main(void)
 {
     nvs_flash_init();
@@ -358,9 +387,9 @@ void app_main(void)
 	}
 
     //----- Create queues ----------
-    queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t ) );
+    queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t   ) );
     queue_MainToTelemetry = xQueueCreate( 1, sizeof( DataPackageRF_t ) );
-    queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t ) );
+    queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t   ) );
 
     //----- Check queues -----------
     if(queue_AnalogToMain == 0)
