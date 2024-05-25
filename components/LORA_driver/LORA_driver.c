@@ -11,7 +11,8 @@
 
 static const char *TAG = "LORA driver";
 
-esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower);
+static esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower);
+static uint16_t SX126X_readIrqStatus();
 
 Lora_settings_t Lora_settings_d;
 
@@ -21,15 +22,14 @@ esp_err_t LORA_init()
 	vTaskDelay(pdMS_TO_TICKS( 20 ));
 
 	Preferences_data_t pref;
-	if(Preferences_get(&pref) == ESP_OK){
-		Lora_settings_d.tx_dbm			= 0;	//(uint8_t)pref.lora_tx_dbm;
-		Lora_settings_d.freq_hz 		= (uint32_t)pref.lora_freq_khz * 1000UL;	// kHz -> Hz
-		Lora_settings_d.network_mode 	= (uint8_t)pref.lora_mode;
-		Lora_settings_d.security_key	= 0;	//(uint8_t)pref.lora_key;
-	}
-	else {
+	if(Preferences_get(&pref) != ESP_OK){
 		return ESP_FAIL;
 	}
+
+	Lora_settings_d.tx_dbm			= 0;	//(uint8_t)pref.lora_tx_dbm;
+	Lora_settings_d.freq_hz 		= (uint32_t)pref.lora_freq_khz * 1000UL;	// kHz -> Hz
+	Lora_settings_d.network_mode 	= (uint8_t)pref.lora_mode;
+	Lora_settings_d.security_key	= (uint64_t)pref.lora_key;
 
 	ESP_LOGI(TAG, "SX1262 init...");
 	ESP_RETURN_ON_ERROR(LORA_modeLORA(Lora_settings_d.freq_hz,
@@ -51,9 +51,9 @@ esp_err_t LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1
 
 	sx126x_pa_cfg_params_t sx126x_pa_cfg_params_d;
 	sx126x_pa_cfg_params_d.pa_duty_cycle = 0x04;
-	sx126x_pa_cfg_params_d.hp_max 	  	 = 0x07;
-	sx126x_pa_cfg_params_d.device_sel 	 = 0x00;
-	sx126x_pa_cfg_params_d.pa_lut 	  	 = 0x01;
+	sx126x_pa_cfg_params_d.hp_max 	  	 = 0x07;		// SX1262 only
+	sx126x_pa_cfg_params_d.device_sel 	 = 0x00;		// 1=SX1261, 0=SX1262
+	sx126x_pa_cfg_params_d.pa_lut 	  	 = 0x01;		// always 0x01
 	if(status == SX126X_STATUS_OK)
 			status = sx126x_set_pa_cfg(0, &sx126x_pa_cfg_params_d);
 
@@ -106,12 +106,17 @@ esp_err_t LORA_setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1
 	return ESP_FAIL;
 }
 
-esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower){
+static esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower){
+	if((frequency < 410000000UL) || (frequency > 493000000UL)
+			|| (txpower < -17) || (txpower > 22)){
+		return ESP_ERR_INVALID_ARG;
+	}
+
 	sx126x_status_t status = sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
 
 	if(status == SX126X_STATUS_OK){
-		status = LORA_setupLoRaTX(frequency, 0, SX126X_LORA_SF8, SX126X_LORA_BW_125, SX126X_LORA_CR_4_5,
-							0x02, 0x02);
+		status = LORA_setupLoRaTX(frequency, 0, SX126X_LORA_SF8, SX126X_LORA_BW_125,
+									SX126X_LORA_CR_4_5, 0x02, 0x02);
 	}
 
 	if(status == SX126X_STATUS_OK){
@@ -128,7 +133,7 @@ void LORA_modeFSK(){
 
 }
 
-uint16_t SX126X_readIrqStatus(){
+static uint16_t SX126X_readIrqStatus(){
 	uint16_t res = 0;
 	sx126x_get_irq_status(0, (sx126x_irq_mask_t*) &res );
 
@@ -138,6 +143,10 @@ uint16_t SX126X_readIrqStatus(){
 esp_err_t LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout) {
 	if ((size == 0) || (size > 256)) {
 		return ESP_ERR_INVALID_SIZE;
+	}
+
+	if(txbuffer == NULL) {
+		return ESP_ERR_INVALID_ARG;
 	}
 
 	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
