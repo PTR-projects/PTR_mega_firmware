@@ -333,7 +333,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 			break;
 		}
 
-		Web_status_updateSysMgr(esp_timer_get_time()/1000, 	SysMgr_getComponentState(checkout_sysmgr), 	SysMgr_getComponentState(checkout_analog),
+		Web_status_updateSysMgr(esp_timer_get_time()/1000, 	SysMgr_getCheckoutStatus(), 	SysMgr_getComponentState(checkout_analog),
 												SysMgr_getComponentState(checkout_lora), 	SysMgr_getComponentState(checkout_main),
 												SysMgr_getComponentState(checkout_storage), SysMgr_getComponentState(checkout_sysmgr),
 												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web),
