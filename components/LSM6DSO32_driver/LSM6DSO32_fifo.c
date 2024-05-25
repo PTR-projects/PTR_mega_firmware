@@ -1,5 +1,5 @@
 #include <LSM6DSO32_fifo.h>
-#include "LSM6DSO32_private.h"
+
 static const char *TAG = "LSM6DSO32_FIFO";
 
 LSM6DSO32_fifo_data_t fifoBuffer = {0}; //ACC + GYRO
@@ -8,14 +8,13 @@ LSM6DSO32_fifo_data_t*  LSM6DSO32_fifoGetBuffer(){
     return &fifoBuffer;
 }
 
-
 esp_err_t LSM6DSO32_configure_fifo(uint8_t sensor){
 	esp_err_t retVal = ESP_OK;
 	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL1_ADDR, 1<<5); //Threshold set to 32 (16ACC + 16GYRO)
 	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL2_ADDR, 1<<7); //Limit Fifo depth to threshold
 	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL3_ADDR, (6<<4 | 6<<0)); // ACC and GYRO batching data rate 1667Hz
 	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL4_ADDR, 6); //Continous mode
-return retVal;
+	return retVal;
 }
 
 esp_err_t LSM6DSO32_readFIFOStatusByID(uint8_t sensor, uint16_t *FIFOStatus){
@@ -27,7 +26,7 @@ esp_err_t LSM6DSO32_readFIFOStatusByID(uint8_t sensor, uint16_t *FIFOStatus){
 	return ESP_OK;
 }
 
-esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor){
+esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor) {
 	esp_err_t readResult = ESP_OK;
 	uint8_t accReadingCount = 0;
 	uint8_t gyroReadingCount = 0;

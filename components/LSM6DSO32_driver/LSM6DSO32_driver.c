@@ -1,6 +1,9 @@
 #include "LSM6DSO32_driver.h"
 #include "LSM6DSO32_private.h"
-//#include "LSM6DSO32_fifo.h"
+#include "LSM6DSO32_fifo.h"
+
+#define LSM6DS_FIFO
+
 /**
  * @brief Tag for identifying log messages related to LSM6DSO32.
  */
@@ -14,6 +17,54 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting) {return ESP_OK;}
 esp_err_t LSM6DSO32_calibrateGyroAll(float gain) {return ESP_OK;}
 #else
+
+/**
+ * @brief Array of accelerometer sensitivity bits for LSM6DSO32.
+ */
+uint8_t LSM6DSAccSensBits[LSM6DS_ACC_FS_LIST_SIZE]=
+{
+	LSM6DS_CTRL1_XL_ACC_FS_4G,	//LSM6DS_ACC_FS_4G
+	LSM6DS_CTRL1_XL_ACC_FS_8G,	//LSM6DS_ACC_FS_8G
+	LSM6DS_CTRL1_XL_ACC_FS_16G,	//LSM6DS_ACC_FS_16G
+	LSM6DS_CTRL1_XL_ACC_FS_32G 	//LSM6DS_ACC_FS_32G
+};
+
+/**
+ * @brief Array of accelerometer sensitivity values in mg per LSB for LSM6DSO32.
+ */
+float LSM6DSAccSensGPerLsb[LSM6DS_ACC_FS_LIST_SIZE]=
+{
+	0.000122f,	//LSM6DS_ACC_FS_4G
+	0.000244f,	//LSM6DS_ACC_FS_8G
+	0.000488f,	//LSM6DS_ACC_FS_16G
+	0.000976f 	//LSM6DS_ACC_FS_32G
+};
+
+/**
+ * @brief Array of gyroscope sensitivity bits for LSM6DSO32.
+ */
+uint8_t LSM6DSGyroDpsBits[LSM6DS_GYRO_DPS_LIST_SIZE]=
+{
+	LSM6DS_CTRL2_G_GYRO_FS_125_DPS , // LSM6DS_GYRO_FS_125_DPS
+	LSM6DS_CTRL2_G_GYRO_FS_250_DPS , // LSM6DS_GYRO_FS_250_DPS 
+	LSM6DS_CTRL2_G_GYRO_FS_500_DPS , // LSM6DS_GYRO_FS_500_DPS
+	LSM6DS_CTRL2_G_GYRO_FS_1000_DPS, // LSM6DS_GYRO_FS_1000_DPS
+	LSM6DS_CTRL2_G_GYRO_FS_2000_DPS, // LSM6DS_GYRO_FS_2000_DPS
+	
+};
+
+/**
+ * @brief Array of gyroscope sensitivity values in degrees per second per LSB for LSM6DSO32.
+ */
+float LSM6DSGyroDpsPerLsb[LSM6DS_GYRO_DPS_LIST_SIZE]=
+{
+	0.004375f,	// LSM6DS_GYRO_FS_125_DPS
+	0.00875f, 	// LSM6DS_GYRO_FS_250_DPS 
+	0.01750f, 	// LSM6DS_GYRO_FS_500_DPS
+	0.035f, 	// LSM6DS_GYRO_FS_1000_DPS
+	0.070f, 	// LSM6DS_GYRO_FS_2000_DPS
+};
+
 
 /**
  * @brief LSM6DSO32 accelerometer initial sensitivity settings.
@@ -138,9 +189,10 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	return readResult;
 }
 
+esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor);
 
 esp_err_t LSM6DSO32_readMeasAll(){
-	#if LSM6DS_FIFO_BATCH_SIZE > 0
+	#ifdef LSM6DS_FIFO
 	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
 		{
 			LSM6DSO32_readFIFOByID(sensor);
@@ -327,9 +379,8 @@ esp_err_t LSM6DSO32_SetAccSens(uint8_t sensor, LSM6DS_acc_sens_setting_t setting
 	return ESP_OK;
 }
 
-esp_err_t LSM6DSO32_calibrateGyro(const uint8_t sensor, const float gain){
+esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain){
 	static bool first_run = false;
-	esp_err_t retVal = ESP_FAIL;
 
 	if(! (LSM6DSO32_COUNT > sensor) ){
 		ESP_LOGE(TAG,"Wrong sensor number!");
@@ -345,7 +396,11 @@ esp_err_t LSM6DSO32_calibrateGyro(const uint8_t sensor, const float gain){
 		return ESP_OK;
 	}
 
-	return retVal;
+	LSM6DSO32_d[sensor].gyroXoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroX_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroXoffset;
+	LSM6DSO32_d[sensor].gyroYoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroY_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroYoffset;
+	LSM6DSO32_d[sensor].gyroZoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroZoffset;
+
+	return ESP_OK;
 }
 
 esp_err_t LSM6DSO32_calibrateGyroAll(float gain){
