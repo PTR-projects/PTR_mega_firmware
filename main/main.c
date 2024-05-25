@@ -35,9 +35,6 @@ QueueHandle_t queue_AnalogToMain;
 QueueHandle_t queue_MainToTelemetry;
 QueueHandle_t queue_MainToWeb;
 
-//----------- Global settings ----------
-Preferences_data_t Preferences_data_d;
-
 // periodic task with timer https://www.esp32.com/viewtopic.php?t=10280
 
 void task_kpptr_main(void *pvParameter){
@@ -118,10 +115,8 @@ void task_kpptr_main(void *pvParameter){
 
 
 void task_kpptr_telemetry(void *pvParameter){
-	DataPackageRF_t DataPackageRF_d;
-
-
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
+	DataPackageRF_t DataPackageRF_d;
 	while(LORA_init() != ESP_OK){
 		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);
@@ -335,11 +330,9 @@ void task_kpptr_sysmgr(void *pvParameter){
 			}
 		}
 
-
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
 	}
 }
-
 
 void app_main(void)
 {
@@ -347,13 +340,13 @@ void app_main(void)
     Web_storageInit();
     Preferences_init();
     SysMgr_init();
+
+    // Init Web component and make checkout
     if(Web_init() == ESP_OK){
     	SysMgr_checkout(checkout_web, check_ready);
+    } else {
+    	SysMgr_checkout(checkout_web, check_fail);
     }
-
-    while(1) {
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz
-	}
 
     SPI_init();
     DM_init();

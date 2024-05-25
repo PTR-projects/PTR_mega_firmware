@@ -11,17 +11,16 @@
 #include "esp_event.h"
 #include "Preferences.h"
 
-
 static const char *TAG = "Web_driver_json";
 
 /*!
  * @brief Create json string and fill it with status values.
- * @return string* with json
+ * @remark Remember to free buffer!
+ *
+ * @return char* Pointer to JSON buffer
  */
 char* Web_driver_json_statusCreate(Web_driver_status_t status){
-
 	char *string = NULL;
-
 	cJSON *json = cJSON_CreateObject();
 
 	cJSON *configuration = cJSON_CreateObject();
@@ -34,7 +33,6 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	cJSON_AddNumberToObject(system, "flight_state", status.flight_state);
 	cJSON_AddNumberToObject(system, "battery_voltage", status.battery_voltage);
 	cJSON_AddItemToObject(json, "system", system);
-
 
 	cJSON *sysMgr = cJSON_CreateObject();
 	cJSON_AddNumberToObject(sysMgr, "sysmgr_system_status",  status.sysmgr_system_status);
@@ -72,7 +70,6 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 		ESP_LOGE(TAG, "Cannot create JSON string");
 	}
 
-
 	cJSON_Delete(json);
 	ESP_LOGV(TAG, "%s", string);
 	return string;
@@ -80,12 +77,12 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 
 /*!
  * @brief Create json string and fill it with live values.
- * @return string* with json
+ * @remark Remember to free buffer!
+ *
+ * @return char* pointer to JSON char buffer
  */
 char* Web_driver_json_liveCreate(Web_driver_live_t live){
-
 	char *string = NULL;
-
 	cJSON *json = cJSON_CreateObject();
 
 	cJSON *Global = cJSON_CreateObject();
@@ -98,13 +95,11 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 	cJSON_AddNumberToObject(MS5607, "temperature", live.MS5607.temperature);
 	cJSON_AddItemToObject(json, "MS5607", MS5607);
 
-
 	cJSON *LIS331 = cJSON_CreateObject();
 	cJSON_AddNumberToObject(LIS331, "ax", live.LIS331.ax);
 	cJSON_AddNumberToObject(LIS331, "ay", live.LIS331.ay);
 	cJSON_AddNumberToObject(LIS331, "az", live.LIS331.az);
 	cJSON_AddItemToObject(json, "LIS331", LIS331);
-
 
 	cJSON *LSM6DS32_0 = cJSON_CreateObject();
 	cJSON_AddNumberToObject(LSM6DS32_0, "ax", live.LSM6DS32_0.ax);
@@ -116,7 +111,6 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 	cJSON_AddNumberToObject(LSM6DS32_0, "temperature", live.LSM6DS32_0.temperature);
 	cJSON_AddItemToObject(json, "LSM6DS32_0", LSM6DS32_0);
 
-
 	cJSON *LSM6DS32_1 = cJSON_CreateObject();
 	cJSON_AddNumberToObject(LSM6DS32_1, "ax", live.LSM6DS32_1.ax);
 	cJSON_AddNumberToObject(LSM6DS32_1, "ay", live.LSM6DS32_1.ay);
@@ -127,13 +121,11 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 	cJSON_AddNumberToObject(LSM6DS32_1, "temperature", live.LSM6DS32_1.temperature);
 	cJSON_AddItemToObject(json, "LSM6DS32_1", LSM6DS32_1);
 
-
 	cJSON *MMC5983MA = cJSON_CreateObject();
 	cJSON_AddNumberToObject(MMC5983MA, "mx", live.MMC5983MA.mx);
 	cJSON_AddNumberToObject(MMC5983MA, "my", live.MMC5983MA.my);
 	cJSON_AddNumberToObject(MMC5983MA, "mz", live.MMC5983MA.mz);
 	cJSON_AddItemToObject(json, "MMC5983MA", MMC5983MA);
-
 
 	cJSON *gps = cJSON_CreateObject();
 	cJSON_AddNumberToObject(gps, "latitude", live.gps.latitude);
@@ -143,57 +135,57 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 	cJSON_AddItemToObject(json, "gps", gps);
 
 
-
 	cJSON *AHRS = cJSON_CreateObject();
-
 	cJSON_AddNumberToObject(AHRS, "anglex", live.anglex);
 	cJSON_AddNumberToObject(AHRS, "angley", live.angley);
 	cJSON_AddNumberToObject(AHRS, "anglez", live.anglez);
 	cJSON_AddItemToObject(json, "AHRS", AHRS);
 
-
 	string = cJSON_Print(json);
-
 	if(string == NULL){
 		ESP_LOGE(TAG, "Cannot create JSON string");
 	}
-
 
 	cJSON_Delete(json);
 	ESP_LOGV(TAG, "%s", string);
 	return string;
 }
 
+/**
+ * @brief Creates JSON from preferences structure
+ * @remark Remember to free buffer!
+ *
+ * @return char* Pointer to JSON buffer
+ */
 char* Web_driver_json_prefCreate(){
 	Preferences_data_t pref;
-	if(Preferences_get(&pref) == ESP_OK){
-		char *string = NULL;
-		cJSON *json = cJSON_CreateObject();
 
-		cJSON_AddNumberToObject(json, "pref_launchpad_height", 	pref.rail_height_mm);
-		cJSON_AddNumberToObject(json, "pref_main_alt", 			pref.main_alt_m);
-		cJSON_AddNumberToObject(json, "pref_drouge_alt", 		pref.drouge_alt_m);
-		cJSON_AddNumberToObject(json, "pref_staging_delay", 	pref.staging_delay_ms);
-		cJSON_AddNumberToObject(json, "pref_staging_tilt", 		pref.staging_max_tilt);
-		cJSON_AddNumberToObject(json, "pref_autoarm_delay", 	pref.auto_arming_time_s);
-		cJSON_AddNumberToObject(json, "pref_autoarming", 		pref.auto_arming);
-		cJSON_AddNumberToObject(json, "pref_lora_frequency", 	pref.lora_freq_khz);
-		cJSON_AddNumberToObject(json, "pref_lora_mode", 		pref.lora_mode);
-		cJSON_AddNumberToObject(json, "pref_lora_key", 			pref.lora_key);
-		cJSON_AddStringToObject(json, "pref_wifi_pass", 		pref.wifi_pass);
-		string = cJSON_Print(json);
-
-		if(string == NULL){
-			ESP_LOGE(TAG, "Cannot create JSON string");
-		}
-
-		cJSON_Delete(json);
-		ESP_LOGI(TAG, "%s", string);
-		return string;
-	}
-	else{
+	if(Preferences_get(&pref) != ESP_OK){
 		ESP_LOGE(TAG, "Pref error");
+		return NULL;
 	}
 
-	return NULL;
+	char *string = NULL;
+	cJSON *json = cJSON_CreateObject();
+
+	cJSON_AddNumberToObject(json, "pref_launchpad_height", 	pref.rail_height_mm);
+	cJSON_AddNumberToObject(json, "pref_main_alt", 			pref.main_alt_m);
+	cJSON_AddNumberToObject(json, "pref_drouge_alt", 		pref.drouge_alt_m);
+	cJSON_AddNumberToObject(json, "pref_staging_delay", 	pref.staging_delay_ms);
+	cJSON_AddNumberToObject(json, "pref_staging_tilt", 		pref.staging_max_tilt);
+	cJSON_AddNumberToObject(json, "pref_autoarm_delay", 	pref.auto_arming_time_s);
+	cJSON_AddNumberToObject(json, "pref_autoarming", 		pref.auto_arming);
+	cJSON_AddNumberToObject(json, "pref_lora_frequency", 	pref.lora_freq_khz);
+	cJSON_AddNumberToObject(json, "pref_lora_mode", 		pref.lora_mode);
+	cJSON_AddNumberToObject(json, "pref_lora_key", 			pref.lora_key);
+	cJSON_AddStringToObject(json, "pref_wifi_pass", 		pref.wifi_pass);
+	string = cJSON_Print(json);
+
+	if(string == NULL){
+		ESP_LOGE(TAG, "Cannot create JSON string");
+	}
+
+	cJSON_Delete(json);
+	ESP_LOGI(TAG, "%s", string);
+	return string;
 }
