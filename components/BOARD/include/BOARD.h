@@ -34,6 +34,9 @@
 #define SERVO2_PIN				18
 #define SERVO3_PIN				21
 #define SERVO4_PIN				26
+#define BOARD_SERVO_PWM_NUM		4
+#define BOARD_SERVO_PWM_PINS 	{SERVO1_PIN, SERVO2_PIN, SERVO3_PIN, SERVO4_PIN}
+
 
 #define I2C_SDA_PIN				15
 #define I2C_SCL_PIN				16
@@ -118,6 +121,8 @@
 #define SERVO2_PIN				18
 #define SERVO3_PIN				21
 #define SERVO4_PIN				26
+#define BOARD_SERVO_PWM_NUM		4
+#define BOARD_SERVO_PWM_PINS 	{SERVO1_PIN, SERVO2_PIN, SERVO3_PIN, SERVO4_PIN}
 
 #define I2C_SDA_PIN				15
 #define I2C_SCL_PIN				16
