@@ -19,13 +19,11 @@
 #include "ulp_riscv/ulp_riscv_adc_ulp_core.h"
 #include "hal/adc_types.h"
 #include "hal/adc_ll.h"
+#include "BOARD.h"
 
 /* this variables will be exported as a public symbol, visible from main CPU: */
-volatile uint32_t IGN1_RAW	= 0;
-volatile uint32_t IGN2_RAW	= 0;
-volatile uint32_t IGN3_RAW	= 0;
-volatile uint32_t IGN4_RAW	= 0;
-volatile uint32_t VBAT_RAW	= 24;
+volatile uint32_t VBAT_RAW 	= 0;
+volatile uint32_t IGN_RAW[IGN_NUM] 	= {0};
 volatile uint32_t READY		= 0;
 volatile uint32_t ERROR		= 0;
 
@@ -33,44 +31,35 @@ volatile uint32_t ERROR		= 0;
 
 int main (void)
 {
+	uint32_t ADC_RAW[ADC_CHANNELS_NUM]	= {0};
+	uint32_t ADC_CHANNELS[ADC_CHANNELS_NUM] = {ADC_CHANNELS_LIST};
+
 	for(uint8_t i=0; i<8; i++){
 		ERROR = 1;
-		ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNEL_7);
+		ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNELS[0]);
 		ERROR = 0;
 	}
 
-	VBAT_RAW = 0;
-	for(uint16_t i=0; i<VBAT_OVERSAMPLE; i++){
-		ERROR = 1;
-		VBAT_RAW += ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNEL_7);
-		ERROR = 0;
+
+	//----------------- ADC MEAS--------------------------
+	ERROR = 1;
+	for(uint8_t i=0; i<ADC_CHANNELS_NUM; i++){
+		ADC_RAW[i] = 0;
+		for(uint16_t j=0; j<VBAT_OVERSAMPLE; j++){
+			ADC_RAW[i] += ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNELS[i]);
+		}
+		ADC_RAW[i] = ADC_RAW[i] / VBAT_OVERSAMPLE;
+	}
+	ERROR = 0;
+
+	//------ Rewrite Measurements to dedicated external variables ----
+	VBAT_RAW = ADC_RAW[0];
+
+	for(uint8_t i=0; i<IGN_NUM; i++){
+		IGN_RAW[i] = ADC_RAW[i+1];
 	}
 
-	VBAT_RAW = VBAT_RAW / VBAT_OVERSAMPLE;
-
-
-//----------------- IGN 1 --------------------------
-	ERROR = 1;
-	IGN1_RAW = ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNEL_6);
-	ERROR = 0;
-
-//----------------- IGN 2 --------------------------
-	ERROR = 1;
-	IGN2_RAW = ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNEL_5);
-	ERROR = 0;
-
-//----------------- IGN 3 --------------------------
-	ERROR = 1;
-	IGN3_RAW = ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNEL_4);
-	ERROR = 0;
-
-//----------------- IGN 4 --------------------------
-	ERROR = 1;
-	IGN4_RAW = ulp_riscv_adc_read_channel(ADC_NUM_1, ADC_CHANNEL_3);
-	ERROR = 0;
-
-
-//----------------- ULP ADC ready ------------------
+	//----------------- ULP ADC ready ------------------
 	READY = 1;
 
 	CLEAR_PERI_REG_MASK(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN);

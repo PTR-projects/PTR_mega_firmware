@@ -39,6 +39,12 @@
 #include "sx126x_hal.h"
 #include "sx126x_regs.h"
 #include "esp_log.h"
+#include "BOARD.h"
+
+#if !(defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN))
+
+#else
+
 /*
  * -----------------------------------------------------------------------------
  * --- PRIVATE MACROS-----------------------------------------------------------
@@ -1489,3 +1495,4 @@ static inline uint32_t sx126x_get_gfsk_crc_len_in_bytes( sx126x_gfsk_crc_types_t
 }
 
 /* --- EOF ------------------------------------------------------------------ */
+#endif

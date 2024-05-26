@@ -12,10 +12,11 @@ const preferencesData = {
 	staging_max_tilt: 45,
 	auto_arming_time_s: 60,
 	auto_arming: true,
-	key: 12345678, // Replace with your key value
+	key: 12345678, /* Replace with your key value */
 	lora_freq: 433125,
-	lora_network_mode: true, //true for network, false for exclusive
-	crc32: 0, // Initialize CRC32 to 0
+	lora_mode: true, /* true for network, false for exclusive */
+	lora_tx_dbm: 0,
+	lora_key: 0
 };
 
 function SelectSection_Home() {
@@ -88,6 +89,8 @@ function SelectSection_Settings() {
 	liveview_tab.style.display	= 'none';
 
 	clearInterval(getDataLiveIntervalID);
+	
+	getPref();
 }
 
 function SelectSection_Live() {
@@ -115,7 +118,7 @@ let touchendY = 0;
     
 function checkDirection() {
   /* Ignore if user wants to refresh page */
-  // Get the absolute vertical distance
+  /* Get the absolute vertical distance */
   let verticalDistance = Math.abs(touchstartY - touchendY);  
   
   /* Calculate the difference between start and end positions */
@@ -125,13 +128,11 @@ function checkDirection() {
   
   /* Check if the swipe distance meets your desired threshold */
   if ((Math.abs(swipeDistance) > 80) && (verticalDistance < 50)) {
-  	// Perform the action for the swipe gesture
+  	/* Perform the action for the swipe gesture */
     if (swipeDistance > 0) {
-      // Right swipe
-      Tab_swipeRight();
+      Tab_swipeRight(); /* Right swipe */
     } else {
-      // Left swipe
-      Tab_swipeLeft();
+      Tab_swipeLeft();  /* Left swipe */
     }
   }
 }
@@ -368,9 +369,9 @@ function storage_remove_handler () {
 }
 
 function vibrate(time){
-	// Check if the Vibration API is supported
+	/* Check if the Vibration API is supported */
 	if ('vibrate' in navigator) {
-	  // Vibrate for 200ms
+	  /* Vibrate for 200ms */
 	  navigator.vibrate(time);
 	}
 }
@@ -831,49 +832,43 @@ function initDataLive() {
 		  console.error(error);
 		});
   }
+  
+  
 
 
-  // Function to calculate CRC32 checksum
-  function calculateCRC32(input) {
-	let crc = 0;
-	const table = new Uint32Array(256);
+/* Function to calculate CRC16 checksum */
+function calculateCRC16(data) {
+	 const poly = 0x1021;
+    let crc = 0xffff;
 
-	for (let i = 0; i < 256; i++) {
-		let c = i;
-		for (let j = 0; j < 8; j++) {
-			if (c & 1) {
-				c = 0xedb88320 ^ (c >>> 1);
-			} else {
-				c >>>= 1;
-			}
-		}
-		table[i] = c;
-	}
+    for (let i = 0; i < data.length; i++) {
+        crc ^= (data.charCodeAt(i) << 8);
 
-	for (let i = 0; i < input.length; i++) {
-		crc = (crc >>> 8) ^ table[(crc ^ input.charCodeAt(i)) & 0xff];
-	}
+        for (let j = 0; j < 8; j++) {
+            crc = (crc & 0x8000) ? ((crc << 1) ^ poly) : (crc << 1);
+        }
+    }
 
-	return crc ^ 0xffffffff;
+    return crc & 0xffff;
 }
 
-// Function to send the JSON data as a POST request
+/* Function to send the JSON data as a POST request */
 function sendPreferencesData(preferencesData) {
-	// Calculate CRC32 checksum for the JSON data
-	const jsonData = JSON.stringify(preferencesData,null,"	");
-	const crc32 = calculateCRC32(jsonData);
-
-	preferencesData.crc32 = crc32;
-
-	console.log("Sending preferencesData:", preferencesData);
-	// Convert the JavaScript object with CRC32 to a JSON string
-	const finalJsonData = JSON.stringify(preferencesData,null,"	");
-	console.log(finalJsonData);
-	// Define the URL to which you want to send the POST request
-	const apiUrl = '/config'; // Replace with your API URL
-
-	// Send the JSON data as a POST request
-	console.log(POST_simple("/config", finalJsonData));
+	if(confirm('Save and restart? If you changed WiFi password then change your phone settings too.')) { 
+		/* Calculate CRC16 checksum for the JSON data */
+		const jsonData = JSON.stringify(preferencesData,null,"	");
+		const crc16 = calculateCRC16(jsonData);
+		
+		console.log("Sending preferencesData:", preferencesData);
+		
+		/* Define the URL to which you want to send the POST request*/
+		const apiUrl = '/config'; /* Replace with your API URL */
+	
+		/* Send the JSON data as a POST request */
+		console.log(POST_simple("/config", crc16 + ',' + jsonData));
+		
+		setTimeout(getPref(), 5000);
+	}
 }
 
 function formatWifiPass(wifiPass) {
@@ -886,26 +881,66 @@ function formatWifiPass(wifiPass) {
 
 
 function updatePreferencesData() {
-	preferencesData.rail_height = parseFloat(document.getElementById("pref-launchpad-height").value);
-	preferencesData.main_alt = parseFloat(document.getElementById("pref-main-alt").value);
-	preferencesData.drouge_alt = parseFloat(document.getElementById("pref-drouge-alt").value);
-	preferencesData.staging_delay = parseFloat(document.getElementById("pref-staging-delay").value);
-	preferencesData.staging_max_tilt = parseFloat(document.getElementById("pref-staging-tilt").value);
-	preferencesData.auto_arming_time_s = parseFloat(document.getElementById("pref-autoarm_delay").value);
-	preferencesData.lora_freq = parseFloat(document.getElementById("pref-lora-frequency").value);
+	preferencesData.rail_height 		= parseInt(1000 * document.getElementById("pref-launchpad-height").value);
+	preferencesData.main_alt 			= parseInt(document.getElementById("pref-main-alt").value);
+	preferencesData.drouge_alt 			= parseInt(document.getElementById("pref-drouge-alt").value);
+	preferencesData.staging_delay 		= parseInt(1000 * document.getElementById("pref-staging-delay").value);
+	preferencesData.staging_max_tilt 	= parseInt(document.getElementById("pref-staging-tilt").value);
+	preferencesData.auto_arming_time_s 	= parseInt(document.getElementById("pref-autoarm-delay").value);
+	preferencesData.auto_arming 		= parseInt(document.getElementById("pref-autoarm-enable").selectedIndex);
+	preferencesData.lora_freq 			= parseInt(1000 * document.getElementById("pref-lora-frequency").value);
+	preferencesData.lora_mode			= parseInt(document.getElementById("pref-lora-mode").selectedIndex);
+	preferencesData.lora_key			= parseInt(document.getElementById("pref-lora-key").value);
+	preferencesData.lora_tx_dbm			= 0;
 	
 	preferencesData.wifi_pass = document.getElementById("pref-wifi-pass").value;
 	
 
-	// Add similar lines for other properties as needed
+	/* Add similar lines for other properties as needed */
 
 	console.log("Updated preferencesData:", preferencesData);
 }
 
 function preferencesDataLoraMode(state) {
-	preferencesData.lora_network_mode = state;
+	preferencesData.lora_mode = state;
 }
 
 function preferencesDataAutoarming(state) {
 	preferencesData.auto_arming = state;
+}
+
+function getPref() {
+	fetch("/pref")
+		.then(response => {
+		  if (response.ok) {
+			/* The connection was successful*/
+			return response.json();
+		  } else {
+			/* The connection was not successful*/
+			throw new Error(`Error ${response.status}: ${response.statusText}`);
+		  }
+		})
+		.then(data => {
+				/* Update the text label with the new data*/
+				console.log("Refresh Pref OK");
+				console.log(data);
+				document.getElementById("pref-launchpad-height").value 	= parseFloat(data.pref_launchpad_height * 0.001);
+				document.getElementById("pref-main-alt").value 			= parseInt(data.pref_main_alt);
+				document.getElementById("pref-drouge-alt").value 		= parseInt(data.pref_drouge_alt);
+				document.getElementById("pref-staging-delay").value 	= parseFloat(data.pref_staging_delay * 0.001);
+				document.getElementById("pref-staging-tilt").value 		= parseInt(data.pref_staging_tilt);
+				document.getElementById("pref-autoarm-delay").value 	= parseInt(data.pref_autoarm_delay);
+				document.getElementById("pref-lora-frequency").value 	= parseFloat(data.pref_lora_frequency * 0.001);
+				document.getElementById("pref-wifi-pass").value 		= data.pref_wifi_pass
+				document.getElementById("pref-autoarm-enable").selectedIndex = parseInt(data.pref_autoarming);
+				document.getElementById("pref-lora-mode").selectedIndex = parseInt(data.pref_lora_mode);
+				document.getElementById("pref-lora-key").value			= parseInt(data.pref_lora_key);
+				updatePreferencesData();
+	
+	preferencesData.wifi_pass = document.getElementById("pref-wifi-pass").value;
+		})
+		.catch(error => {
+		  /* Handle any errors that occurred*/
+		  console.error(error);
+		});
 }

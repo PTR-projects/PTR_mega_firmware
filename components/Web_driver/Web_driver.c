@@ -68,6 +68,7 @@ typedef struct rest_server_context {
     char scratch[SCRATCH_BUFSIZE];
 } rest_server_context_t;
 
+
 /*!
  * @brief Initialize web component by calling init functions for wifi and http server.
  * @return `ESP_OK` if initialized
@@ -76,13 +77,7 @@ typedef struct rest_server_context {
  */
 esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
-
 	const char* base_path = "/www";
-	ret = esp_vfs_spiffs_register(&conf);
-
-	 if(ret != ESP_OK){
-		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
-	 }
 
 	ret = Web_wifi_init();
 	if(ret == ESP_OK){
@@ -90,9 +85,20 @@ esp_err_t Web_init(void){
 	}
 
 	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
-	//Preferences_init();
 	
 	return ret;
+}
+
+esp_err_t Web_storageInit(){
+	esp_err_t ret = ESP_FAIL;
+
+	ret = esp_vfs_spiffs_register(&conf);
+
+	 if(ret != ESP_OK){
+		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
+	 }
+
+	 return ret;
 }
 
 /*!
@@ -124,22 +130,30 @@ esp_err_t Web_wifi_init(void){
     		.ssid = CONFIG_ESP_WIFI_SSID,
     		.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
     		.channel = WIFI_CHANNEL,
-    		.password = CONFIG_ESP_WIFI_PASSWORD,
+    		.password =  CONFIG_ESP_WIFI_PASSWORD,
     		.max_connection = MAX_STA_CONN,
     		.authmode = WIFI_AUTH_WPA_WPA2_PSK
     	},
     };
 
-
-    if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    Preferences_data_t pref;
+    if(Preferences_get(&pref) == ESP_OK){
+    	memset((void *)wifi_config.ap.password, 0, sizeof(wifi_config.ap.password));
+    	strncpy((char *)wifi_config.ap.password, pref.wifi_pass, sizeof(wifi_config.ap.password));
+    	ESP_LOGV(TAG, "WiFi Pass from pref.: %s", (char *)wifi_config.ap.password);
     }
+    else if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
+        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+        ESP_LOGI(TAG, "WiFi Open");
+    }
+
+
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD, WIFI_CHANNEL);
+    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", wifi_config.ap.ssid, wifi_config.ap.password, wifi_config.ap.channel);
 
     tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
@@ -571,22 +585,6 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
 }
 
 /*!
- * @brief Handler responsible for serving json with configuration data.
- * @param req
- * HTTP request
- * @return `ESP_OK` if done
- * @return `ESP_FAIL` otherwise.
- */
-esp_err_t preferences_get_config(httpd_req_t *req){
-	char *string = Preferences_send_config_web();
-
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-}
-
-/*!
  * @brief Handler responsible for serving json with status data.
  * @param req
  * HTTP request
@@ -595,6 +593,9 @@ esp_err_t preferences_get_config(httpd_req_t *req){
  */
 esp_err_t jsonStatus_get_handler(httpd_req_t *req){
 	char *string = Web_driver_json_statusCreate(status_web);
+
+	if(string == NULL)
+		return ESP_FAIL;
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -614,6 +615,32 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req){
  */
 esp_err_t jsonLive_get_handler(httpd_req_t *req){
 	char *string = Web_driver_json_liveCreate(live_web);
+
+	if(string == NULL)
+		return ESP_FAIL;
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+
+    free(string);
+    return ESP_OK;
+}
+
+/*!
+ * @brief Handler responsible for serving json with current settings.
+ * @param req
+ * HTTP request
+ * @return `ESP_OK` if done
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t jsonPref_get_handler(httpd_req_t *req){
+	char *string = Web_driver_json_prefCreate();
+
+	if(string == NULL){
+		ESP_LOGE(TAG, "Req failed");
+		return ESP_FAIL;
+	}
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -738,14 +765,6 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &index_get);
 
-	httpd_uri_t pref_get = {
-			.uri      = "/pref_get",
-			.method   = HTTP_GET,
-			.handler  = preferences_get_config,
-			.user_ctx = server_data
-	};
-	httpd_register_uri_handler(server, &pref_get);
-
 	httpd_uri_t jsonStatus_get = {
 		    .uri      = "/status",
 		    .method   = HTTP_GET,
@@ -762,6 +781,14 @@ esp_err_t Web_http_init(const char *base_path){
 	};
 	httpd_register_uri_handler(server, &jsonLive_get);
 
+	httpd_uri_t jsonPref_get = {
+			.uri      = "/pref",
+			.method   = HTTP_GET,
+			.handler  = jsonPref_get_handler,
+			.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &jsonPref_get);
+
 	httpd_uri_t cmd_send = {
 			    .uri      = "/cmd",
 			    .method   = HTTP_POST,
@@ -769,12 +796,12 @@ esp_err_t Web_http_init(const char *base_path){
 			    .user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &cmd_send);
-	
+
 	httpd_uri_t config_send = {
-			    .uri      = "/config",
-			    .method   = HTTP_POST,
-			    .handler  = config_post_handler,
-			    .user_ctx = server_data
+				.uri      = "/config",
+				.method   = HTTP_POST,
+				.handler  = config_post_handler,
+				.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &config_send);
 
@@ -898,7 +925,6 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
 								  uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage,
 								  uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web,
 								  uint8_t arm){
-    live_web.timestamp 					= timestamp_ms;
     status_web.timestamp_ms 			= timestamp_ms;
     status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
     status_web.sysmgr_analog_status     = state_analog;
@@ -938,7 +964,7 @@ esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats)
 
 
 esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        //ADCS = Attitude Determination and Control System
-    status_web.flight_state = flightstate;    //nowe
+    status_web.flight_state = flightstate;   //nowe
     status_web.rocket_tilt = rocket_tilt;    //zmian nazwy z angle
 
     return ESP_OK;
@@ -948,6 +974,7 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     Web_driver_live_t     live_web;
 
+    live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
     live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
     live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
     live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;

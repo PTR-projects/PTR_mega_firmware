@@ -9,6 +9,7 @@
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
+#include "Preferences.h"
 
 
 static const char *TAG = "Web_driver_json";
@@ -163,3 +164,36 @@ char* Web_driver_json_liveCreate(Web_driver_live_t live){
 	return string;
 }
 
+char* Web_driver_json_prefCreate(){
+	Preferences_data_t pref;
+	if(Preferences_get(&pref) == ESP_OK){
+		char *string = NULL;
+		cJSON *json = cJSON_CreateObject();
+
+		cJSON_AddNumberToObject(json, "pref_launchpad_height", 	pref.rail_height_mm);
+		cJSON_AddNumberToObject(json, "pref_main_alt", 			pref.main_alt_m);
+		cJSON_AddNumberToObject(json, "pref_drouge_alt", 		pref.drouge_alt_m);
+		cJSON_AddNumberToObject(json, "pref_staging_delay", 	pref.staging_delay_ms);
+		cJSON_AddNumberToObject(json, "pref_staging_tilt", 		pref.staging_max_tilt);
+		cJSON_AddNumberToObject(json, "pref_autoarm_delay", 	pref.auto_arming_time_s);
+		cJSON_AddNumberToObject(json, "pref_autoarming", 		pref.auto_arming);
+		cJSON_AddNumberToObject(json, "pref_lora_frequency", 	pref.lora_freq_khz);
+		cJSON_AddNumberToObject(json, "pref_lora_mode", 		pref.lora_mode);
+		cJSON_AddNumberToObject(json, "pref_lora_key", 			pref.lora_key);
+		cJSON_AddStringToObject(json, "pref_wifi_pass", 		pref.wifi_pass);
+		string = cJSON_Print(json);
+
+		if(string == NULL){
+			ESP_LOGE(TAG, "Cannot create JSON string");
+		}
+
+		cJSON_Delete(json);
+		ESP_LOGI(TAG, "%s", string);
+		return string;
+	}
+	else{
+		ESP_LOGE(TAG, "Pref error");
+	}
+
+	return NULL;
+}

@@ -18,12 +18,16 @@
 #include "SPI_driver.h"
 #include "sx126x_hal.h"
 
+static const char *TAG = "sx126x driver";
+
+#if !(defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN))
+esp_err_t SX126X_initIO() {return ESP_OK;}
+void SX126X_checkBusy() {}
+
+#else
+static spi_device_handle_t spi_dev_handle_SX126X;
 esp_err_t SX126X_spi_init(void);
 uint32_t SX126X_getBUSY();
-void SX126X_checkBusy();
-
-static const char *TAG = "sx126x driver";
-static spi_device_handle_t spi_dev_handle_SX126X;
 
 esp_err_t SX126X_initIO(){
 	ESP_RETURN_ON_ERROR(gpio_reset_pin(RF_BUSY_PIN), TAG, "Error settin RF_BUSY_PIN");
@@ -170,3 +174,4 @@ sx126x_hal_status_t sx126x_hal_wakeup( const void* context ){
 
 	return 0;
 }
+#endif

@@ -18,7 +18,14 @@ struct file_server_data {
     char scratch[SCRATCH_BUFSIZE];
 };
 
+/*!
+ * @brief Initialize web component by calling init functions for wifi and http server.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_ERR_NOT_FOUND` if partition is not present
+ * @return `ESP_FAIL` otherwise.
+ */
 esp_err_t Web_init(void);
+esp_err_t Web_storageInit();
 esp_err_t Web_off(void);
 
 void Web_status_exchange(Web_driver_status_t EX_status);
