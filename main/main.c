@@ -353,10 +353,6 @@ void app_main(void)
     	SysMgr_checkout(checkout_web, check_ready);
     }
 
-    while(1) {
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz
-	}
-
     SPI_init();
     DM_init();
 

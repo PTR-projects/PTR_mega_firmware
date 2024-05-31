@@ -1,0 +1,1 @@
+-B build-v1-16m -DSDKCONFIG=build-v1-16m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_v1_16m" 

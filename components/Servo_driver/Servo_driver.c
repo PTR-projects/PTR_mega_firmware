@@ -116,8 +116,8 @@ esp_err_t Servo_driveSinglePWM(uint8_t servo_num, int8_t position){
 		return ESP_FAIL;
 	}
 
-	return mcpwm_set_duty_in_us(CH_TO_UNIT[servo_num-1], CH_TO_TIMER[servo_num], MCPWM_GEN_A,
-			                                angle_to_PWM(0, Servo_config_d[servo_num]));
+	return mcpwm_set_duty_in_us(CH_TO_UNIT[servo_num-1], CH_TO_TIMER[servo_num-1], MCPWM_GEN_A,
+			                                angle_to_PWM(position, Servo_config_d[servo_num-1]));
 #endif
 	return ESP_FAIL;
 }
