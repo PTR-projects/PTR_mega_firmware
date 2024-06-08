@@ -23,6 +23,7 @@
 #include "Preferences.h"
 #include "DataManager.h"
 #include "SysMgr.h"
+#include "Servo_driver.h"
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
@@ -65,7 +66,7 @@ void task_kpptr_main(void *pvParameter){
 			SysMgr_checkout(checkout_main, check_fail);
 			vTaskDelay(pdMS_TO_TICKS( 1000 ));
 		}
-	}
+	} 
 
 	SysMgr_checkout(checkout_main, check_ready);
 	ESP_LOGI(TAG, "Task Main - ready!");
@@ -83,7 +84,7 @@ void task_kpptr_main(void *pvParameter){
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
-		DM_collectFlash(&DataPackage_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
+		DM_collectFlash(&DataPackage_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas, Servo_get());
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
@@ -209,6 +210,7 @@ void task_kpptr_utils(void *pvParameter){
 
 	SysMgr_checkout(checkout_utils, check_ready);
 	xLastWakeTime = xTaskGetTickCount ();
+	
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		LED_srv();
@@ -350,10 +352,6 @@ void app_main(void)
     if(Web_init() == ESP_OK){
     	SysMgr_checkout(checkout_web, check_ready);
     }
-
-    while(1) {
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz
-	}
 
     SPI_init();
     DM_init();

@@ -105,7 +105,7 @@ esp_err_t DM_addToMainRB(DataPackage_t ** ptr){
 }
 
 void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
-		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
+		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, servo_t * servo){
 
 	package->sys_time = time_us/100;	// 0.1ms resolution
 
@@ -158,6 +158,12 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 
 	package->vbat_mV 			= (uint16_t)analog->vbat_mV;
 
+	package->servo.servo_1 = (int8_t)servo->S1_pos;
+	package->servo.servo_2 = (int8_t)servo->S2_pos;
+	package->servo.servo_3 = (int8_t)servo->S3_pos;
+	package->servo.servo_4 = (int8_t)servo->S4_pos;
+	package->servo.servo_en = servo->servo_en;
+
 	package->blank[0]			= 0;
 	package->blank[1]			= 0;
 	package->blank[2]			= 0;
@@ -165,6 +171,9 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->blank[4]			= 0;
 
 	package->flightstate = (uint8_t)flightstate;
+
+	
+
 }
 
 void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign){

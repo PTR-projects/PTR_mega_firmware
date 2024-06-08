@@ -7,6 +7,7 @@
 #include "Analog_driver.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
+#include "Servo_driver.h"
 
 /**
  * @brief Data structure representing a data package.
@@ -164,7 +165,7 @@ esp_err_t DM_addToMainRB(DataPackage_t ** ptr);
  * @param[in] ign Pointer to an ::IGN_t structure containing ignition data.
  * @param[in] analog Pointer to an ::Analog_meas_t structure containing analog measurement data.
  */
-void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog);
+void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, servo_t * servo);
 
 /**
  * @brief Collect data from various sources and store them in a data package for RF transmission.
@@ -176,4 +177,5 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
  * @param[in] flightstate Pointer to a ::FlightState_t structure containing flight state data.
  * @param[in] ign Pointer to an ::IGN_t structure containing IGN data.
  */
+
 void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign);
