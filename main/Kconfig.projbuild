@@ -8,7 +8,7 @@ menu "KP-PTR Configuration"
 			
 	choice KPPTR_HW
         prompt "KP-PTR HW version"
-        default BOARD_KPPTR_VER_1_REV_0
+        default BOARD_PTR_MEGA_VER_1_REV_0
         help
             Select hardware version and revision.
 
