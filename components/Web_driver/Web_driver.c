@@ -109,14 +109,12 @@ esp_err_t Web_storageInit(){
 esp_err_t Web_wifi_init(void){
 	esp_err_t ret = nvs_flash_init();
 
-	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
-	{
+	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
 		ESP_ERROR_CHECK(nvs_flash_erase()); //potencjalnie niebezpieczne
 		ret = nvs_flash_init();
 	}
+
 	ESP_ERROR_CHECK(ret);
-
-
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_ap();
@@ -125,8 +123,7 @@ esp_err_t Web_wifi_init(void){
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     wifi_config_t wifi_config = {
-    	.ap =
-    	{
+    	.ap = {
     		.ssid = CONFIG_ESP_WIFI_SSID,
     		.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
     		.channel = WIFI_CHANNEL,
@@ -146,8 +143,6 @@ esp_err_t Web_wifi_init(void){
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
         ESP_LOGI(TAG, "WiFi Open");
     }
-
-
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
@@ -173,8 +168,7 @@ esp_err_t Web_wifi_init(void){
  * @return `image/jpeg` .jpeg
  * @return `image/x-icon` .ico
  */
-static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filename)
-{
+static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filename){
     if (IS_FILE_EXT(filename, ".pdf")) {
         return httpd_resp_set_type(req, "application/pdf");
     } else if (IS_FILE_EXT(filename, ".html")) {
@@ -207,9 +201,7 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
  * @param destsize
  * Szie of dest string
  */
-static const char* get_path_from_uri(char *dest, const char *base_path, const char *uri, size_t destsize)
-{
-
+static const char* get_path_from_uri(char *dest, const char *base_path, const char *uri, size_t destsize){
     const size_t base_pathlen = strlen(base_path);
     size_t pathlen = strlen(uri);
 
@@ -227,8 +219,6 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
         return NULL;
     }
 
-
-
     strcpy(dest, "");
     strlcpy(dest + 0, uri, pathlen + 1);
 
@@ -239,8 +229,7 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
 }
 
 
-static esp_err_t index_html_get_handler(httpd_req_t *req)
-{
+static esp_err_t index_html_get_handler(httpd_req_t *req){
     httpd_resp_set_status(req, "307 Temporary Redirect");
     httpd_resp_set_hdr(req, "Location", "/www/index.html");
     httpd_resp_send(req, NULL, 0);  // Response body can be empty
@@ -255,11 +244,14 @@ static esp_err_t index_html_get_handler(httpd_req_t *req)
  * @return `ESP_OK` if initialized
  * @return `ESP_FAIL` otherwise.
  */
-static esp_err_t download_get_handler(httpd_req_t *req)
-{
+static esp_err_t download_get_handler(httpd_req_t *req){
     char filepath[FILE_PATH_MAX];
     FILE *fd = NULL;
     struct stat file_stat;
+
+    if(req == NULL){
+    	return ESP_FAIL;
+    }
 
     const char *filename = get_path_from_uri(filepath, ((struct file_server_data *)req->user_ctx)->base_path,req->uri, sizeof(filepath));
 
@@ -404,6 +396,10 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     struct stat file_stat;
 #endif
 
+    if(req == NULL){
+		return ESP_FAIL;
+	}
+
     /* Skip leading "/delete" from URI to get filename */
     /* Note sizeof() counts NULL termination hence the -1 */
     const char *filename = get_path_from_uri(filepath, ((struct file_server_data *)req->user_ctx)->base_path,
@@ -478,6 +474,10 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
     FILE *fd = NULL;
+
+    if(req == NULL){
+		return ESP_FAIL;
+	}
 
     /* Skip leading "/upload" from URI to get filename */
     /* Note sizeof() counts NULL termination hence the -1 */
@@ -592,10 +592,15 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t jsonStatus_get_handler(httpd_req_t *req){
+	if(req == NULL){
+		return ESP_FAIL;
+	}
+
 	char *string = Web_driver_json_statusCreate(status_web);
 
-	if(string == NULL)
+	if(string == NULL){
 		return ESP_FAIL;
+	}
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -614,10 +619,15 @@ esp_err_t jsonStatus_get_handler(httpd_req_t *req){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t jsonLive_get_handler(httpd_req_t *req){
+	if(req == NULL){
+		return ESP_FAIL;
+	}
+
 	char *string = Web_driver_json_liveCreate(live_web);
 
-	if(string == NULL)
+	if(string == NULL){
 		return ESP_FAIL;
+	}
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -635,6 +645,10 @@ esp_err_t jsonLive_get_handler(httpd_req_t *req){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t jsonPref_get_handler(httpd_req_t *req){
+	if(req == NULL){
+		return ESP_FAIL;
+	}
+
 	char *string = Web_driver_json_prefCreate();
 
 	if(string == NULL){
@@ -659,29 +673,34 @@ esp_err_t jsonPref_get_handler(httpd_req_t *req){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t cmd_post_handler(httpd_req_t *req){
+	if(req == NULL){
+		return ESP_FAIL;
+	}
+
 	int total_len = req->content_len;
-	    int cur_len = 0;
-	    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
-	    int received = 0;
-	    if (total_len >= SCRATCH_BUFSIZE) {
-	        /* Respond with 500 Internal Server Error */
-	        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
-	        return ESP_FAIL;
-	    }
-	    while (cur_len < total_len) {
-	        received = httpd_req_recv(req, buf + cur_len, total_len);
-	        if (received <= 0) {
-	            /* Respond with 500 Internal Server Error */
-	            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
-	            return ESP_FAIL;
-	        }
-	        cur_len += received;
-	    }
-	    buf[total_len] = '\0';
+	int cur_len = 0;
+	char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	int received = 0;
 
-	    Web_cmd_handler(buf);
+	if (total_len >= SCRATCH_BUFSIZE) {
+		/* Respond with 500 Internal Server Error */
+		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+		return ESP_FAIL;
+	}
 
-	    httpd_resp_sendstr(req, "Post control value successfully");
+	while (cur_len < total_len) {
+		received = httpd_req_recv(req, buf + cur_len, total_len);
+		if (received <= 0) {
+			/* Respond with 500 Internal Server Error */
+			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+			return ESP_FAIL;
+		}
+		cur_len += received;
+	}
+
+	buf[total_len] = '\0';
+	Web_cmd_handler(buf);
+	httpd_resp_sendstr(req, "Post control value successfully");
 
     return ESP_OK;
 }
@@ -694,29 +713,34 @@ esp_err_t cmd_post_handler(httpd_req_t *req){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t config_post_handler(httpd_req_t *req){
+	if(req == NULL){
+		return ESP_FAIL;
+	}
+
 	int total_len = req->content_len;
-	    int cur_len = 0;
-	    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
-	    int received = 0;
-	    if (total_len >= SCRATCH_BUFSIZE) {
-	        /* Respond with 500 Internal Server Error */
-	        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
-	        return ESP_FAIL;
-	    }
-	    while (cur_len < total_len) {
-	        received = httpd_req_recv(req, buf + cur_len, total_len);
-	        if (received <= 0) {
-	            /* Respond with 500 Internal Server Error */
-	            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
-	            return ESP_FAIL;
-	        }
-	        cur_len += received;
-	    }
-	    buf[total_len] = '\0';
+	int cur_len = 0;
+	char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	int received = 0;
 
-	    Prefences_update_web(buf);
+	if (total_len >= SCRATCH_BUFSIZE) {
+		/* Respond with 500 Internal Server Error */
+		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+		return ESP_FAIL;
+	}
 
-	    httpd_resp_sendstr(req, "Post control value successfully");
+	while (cur_len < total_len) {
+		received = httpd_req_recv(req, buf + cur_len, total_len);
+		if (received <= 0) {
+			/* Respond with 500 Internal Server Error */
+			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+			return ESP_FAIL;
+		}
+		cur_len += received;
+	}
+
+	buf[total_len] = '\0';
+	Prefences_update_web(buf);
+	httpd_resp_sendstr(req, "Post control value successfully");
 
     return ESP_OK;
 }
@@ -729,12 +753,15 @@ esp_err_t config_post_handler(httpd_req_t *req){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Web_http_init(const char *base_path){
-
 	httpd_handle_t server = NULL;
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 	config.max_uri_handlers = 16;
-
 	static struct file_server_data *server_data = NULL;
+
+	if(base_path == NULL){
+		return ESP_FAIL;
+	}
+
 	if(server_data){
 		ESP_LOGE(TAG, "File server already started");
 	    return ESP_ERR_INVALID_STATE;
@@ -756,79 +783,77 @@ esp_err_t Web_http_init(const char *base_path){
 		return ESP_FAIL;
 	}
 
-
 	httpd_uri_t index_get = {
-			.uri      = "/",
-			.method   = HTTP_GET,
-			.handler  = index_html_get_handler,
-			.user_ctx = server_data
+		.uri      = "/",
+		.method   = HTTP_GET,
+		.handler  = index_html_get_handler,
+		.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &index_get);
 
 	httpd_uri_t jsonStatus_get = {
-		    .uri      = "/status",
-		    .method   = HTTP_GET,
-		    .handler  = jsonStatus_get_handler,
-		    .user_ctx = server_data
+		.uri      = "/status",
+		.method   = HTTP_GET,
+		.handler  = jsonStatus_get_handler,
+		.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &jsonStatus_get);
 
 	httpd_uri_t jsonLive_get = {
-			.uri      = "/live",
-			.method   = HTTP_GET,
-			.handler  = jsonLive_get_handler,
-			.user_ctx = server_data
+		.uri      = "/live",
+		.method   = HTTP_GET,
+		.handler  = jsonLive_get_handler,
+		.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &jsonLive_get);
 
 	httpd_uri_t jsonPref_get = {
-			.uri      = "/pref",
-			.method   = HTTP_GET,
-			.handler  = jsonPref_get_handler,
-			.user_ctx = server_data
+		.uri      = "/pref",
+		.method   = HTTP_GET,
+		.handler  = jsonPref_get_handler,
+		.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &jsonPref_get);
 
 	httpd_uri_t cmd_send = {
-			    .uri      = "/cmd",
-			    .method   = HTTP_POST,
-			    .handler  = cmd_post_handler,
-			    .user_ctx = server_data
+		.uri      = "/cmd",
+		.method   = HTTP_POST,
+		.handler  = cmd_post_handler,
+		.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &cmd_send);
 
 	httpd_uri_t config_send = {
-				.uri      = "/config",
-				.method   = HTTP_POST,
-				.handler  = config_post_handler,
-				.user_ctx = server_data
+		.uri      = "/config",
+		.method   = HTTP_POST,
+		.handler  = config_post_handler,
+		.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &config_send);
 
 	httpd_uri_t file_delete = {
-			.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
-		    .method    = HTTP_POST,
-		    .handler   = delete_post_handler,
-		    .user_ctx  = server_data    // Pass server data as context
-		};
+		.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file
+		.method    = HTTP_POST,
+		.handler   = delete_post_handler,
+		.user_ctx  = server_data    // Pass server data as context
+	};
 	httpd_register_uri_handler(server, &file_delete);
 
 	httpd_uri_t file_upload = {
-			.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
-		    .method    = HTTP_POST,
-		    .handler   = upload_post_handler,
-		    .user_ctx  = server_data    // Pass server data as context
-		};
+		.uri       = "/upload/*",   // Match all URIs of type /upload/path/to/file
+		.method    = HTTP_POST,
+		.handler   = upload_post_handler,
+		.user_ctx  = server_data    // Pass server data as context
+	};
 	httpd_register_uri_handler(server, &file_upload);
 
 	httpd_uri_t file_download = {
-			.uri       = "/*",  // Match all URIs of type /path/to/file
-	        .method    = HTTP_GET,
-	        .handler   = download_get_handler,
-	        .user_ctx  = server_data    // Pass server data as context
+		.uri       = "/*",  // Match all URIs of type /path/to/file
+		.method    = HTTP_GET,
+		.handler   = download_get_handler,
+		.user_ctx  = server_data    // Pass server data as context
 	};
 	httpd_register_uri_handler(server, &file_download);
-
 
 	ESP_LOGI(TAG, "Started HTTP server successfully");
 	return ESP_OK;
@@ -841,13 +866,12 @@ esp_err_t Web_http_init(const char *base_path){
  * server which should be turned off
  */
 void Web_http_stop(httpd_handle_t server){
-    if (server) {
-        httpd_stop(server);
-        ESP_LOGI(TAG, "Server stopped successfully");
-    }
-    else{
+    if (server == NULL) {
     	ESP_LOGW(TAG, "Server is already stopped");
     }
+
+	httpd_stop(server);
+	ESP_LOGI(TAG, "Server stopped successfully");
 }
 
 

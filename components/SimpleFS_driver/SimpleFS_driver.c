@@ -55,14 +55,17 @@ esp_err_t SimpleFS_init(const char * label){
 
 esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key, sfs_format_type_e type){
 	if(!component_init_done){
+		ESP_LOGE(ESP_SIMPLEFS_TAG, "Format - component not initialized");
 		return ESP_FAIL;
 	}
 
 	if(key != SFS_MAGIC_KEY){
+		ESP_LOGE(ESP_SIMPLEFS_TAG, "Format - magic key error");
 		return ESP_FAIL;
 	}
 
 	if((access_locked_r == true) || (access_locked_w == true)){
+		ESP_LOGE(ESP_SIMPLEFS_TAG, "Format - access locked W:%i - R:%i", (int)access_locked_w, (int)access_locked_r);
 		return ESP_FAIL;
 	}
 
@@ -268,12 +271,14 @@ static esp_err_t SimpleFS_findDataEnd(){
 	err = SimpleFS_readMemoryLL(curr_packet * packet_size, 1, (void *)(&tmp));
 	if(err == ESP_FAIL){
 		ESP_LOGE(ESP_SIMPLEFS_TAG, "Read failed");
+		access_locked_w = false;
 		return err;
 	}
 
 	if(tmp == 0xFF){
 		write_ptr = curr_packet * packet_size;
 		ESP_LOGV(ESP_SIMPLEFS_TAG, "Flash empty");
+		access_locked_w = false;
 		return ESP_OK;
 	}
 
@@ -282,6 +287,7 @@ static esp_err_t SimpleFS_findDataEnd(){
 	err = SimpleFS_readMemoryLL(curr_packet * packet_size, 1, (void *)(&tmp));
 	if(err == ESP_FAIL){
 		ESP_LOGE(ESP_SIMPLEFS_TAG, "Read failed");
+		access_locked_w = false;
 		return err;
 	}
 
@@ -289,6 +295,7 @@ static esp_err_t SimpleFS_findDataEnd(){
 		write_ptr = curr_packet * packet_size;
 		ESP_LOGI(ESP_SIMPLEFS_TAG, "Flash too full >50%%");
 		ESP_LOGI(ESP_SIMPLEFS_TAG, "Data end: %iB", write_ptr);
+		access_locked_w = false;
 		return ESP_OK;
 	}
 
@@ -310,6 +317,7 @@ static esp_err_t SimpleFS_findDataEnd(){
 		SimpleFS_readMemoryLL(curr_packet*packet_size, 1, (void *)(&tmp));
 		if(err == ESP_FAIL){
 			ESP_LOGE(ESP_SIMPLEFS_TAG, "Read failed");
+			access_locked_w = false;
 			return err;
 		}
 		ESP_LOGV(ESP_SIMPLEFS_TAG, "Ptr: %i, val: 0x%x", curr_packet*packet_size, tmp);
