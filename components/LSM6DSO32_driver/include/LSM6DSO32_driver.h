@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LSM6DSO32_DRIVER_H
+#define LSM6DSO32_DRIVER_H
+
 
 #include <stdio.h>
 #include <string.h>
@@ -47,6 +49,15 @@ const typedef enum LSM6DSO32_register_addr_t{
 	LSM6DS_OUTX_L_A_ADDR = 0x28,          ///< First accel data register
 	LSM6DS_STEPCOUNTER_ADDR = 0x4B,       ///< 16-bit step counter
 	LSM6DS_TAP_CFG_ADDR = 0x58,           ///< Tap/pedometer configuration
+	LSM6DS_FIFO_CTRL1_ADDR = 0x07,
+	LSM6DS_FIFO_CTRL2_ADDR = 0x08,
+	LSM6DS_FIFO_CTRL3_ADDR = 0x09,
+	LSM6DS_FIFO_CTRL4_ADDR = 0x0A,
+	LSM6DS_FIFO_STATUS1_ADDR = 0x3A,
+	LSM6DS_FIFO_STATUS2_ADDR = 0x3B,
+	LSM6DS_FIFO_DATA_OUT_TAG_ADDR = 0x78,
+	LSM6DS_FIFO_DATA_OUT_X_L = 0x79,
+	
 
 } LSM6DSO32_register_addr_t;
 
@@ -72,20 +83,6 @@ const typedef enum {
 }LSM6DS_gyro_dps_setting_t;
 
 
-typedef union{
-		uint8_t raw[14];
-		struct{
-			int16_t temp_raw;
-
-			int16_t gyroX_raw;
-			int16_t gyroY_raw;
-			int16_t gyroZ_raw;
-
-			int16_t accX_raw;
-			int16_t accY_raw;
-			int16_t accZ_raw;
-		};
-	} LSM6DSO32_raw_data_t;
 
 
 
@@ -273,3 +270,8 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
  * @brief TODO
  */
 esp_err_t LSM6DSO32_calibrateGyroAll(float gain);
+
+esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor);
+esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain);
+
+#endif // LSM6DSO32_DRIVER_H
