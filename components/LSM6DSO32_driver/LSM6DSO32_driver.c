@@ -2,7 +2,7 @@
 #include "LSM6DSO32_private.h"
 #include "LSM6DSO32_fifo.h"
 
-#define LSM6DS_FIFO
+//#define LSM6DS_FIFO
 
 /**
  * @brief Tag for identifying log messages related to LSM6DSO32.
@@ -128,7 +128,7 @@ esp_err_t LSM6DSO32_init(){
 		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[INIT_LSM6DS_ACC_SENS];
 		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[INIT_LSM6DS_GYRO_DPS]; 
 		retVal |= (LSM6DSO32_WhoAmI(sensor) == LSM6DS_WHOAMI_RESPONSE ? ESP_OK : ESP_FAIL);
-#if LSM6DS_FIFO_BATCH_SIZE > 0	
+#if (LSM6DS_FIFO_BATCH_SIZE > 0) && defined LSM6DS_FIFO
 		retVal |= LSM6DSO32_configure_fifo(sensor);
 #endif //LSM6DS_FIFO_BATCH_SIZE > 0
 	}
@@ -188,9 +188,6 @@ esp_err_t LSM6DSO32_readMeasByID(uint8_t sensor){
 	}
 	return readResult;
 }
-
-esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor);
-
 esp_err_t LSM6DSO32_readMeasAll(){
 	#ifdef LSM6DS_FIFO
 	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++)
@@ -431,7 +428,7 @@ esp_err_t LSM6DSO32_SetGyroDps(uint8_t sensor, LSM6DS_gyro_dps_setting_t setting
 }
 
 esp_err_t LSM6DSO32_readTempByID(uint8_t sensor){
-	esp_err_t readResult = LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L_ADDR, &LSM6DSO32_d[sensor].rawData.temp_raw, 2);
+	esp_err_t readResult = LSM6DSO32_Read(sensor, LSM6DS_OUT_TEMP_L_ADDR, (uint8_t*)&(LSM6DSO32_d[sensor].rawData.temp_raw), 2);
 	
 	if (readResult == ESP_OK) 
 	{
