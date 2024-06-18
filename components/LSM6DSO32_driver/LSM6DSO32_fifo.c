@@ -50,8 +50,13 @@ esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor) {
 	for(uint16_t FIFOSample = 0 ; FIFOSample < FIFOStatus; FIFOSample++)
 	{
 		// Read Tag and FIFO_OUT in one transaction
+		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_TAG_ADDR, &fifoBuffer.tag, 1);
+		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_X_L , (uint8_t*)fifoBuffer.dataOutRaw , 6);
+
+		/* Experiemntal not tested!
 		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_TAG_ADDR, &fifoBuffer.tag,
 											sizeof(fifoBuffer.tag) + sizeof(fifoBuffer.dataOutRaw));
+		*/
 		
 		switch ((fifoBuffer.tag >> 3))
 		{
