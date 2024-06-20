@@ -172,7 +172,7 @@ void task_kpptr_storage(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, 2);
 
 		// Skip if we are not flying yet
-		if((FSD_getState() < FLIGHTSTATE_ME_ACCELERATING) && (FSD_getState() >= FLIGHTSTATE_SHUTDOWN))
+		if((FSD_getState() < FLIGHTSTATE_ME_ACCELERATING) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN))
 				continue;
 
 		// Skip if timeout occured (max 100ms)
@@ -194,6 +194,8 @@ void task_kpptr_storage(void *pvParameter){
 		} else {
 			write_error_cnt = 0;	// Reset error counter if write successful
 		}
+
+		DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 	}
 }
 
@@ -365,6 +367,15 @@ void task_kpptr_sysmgr(void *pvParameter){
 				}
 			}
 		}
+
+		// FSD change beep
+		static flightstate_t fsd_prev = FLIGHTSTATE_PREFLIGHT;
+		flightstate_t fsd_new = FSD_getState();
+		if((fsd_new >= FLIGHTSTATE_PREFLIGHT) && (fsd_prev != fsd_new)){
+			fsd_prev = fsd_new;
+			BUZZER_beep(70, 50, 2);
+		}
+
 
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
 	}
