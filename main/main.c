@@ -168,23 +168,34 @@ void task_kpptr_storage(void *pvParameter){
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
-		vTaskDelayUntil(&xLastWakeTime, 2);	// Minimum 2 Ticks for 1 loop - avoid blocking Flash memory for too long
+		// Minimum 2 Ticks for 1 loop - avoid blocking Flash memory for too long
+		vTaskDelayUntil(&xLastWakeTime, 2);
 
-		if((FSD_getState() >= FLIGHTSTATE_ME_ACCELERATING) && (FSD_getState() < FLIGHTSTATE_SHUTDOWN)){
-			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){	//wait max 100ms for new data
-				if(write_error_cnt < 1000){
-					if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
-						ESP_LOGE(TAG, "Storage task - packet write fail");
-						write_error_cnt++;
-					} else {
-						write_error_cnt = 0;	// Reset error counter if write successful
-					}
-				}
-				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
-			} else {
-				ESP_LOGI(TAG, "Storage timeout");
-			}
+		// Skip if we are not flying yet
+		if((FSD_getState() < FLIGHTSTATE_ME_ACCELERATING) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN))
+				continue;
+
+		// Skip if timeout occured (max 100ms)
+		if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) != ESP_OK){
+			ESP_LOGI(TAG, "Storage timeout");
+			continue;
 		}
+
+		// Skip if too many write errors occured but free used pointer
+		if(write_error_cnt > 1000){
+			DM_returnUsedPointerToMainRB(&DataPackage_ptr);
+			continue;
+		}
+
+		// Try write data to Flash
+		if(Storage_writePacket((void*)DataPackage_ptr, sizeof(DataPackage_t)) != ESP_OK){
+			ESP_LOGE(TAG, "Storage task - packet write fail");
+			write_error_cnt++;
+		} else {
+			write_error_cnt = 0;	// Reset error counter if write successful
+		}
+
+		DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 	}
 }
 
@@ -356,6 +367,15 @@ void task_kpptr_sysmgr(void *pvParameter){
 				}
 			}
 		}
+
+		// FSD change beep
+		static flightstate_t fsd_prev = FLIGHTSTATE_PREFLIGHT;
+		flightstate_t fsd_new = FSD_getState();
+		if((fsd_new >= FLIGHTSTATE_PREFLIGHT) && (fsd_prev != fsd_new)){
+			fsd_prev = fsd_new;
+			BUZZER_beep(70, 50, 2);
+		}
+
 
 		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
 	}

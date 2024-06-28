@@ -134,7 +134,7 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	if((AHRS_d.max_altitude) < alti_new)
 		AHRS_d.max_altitude = alti_new;
 
-	AHRS_d.velocityP = 0.9f*AHRS_d.velocityP + 0.1f*(((alti_new) - AHRS_d.altitudeP) / AHRS_d.dt);
+	AHRS_d.velocityP = 0.95f*AHRS_d.velocityP + 0.05f*(((alti_new) - AHRS_d.altitudeP) / AHRS_d.dt);
 	AHRS_d.altitudeP = alti_new;
 }
 

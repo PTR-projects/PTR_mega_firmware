@@ -10,10 +10,11 @@ LSM6DSO32_fifo_data_t*  LSM6DSO32_fifoGetBuffer(){
 
 esp_err_t LSM6DSO32_configure_fifo(uint8_t sensor){
 	esp_err_t retVal = ESP_OK;
-	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL1_ADDR, 1<<5); //Threshold set to 32 (16ACC + 16GYRO)
-	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL2_ADDR, 1<<7); //Limit Fifo depth to threshold
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL1_ADDR, 1<<5); 			//Threshold set to 32 (16ACC + 16GYRO)
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL2_ADDR, 1<<7); 			//Limit Fifo depth to threshold
 	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL3_ADDR, (6<<4 | 6<<0)); // ACC and GYRO batching data rate 1667Hz
-	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL4_ADDR, 6); //Continous mode
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_FIFO_CTRL4_ADDR, 6); 			//Continous mode
+
 	return retVal;
 }
 
@@ -23,18 +24,23 @@ esp_err_t LSM6DSO32_readFIFOStatusByID(uint8_t sensor, uint16_t *FIFOStatus){
 	*FIFOStatus = ((uint16_t)FIFOStatusBuffer & 0b00000011) << 8;  
 	LSM6DSO32_Read(sensor, LSM6DS_FIFO_STATUS1_ADDR, &FIFOStatusBuffer, 1);
 	*FIFOStatus += (uint16_t)FIFOStatusBuffer;
+
 	return ESP_OK;
 }
 
 esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor) {
-	esp_err_t readResult = ESP_OK;
-	uint8_t accReadingCount = 0;
-	uint8_t gyroReadingCount = 0;
-	int32_t accDataRaw[3] = {0};
-	int32_t gyroDataRaw[3] = {0};
-	uint16_t FIFOStatus = 0;
+	esp_err_t readResult 	 =  ESP_OK;
+	uint8_t accReadingCount  =  0;
+	uint8_t gyroReadingCount =  0;
+	int32_t accDataRaw[3] 	 = {0};
+	int32_t gyroDataRaw[3] 	 = {0};
+	uint16_t FIFOStatus 	 =  0;
+
 	readResult |= LSM6DSO32_readFIFOStatusByID(sensor, &FIFOStatus);
-	FIFOStatus =  (FIFOStatus > (LSM6DS_FIFO_BATCH_SIZE * 2)) ? (LSM6DS_FIFO_BATCH_SIZE * 2) : FIFOStatus; //Process no more then batch size
+
+	// Process no more then batch size
+	FIFOStatus =  (FIFOStatus > (LSM6DS_FIFO_BATCH_SIZE * 2)) ? (LSM6DS_FIFO_BATCH_SIZE * 2) : FIFOStatus;
+
 	if (!(FIFOStatus > 0))
 	{
 		ESP_LOGE(TAG, "FIFO Status read 0");
@@ -43,9 +49,14 @@ esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor) {
 	
 	for(uint16_t FIFOSample = 0 ; FIFOSample < FIFOStatus; FIFOSample++)
 	{
+		// Read Tag and FIFO_OUT in one transaction
 		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_TAG_ADDR, &fifoBuffer.tag, 1);
-		//ESP_LOGE(TAG, "tag: %x", fifoBuffer.tag);
-		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_X_L , fifoBuffer.dataOutRaw , 6);
+		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_X_L , (uint8_t*)fifoBuffer.dataOutRaw , 6);
+
+		/* Experiemntal not tested!
+		readResult |= LSM6DSO32_Read(sensor, LSM6DS_FIFO_DATA_OUT_TAG_ADDR, &fifoBuffer.tag,
+											sizeof(fifoBuffer.tag) + sizeof(fifoBuffer.dataOutRaw));
+		*/
 		
 		switch ((fifoBuffer.tag >> 3))
 		{
@@ -67,8 +78,8 @@ esp_err_t LSM6DSO32_readFIFOByID(uint8_t sensor) {
 				ESP_LOGE(TAG, "Wrong fifo tag read : %x", (fifoBuffer.tag >> 3));
 			}
 		}
-
 	}
+
 	parse_acc_data(accReadingCount, accDataRaw);
 	parse_gyro_data(gyroReadingCount, gyroDataRaw);
 	calc_acc(sensor, accDataRaw);

@@ -47,7 +47,7 @@ esp_err_t  Sensors_update(){
 
 esp_err_t Sensors_axes_translation(){
 	Sensors_t Sensors_b = Sensors_d;
-
+#if defined (CONFIG_BOARD_PTR_MEGA_VER_0_REV_1) || defined (CONFIG_BOARD_PTR_MEGA_VER_1_REV_0)
 	Sensors_d.LIS331.accX	  =  Sensors_b.LIS331.accX;
 	Sensors_d.LIS331.accY     = -Sensors_b.LIS331.accY;
 	Sensors_d.LIS331.accZ     = -Sensors_b.LIS331.accZ;
@@ -63,6 +63,22 @@ esp_err_t Sensors_axes_translation(){
 	Sensors_d.MMC5983MA.magX  = -Sensors_b.MMC5983MA.magY;
 	Sensors_d.MMC5983MA.magY  = -Sensors_b.MMC5983MA.magX;
 	Sensors_d.MMC5983MA.magZ  =  Sensors_b.MMC5983MA.magZ;
+
+#elif defined CONFIG_BOARD_ARECORDER_VER_3_REV_0
+	Sensors_d.LIS331.accX	  =  Sensors_b.LIS331.accX;
+	Sensors_d.LIS331.accY     = -Sensors_b.LIS331.accY;
+	Sensors_d.LIS331.accZ     = -Sensors_b.LIS331.accZ;
+
+	Sensors_d.LSM6DSO32.accX  =  Sensors_b.LSM6DSO32.accX;
+	Sensors_d.LSM6DSO32.accY  = -Sensors_b.LSM6DSO32.accY;
+	Sensors_d.LSM6DSO32.accZ  = -Sensors_b.LSM6DSO32.accZ;
+
+	Sensors_d.LSM6DSO32.gyroX =  Sensors_b.LSM6DSO32.gyroX;
+	Sensors_d.LSM6DSO32.gyroY = -Sensors_b.LSM6DSO32.gyroY;
+	Sensors_d.LSM6DSO32.gyroZ = -Sensors_b.LSM6DSO32.gyroZ;
+#else
+#warning "No board selected!"
+#endif
 
 	return ESP_OK;
 }

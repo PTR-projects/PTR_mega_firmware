@@ -116,6 +116,10 @@ esp_err_t FSD_detect(uint64_t time_ms){
 		FlightState_LANDING(time_ms, currentState, ahrs);
 		break;
 
+	case FLIGHTSTATE_SHUTDOWN:
+		FSD_disarming();
+		break;
+
 	default:
 		ESP_LOGE(TAG, "Wrong state! Disarming!");
 		FSD_disarming();
@@ -180,7 +184,7 @@ static void FlightState_ME_ACCELERATING	(uint64_t time_ms, FlightState_t * curre
 	}
 }
 
-static void FlightState_FREEFLIGHT			(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+static void FlightState_FREEFLIGHT (uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
 	//------ Komendy wykonywane tylko raz ------
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -191,7 +195,7 @@ static void FlightState_FREEFLIGHT			(uint64_t time_ms, FlightState_t * currentS
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && ((ahrs->max_altitude - ahrs->altitude) > 10.0f) ) {
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 500))  && ((ahrs->max_altitude - ahrs->altitudeP) > 10.0f) ) {
 		currentState->state = FLIGHTSTATE_FREEFALL;
 		currentState->state_ready = false;
 	}
@@ -239,7 +243,7 @@ static void FlightState_DRAGCHUTE_FALL (uint64_t time_ms, FlightState_t * curren
 
 
 	//------ Warunki przejścia dalej ------
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100) && (ahrs->altitude < FSD_settings_d.main_alt))
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100) && (ahrs->altitudeP < FSD_settings_d.main_alt))
 		|| (TIME_ELAPSED(stateChangeTime, time_ms, 2000) && (ahrs->ascent_rate < -60.0f)) ) {
 		currentState->state = FLIGHTSTATE_MAINSHUTE_FALL;
 		currentState->state_ready = false;
@@ -264,7 +268,7 @@ static void FlightState_MAINSHUTE_FALL (uint64_t time_ms, FlightState_t * curren
 
 
 	//------ Warunki przejścia dalej ------
-	if (TIME_ELAPSED(stateChangeTime, time_ms, 10000) /* && (ahrs->pos.z < 200.0f) && (ahrs->vel.z > -1.0f)) */){
+	if (TIME_ELAPSED(stateChangeTime, time_ms, 10000) && (ahrs->velocityP > -0.5f)/* && (ahrs->pos.z < 200.0f) && (ahrs->vel.z > -1.0f)) */){
 		currentState->state = FLIGHTSTATE_LANDING;
 		currentState->state_ready = false;
 	}
@@ -278,7 +282,19 @@ static void FlightState_MAINSHUTE_FALL (uint64_t time_ms, FlightState_t * curren
 }
 
 static void FlightState_LANDING	(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	//------ Komendy wykonywane tylko raz ------
+	if(!(currentState->state_ready)) {
+		currentState->state_ready = true;
+		stateChangeTime = time_ms;
+	}
+
 	//------ Komendy wykonywane co pętlę ------
+
+	//------ Warunki przejścia dalej ------
+	if (TIME_ELAPSED(stateChangeTime, time_ms, 60000)){
+		currentState->state = FLIGHTSTATE_SHUTDOWN;
+		currentState->state_ready = false;
+	}
 
 	//------ Warunki wykrycia awarii ------
 	if(0 /* && (SysManager_checkCriticalError() != ESP_OK) */) {
