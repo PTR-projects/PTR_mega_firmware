@@ -24,17 +24,13 @@
 #include "DataManager.h"
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
+#include "Wifi_driver.h"
 
 #include "Web_driver.h"
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
 
 static const char *TAG = "Web_driver";
-
-//#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
-//#define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
-#define WIFI_CHANNEL   1
-#define MAX_STA_CONN   1
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 
@@ -50,7 +46,7 @@ Web_driver_status_t status_web;
 Web_driver_live_t live_web;
 
 
-esp_err_t Web_wifi_init 				(void);
+esp_err_t Web_init 				        (void);
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop						(httpd_handle_t server);
 esp_err_t Web_wifi_stop					(void);
@@ -79,11 +75,13 @@ esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
 	const char* base_path = "/www";
 
-	ret = Web_wifi_init();
-	if(ret == ESP_OK){
-		ret = Web_http_init(base_path);
-	}
-
+	while(get_wifi_status() != WIFI_ACTIVE)
+    {
+        ESP_LOGI(TAG, "Waiting for WIFI");
+        vTaskDelay(1000);
+    }
+	
+	ret = Web_http_init(base_path);
 	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
 	
 	return ret;
@@ -100,79 +98,6 @@ esp_err_t Web_storageInit(){
 
 	 return ret;
 }
-
-/*!
- * @brief Initialize wifi, create soft access point.
- * @return `ESP_OK` if initialized
- * @return `ESP_FAIL` otherwise.
- */
-esp_err_t Web_wifi_init(void){
-    uint8_t mac[6];
-    uint8_t mac_addr[13];
-    uint8_t ssid_size = 32;
-    uint8_t ssid[ssid_size];
-
-	esp_err_t ret = nvs_flash_init();
-
-	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
-		ESP_ERROR_CHECK(nvs_flash_erase()); //potencjalnie niebezpieczne
-		ret = nvs_flash_init();
-	}
-
-	ESP_ERROR_CHECK(ret);
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_ap();
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
-    // last two mac address digits should be sufficient to make SSID unique
-    snprintf((char *)mac_addr, sizeof(mac_addr), "%02X%02X", mac[4], mac[5]);
-    ESP_LOGI(TAG, "MAC address: %s", mac_addr);
-
-    memset(ssid, 0x00, ssid_size);
-    snprintf((char *)ssid, ssid_size, "%s-%s", CONFIG_ESP_WIFI_SSID, mac_addr);
-    ESP_LOGI(TAG, "SSID: %s", ssid);
-    wifi_config_t wifi_config = {
-    	.ap = {
-            .ssid_len = strlen((char *)ssid),
-    		.channel = WIFI_CHANNEL,
-    		.password =  CONFIG_ESP_WIFI_PASSWORD,
-    		.max_connection = MAX_STA_CONN,
-    		.authmode = WIFI_AUTH_WPA_WPA2_PSK
-    	},
-    };
-    strncpy((char *)wifi_config.ap.ssid, (char *)ssid, ssid_size);
-
-    Preferences_data_t pref;
-    if(Preferences_get(&pref) == ESP_OK){
-    	memset((void *)wifi_config.ap.password, 0, sizeof(wifi_config.ap.password));
-    	strncpy((char *)wifi_config.ap.password, pref.wifi_pass, sizeof(wifi_config.ap.password));
-    	ESP_LOGV(TAG, "WiFi Pass from pref.: %s", (char *)wifi_config.ap.password);
-    }
-    else if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-        ESP_LOGI(TAG, "WiFi Open");
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", wifi_config.ap.ssid, wifi_config.ap.password, wifi_config.ap.channel);
-
-    tcpip_adapter_ip_info_t ip_info;
-    ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
-
-    ESP_LOGI(TAG,"IP Address:  %s", ip4addr_ntoa(&ip_info.ip));
-    ESP_LOGI(TAG,"Subnet mask: %s", ip4addr_ntoa(&ip_info.netmask));
-    ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
-
-    return ESP_OK;
-}
-
 
 /*!
  * @brief Set HTTP response content type according to file extension.
