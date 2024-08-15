@@ -107,6 +107,11 @@ esp_err_t Web_storageInit(){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Web_wifi_init(void){
+    uint8_t mac[6];
+    uint8_t mac_addr[13];
+    uint8_t ssid_size = 32;
+    uint8_t ssid[ssid_size];
+
 	esp_err_t ret = nvs_flash_init();
 
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
@@ -122,16 +127,23 @@ esp_err_t Web_wifi_init(void){
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
+    ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
+    // last two mac address digits should be sufficient to make SSID unique
+    snprintf((char *)mac_addr, sizeof(mac_addr), "%02X%02X", mac[4], mac[5]);
+    ESP_LOGI(TAG, "MAC address: %s", mac_addr);
+
+    memset(ssid, 0x00, ssid_size);
+    snprintf((char *)ssid, ssid_size, "%s-%s", CONFIG_ESP_WIFI_SSID, mac_addr);
+    ESP_LOGI(TAG, "SSID: %s", ssid);
     wifi_config_t wifi_config = {
     	.ap = {
-    		.ssid = CONFIG_ESP_WIFI_SSID,
-    		.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
     		.channel = WIFI_CHANNEL,
     		.password =  CONFIG_ESP_WIFI_PASSWORD,
     		.max_connection = MAX_STA_CONN,
     		.authmode = WIFI_AUTH_WPA_WPA2_PSK
     	},
     };
+    strncpy((char *)wifi_config.ap.ssid, (char *)ssid, ssid_size);
 
     Preferences_data_t pref;
     if(Preferences_get(&pref) == ESP_OK){
