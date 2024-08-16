@@ -46,7 +46,7 @@ Web_driver_status_t status_web;
 Web_driver_live_t live_web;
 
 
-esp_err_t Web_wifi_init 				(void);
+esp_err_t Web_init 				        (void);
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop						(httpd_handle_t server);
 esp_err_t Web_wifi_stop					(void);
@@ -75,7 +75,7 @@ esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
 	const char* base_path = "/www";
 
-	while(!Wifi_status())
+	while(Wifi_status() != WIFI_ACTIVE)
     {
         ESP_LOGI(TAG, "Waiting for WIFI");
         vTaskDelay(1000);

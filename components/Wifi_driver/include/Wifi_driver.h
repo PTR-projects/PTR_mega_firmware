@@ -7,4 +7,6 @@ typedef enum Wifi_status_t{
     WIFI_ACTIVE = 1,
 }Wifi_status_t;
 
+esp_err_t Wifi_enable(void);
+esp_err_t Wifi_disable(void);
 Wifi_status_t Wifi_status(void);

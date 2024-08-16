@@ -14,7 +14,7 @@ static const char *TAG = "WIFI";
 #define CONFIG_ESP_WIFI_CHANEL   1
 #define CONFIG_ESP_WIFI_MAX_CONNECTIONS   1
 
-static Wifi_status_t wifi_status;
+static Wifi_status_t wifi_status = WIFI_INACTIVE;
 
 /*!
  * @brief Initialize wifi, create soft access point.
@@ -22,7 +22,13 @@ static Wifi_status_t wifi_status;
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Wifi_enable(void){
-	esp_err_t ret = nvs_flash_init();
+    esp_err_t ret = nvs_flash_init();
+
+    if(wifi_status == WIFI_ACTIVE)
+    {
+        ESP_LOGI(TAG, "WIFI was already enabled");
+        return ESP_OK;
+    }
 
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
 		ESP_ERROR_CHECK(nvs_flash_erase()); //potencjalnie niebezpieczne
@@ -72,15 +78,33 @@ esp_err_t Wifi_enable(void){
     ESP_LOGI(TAG,"Subnet mask: %s", ip4addr_ntoa(&ip_info.netmask));
     ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
 
+    wifi_status = WIFI_ACTIVE;
     return ESP_OK;
 }
 
-
-
-
 esp_err_t Wifi_disable(void)
 {
-    return ESP_OK;
+    esp_err_t ret;
+
+    ret = esp_wifi_stop();
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Wi-Fi successfully stopped.");
+        wifi_status = WIFI_INACTIVE;
+    } else if (ret == ESP_ERR_WIFI_NOT_INIT) {
+        ESP_LOGW(TAG, "Wi-Fi was not initialized when trying do stop it");
+    } else {
+        ESP_LOGE(TAG, "Failed to stop Wi-Fi: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    ret = esp_wifi_deinit();
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Wi-Fi successfully deinitialized.");
+    } else {
+        ESP_LOGE(TAG, "Failed to deinitialize Wi-Fi: %s", esp_err_to_name(ret));
+    }
+
+    return ret;
 }
 
 Wifi_status_t Wifi_status(void)

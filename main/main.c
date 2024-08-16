@@ -19,6 +19,7 @@
 #include "Sensors.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
+#include "Wifi_driver.h"
 #include "Web_driver.h"
 #include "Preferences.h"
 #include "DataManager.h"
@@ -387,7 +388,7 @@ void task_kpptr_sysmgr(void *pvParameter){
  */
 void app_main(void)
 {
-    nvs_flash_init();
+    Wifi_enable();
     Web_storageInit();
     Preferences_init();
     SysMgr_init();
