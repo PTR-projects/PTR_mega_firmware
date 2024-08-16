@@ -15,6 +15,7 @@ static const char *TAG = "WIFI";
 #define CONFIG_ESP_WIFI_MAX_CONNECTIONS   1
 
 static Wifi_status_t wifi_status = WIFI_INACTIVE;
+static esp_netif_t *esp_netif; 
 
 /*!
  * @brief Initialize wifi, create soft access point.
@@ -37,11 +38,16 @@ esp_err_t Wifi_enable(void){
 
 	ESP_ERROR_CHECK(ret);
     ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_ap();
+
+    if (esp_event_loop_create_default() != ESP_OK) {
+        ESP_LOGW(TAG, "Event loop already created. Skipping...");
+    }
+
+    esp_netif = esp_netif_create_default_wifi_ap();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_LOGW(TAG, "Default Wi-Fi AP netif already created.");
 
     wifi_config_t wifi_config = {
     	.ap = {
@@ -103,7 +109,7 @@ esp_err_t Wifi_disable(void)
     } else {
         ESP_LOGE(TAG, "Failed to deinitialize Wi-Fi: %s", esp_err_to_name(ret));
     }
-
+    esp_netif_destroy_default_wifi(esp_netif);
     return ret;
 }
 

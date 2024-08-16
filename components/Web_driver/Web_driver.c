@@ -80,10 +80,8 @@ esp_err_t Web_init(void){
         ESP_LOGI(TAG, "Waiting for WIFI");
         vTaskDelay(1000);
     }
-	if(ret == ESP_OK){
-		ret = Web_http_init(base_path);
-	}
-
+	
+	ret = Web_http_init(base_path);
 	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
 	
 	return ret;
