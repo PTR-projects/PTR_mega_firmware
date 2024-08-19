@@ -102,7 +102,7 @@ esp_err_t Wifi_disable(void)
         ESP_LOGE(TAG, "Failed to stop Wi-Fi: %s", esp_err_to_name(ret));
         return;
     }
-
+    vTaskDelay(pdMS_TO_TICKS( 60000 ));
     ret = esp_wifi_deinit();
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "Wi-Fi successfully deinitialized.");
