@@ -137,6 +137,7 @@ esp_err_t Web_wifi_init(void){
     ESP_LOGI(TAG, "SSID: %s", ssid);
     wifi_config_t wifi_config = {
     	.ap = {
+            .ssid_len = strlen((char *)ssid),
     		.channel = WIFI_CHANNEL,
     		.password =  CONFIG_ESP_WIFI_PASSWORD,
     		.max_connection = MAX_STA_CONN,
