@@ -126,20 +126,23 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 		//filters
 	 }
 
-	//ALTITUDE CALCULATIONS
+	
 	float alti_new =  (1.0-powf(kalman_post/ref_press, 0.190295f)) * 44330.0f;
-
-
-	//wykrycie maksymalnego pułapu
-	if((AHRS_d.max_altitude) < alti_new)
-		AHRS_d.max_altitude = alti_new;
-
 	AHRS_d.velocityP = 0.95f*AHRS_d.velocityP + 0.05f*(((alti_new) - AHRS_d.altitudeP) / AHRS_d.dt);
 	AHRS_d.altitudeP = alti_new;
+	
+	if((AHRS_d.max_altitude) < AHRS_d.altitudeP){
+		AHRS_d.max_altitude = AHRS_d.altitudeP;
+	}
+
+	//Altitude calculation from pressure only
+	
+	
 }
 
 static void AHRS_CalcVelocityPosition(){
 	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up, &(AHRS_d.altitude), &AHRS_d.ascent_rate);
+
 }
 
 static void AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro){
@@ -364,6 +367,7 @@ static void AHRS_TransformAccToENU(){
 
 	// Store vertical acceleration (Z component)
 	AHRS_d.acc_up = acc_enu.z - GRAVITY;
+	AHRS_d.acc_enu = acc_enu;
 }
 
 

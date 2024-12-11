@@ -46,8 +46,14 @@ typedef struct{
 	float altitude;					/*!< Altitude above a reference point. [m] */
 
 	vectorf_t acc_rf;				/*!< Acceleration in the rocket frame. */
+	vectorf_t vel_rf;				/*!< Velocity in the rocket frame. */
+	vectorf_t pos_rf;				/*!< Positon in the rocket frame. */
 
-	orientation_t orientation;		/*!< Orientation of the device. */
+	vectorf_t acc_enu;				/*!< Acceleration in the rocket frame. */
+	vectorf_t vel_enu;				/*!< Velocity in the rocket frame. */
+	vectorf_t pos_enu;				/*!< Positon in the ECEF frame. */
+
+	orientation_t orientation;		/*!< Orientation of the rocket. */
 
 	float max_altitude;				/*!< Maximum altitude reached. [m] */
 	float acc_axis_lowpass;			/*!< Low-pass filtered acceleration on the three axes. */

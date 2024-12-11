@@ -1,19 +1,26 @@
 #pragma once
 
-
 /**
  * @brief Enum representing the different flight states.
+ * 
  */
 typedef enum{
 	FLIGHTSTATE_STARTUP,
 	FLIGHTSTATE_PREFLIGHT,
-	FLIGHTSTATE_ME_ACCELERATING,
+	FLIGHTSTATE_BOOST,
+	FLIGHTSTATE_SECOND_STAGE_DELAY,
+	FLIGHTSTATE_SECOND_STAGE_IGNITION,
+	FLIGHTSTATE_SECOND_STAGE_BOOST,
 	FLIGHTSTATE_FREEFLIGHT,
 	FLIGHTSTATE_FREEFALL,
 	FLIGHTSTATE_DRAGCHUTE_FALL,
+	FLIGHTSTATE_DRAGCHUTE_FAILURE,
 	FLIGHTSTATE_MAINSHUTE_FALL,
+	FLIGHTSTATE_RECOVERY_FAILURE,
 	FLIGHTSTATE_LANDING,
-	FLIGHTSTATE_SHUTDOWN
+	FLIGHTSTATE_HARD_ERROR,
+	FLIGHTSTATE_SOFT_ERROR,
+	FLIGHTSTATE_SHUTDOWN,
 } flightstate_t;
 
 
@@ -21,10 +28,12 @@ typedef enum{
  * @brief Data structure representing the flight state.
  * @var FlightState_t::state Current flight state.
  * @var FlightState_t::state_ready Flag indicating if the state is ready.
+ * @var FlightState_t::ignition_time_ms Time of the motor ignition in ms
  */
 typedef struct{
 	flightstate_t state;
 	uint8_t state_ready;
+	uint64_t ignition_time_ms; 
 } FlightState_t;
 
 typedef struct{
@@ -34,8 +43,12 @@ typedef struct{
 	float rail_height;
 	float max_tilt;
 
-	float staging_delay_s;
+	int staging_delay_ms;
 	float staging_max_tilt;
+
+	int expected_motor_burnout_time_s;
+	int expected_apogee_time_s;
+	int expected_main_time_s;
 } FSD_settings_t;
 
 /**

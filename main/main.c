@@ -10,6 +10,7 @@
 #include "driver/gpio.h"
 
 //----------- Our includes --------------
+#include "CONFIG.h"
 #include "SPI_driver.h"
 #include "LED_driver.h"
 #include "LORA_driver.h"
@@ -74,7 +75,7 @@ void task_kpptr_main(void *pvParameter){
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 10 ));	// Note - for rate > 100Hz change MS5607 settings
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 1000 / MAIN_LOOP_FREQUENCY ));	
 
 		int64_t time_us = esp_timer_get_time();
 
@@ -100,18 +101,18 @@ void task_kpptr_main(void *pvParameter){
 		}
 
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
-		//send data to RF every 1000ms
-		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
+		//Send data to RF every 1000/CONFIG_TELEMETRY_FREQUENCY ms
+		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL);
-			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // add to telemetry queue
+			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
 		}
 #endif
 
-		//send data to Web every 1000ms
+		//Send data to Web every 1000ms
 		if(((prevTickCountWeb + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
 			prevTickCountWeb = xLastWakeTime;
-			xQueueOverwrite(queue_MainToWeb, (void *)DataPackage_ptr); // add to Web queue
+			xQueueOverwrite(queue_MainToWeb, (void *)DataPackage_ptr); // Add to Web queue
 		}
 
 	}
@@ -148,7 +149,6 @@ void task_kpptr_telemetry(void *pvParameter){
 
 /**
  * @brief Task that manages data storage
- *
  * @param pvParameter
  */
 void task_kpptr_storage(void *pvParameter){
@@ -172,7 +172,7 @@ void task_kpptr_storage(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, 2);
 
 		// Skip if we are not flying yet
-		if((FSD_getState() < FLIGHTSTATE_ME_ACCELERATING) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN))
+		if((FSD_getState() < FLIGHTSTATE_BOOST) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN))
 				continue;
 
 		// Skip if timeout occured (max 100ms)
@@ -201,7 +201,7 @@ void task_kpptr_storage(void *pvParameter){
 
 /**
  * @brief Utility task for low priority functions
- *
+ * 
  * @param pvParameter
  */
 void task_kpptr_utils(void *pvParameter){
@@ -241,7 +241,7 @@ void task_kpptr_utils(void *pvParameter){
 			Web_live_from_DataPackage(&DataPackage_d);
 
 #if defined GNSS_UART
-			// change GNSS component status if fix is OK
+			// Change GNSS component status if fix is OK
 			if(GPS_checkStatus() == ESP_OK){
 				static sysmgr_checkout_state_t gnss_ready_check = check_void;
 				if((gnss_ready_check == check_void)
@@ -310,7 +310,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 	SysMgr_checkout(checkout_sysmgr, check_ready);
 
 	while(1){
-		SysMgr_update();	//Process new messages
+		SysMgr_update();	// Process new messages
 
 		switch(SysMgr_getCheckoutStatus()){
 		case check_ready:
@@ -352,7 +352,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web),
 												SysMgr_getArm());
 
-		//--------------- Autoarming ----------------------------
+		//----- Autoarming ----------
 		if(FSD_checkArmed() == DISARMED){
 			if(SysMgr_getCheckoutStatus() == check_ready){
 				if(ready_to_arm_time == 0){
@@ -368,7 +368,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 			}
 		}
 
-		// FSD change beep
+		//----- FSD change beep ----------
 		static flightstate_t fsd_prev = FLIGHTSTATE_PREFLIGHT;
 		flightstate_t fsd_new = FSD_getState();
 		if((fsd_new >= FLIGHTSTATE_PREFLIGHT) && (fsd_prev != fsd_new)){
@@ -377,13 +377,13 @@ void task_kpptr_sysmgr(void *pvParameter){
 		}
 
 
-		vTaskDelay(pdMS_TO_TICKS( 100 ));	// Limit loop rate to max 10Hz
+		vTaskDelay(pdMS_TO_TICKS( 100 )); // Limit loop rate to max 10Hz
 	}
 }
 
 /**
  * @brief Main entry task
- *
+ * 
  */
 void app_main(void)
 {
@@ -402,18 +402,18 @@ void app_main(void)
     SPI_init();
     DM_init();
 
-    //-----
+    
     Preferences_data_t pref;
 	if(Preferences_get(&pref) == ESP_OK){
 		Web_status_updateconfig(0, 12345, pref.drouge_alt_m, pref.main_alt_m);
 	}
 
-    //----- Create queues ----------
+    //----- Create queues ---------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t   ) );
     queue_MainToTelemetry = xQueueCreate( 1, sizeof( DataPackageRF_t ) );
     queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t   ) );
 
-    //----- Check queues -----------
+    //----- Check queues ----------
     if(queue_AnalogToMain == 0)
     	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
 
@@ -426,6 +426,6 @@ void app_main(void)
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 
     while (true) {
-    	vTaskDelay(pdMS_TO_TICKS( 1000 ));	// Limit loop rate to max 1Hz
+    	vTaskDelay(pdMS_TO_TICKS( 1000 )); // Limit loop rate to max 1Hz
     }
 }
