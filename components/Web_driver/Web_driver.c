@@ -24,6 +24,7 @@
 #include "DataManager.h"
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
+#include "AHRS_driver.h"
 
 #include "Web_driver.h"
 #include "Web_driver_json.h"
@@ -89,16 +90,21 @@ esp_err_t Web_init(void){
 	return ret;
 }
 
+/*!
+ * @brief Initialize web storage for future use.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` if failed.
+ */
 esp_err_t Web_storageInit(){
 	esp_err_t ret = ESP_FAIL;
 
 	ret = esp_vfs_spiffs_register(&conf);
 
-	 if(ret != ESP_OK){
-		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
-	 }
+	if(ret != ESP_OK){
+	    ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
+	}
 
-	 return ret;
+	return ret;
 }
 
 /*!
@@ -753,6 +759,7 @@ esp_err_t config_post_handler(httpd_req_t *req){
 
 	buf[total_len] = '\0';
 	Prefences_update_web(buf);
+    ESP_LOGI(TAG, "%s", buf);
 	httpd_resp_sendstr(req, "Post control value successfully");
 
     return ESP_OK;
@@ -1008,7 +1015,7 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 }
 
 
-esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
+esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr){
     Web_driver_live_t     live_web;
 
     live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
@@ -1022,29 +1029,29 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
     live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
     live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
-    live_web.LSM6DS32_1.ax = 10.0f;
-    live_web.LSM6DS32_1.ay = 0.0f;
-    live_web.LSM6DS32_1.az = 0.0f;
-    live_web.LSM6DS32_1.gx = 0.0f;
-    live_web.LSM6DS32_1.gy = 0.0f;
-    live_web.LSM6DS32_1.gz = 0.0f;
-    live_web.LSM6DS32_1.temperature = 0.0f;
+    live_web.LSM6DS32_1.ax = 69.0f;
+    live_web.LSM6DS32_1.ay = 69.0f;
+    live_web.LSM6DS32_1.az = 69.0f;
+    live_web.LSM6DS32_1.gx = 69.0f;
+    live_web.LSM6DS32_1.gy = 69.0f;
+    live_web.LSM6DS32_1.gz = 69.0f;
+    live_web.LSM6DS32_1.temperature = 69.0f;
     live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
     live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
     live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
-    live_web.MS5607.altitude = 0.0f;
+    live_web.MS5607.altitude = ahrs_ptr->altitudeP;
     live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
     live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
-    live_web.anglex = 0.0f;
-    live_web.angley = 0.0f;
-    live_web.anglez = 0.0f;
+    live_web.anglex = ahrs_ptr->orientation.euler.roll;
+    live_web.angley = ahrs_ptr->orientation.euler.pitch;
+    live_web.anglez = ahrs_ptr->orientation.euler.yaw;
     live_web.gps.fix 		= DataPackage_ptr->sensors.gnss_fix >> 6;
     live_web.gps.latitude 	= DataPackage_ptr->sensors.latitude;
     live_web.gps.longitude 	= DataPackage_ptr->sensors.longitude;
     live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
 
     status_web.flight_state = DataPackage_ptr->flightstate;
-	status_web.rocket_tilt  = DataPackage_ptr->ahrs.tilt;
+	status_web.rocket_tilt  = ahrs_ptr->orientation.euler.tilt;
 
     Web_live_exchange(live_web);
     return ESP_OK;

@@ -5,7 +5,7 @@
 #include "common.h"
 #include "quaternion.h"
 #include "Sensors.h"
-
+#include "GNSS_driver.h"
 
 /**
  * @brief Data union representing a set of Euler angles.
@@ -63,6 +63,8 @@ typedef struct{
 
 	uint64_t prev_time_us;			/*!< Previous time stamp (in microseconds). */
 	float dt;						/*!< Time step (in seconds). */
+
+	float reference_altitude_ASL;
 } AHRS_t;
 
 /**
@@ -84,7 +86,7 @@ AHRS_t * AHRS_getData();
  * @param[in] sensors A pointer to the sensor data structure.
  * @return ESP_OK if computation was successful, ESP_FAIL otherwise.
  */
-esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors);
+esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors, gps_t gps);
 
 /**
  * @brief Configures the orientation settings for the AHRS module.

@@ -3,9 +3,11 @@
 #include "esp_err.h"
 #include "esp_http_server.h"
 #include "esp_vfs.h"
-#include "DataManager.h"
-#include "Web_driver_json.h"
 
+#include "AHRS_driver.h"
+#include "DataManager.h"
+
+#include "Web_driver_json.h"
 
 /* Scratch buffer size */
 #define SCRATCH_BUFSIZE  1024
@@ -18,12 +20,6 @@ struct file_server_data {
     char scratch[SCRATCH_BUFSIZE];
 };
 
-/*!
- * @brief Initialize web component by calling init functions for wifi and http server.
- * @return `ESP_OK` if initialized
- * @return `ESP_ERR_NOT_FOUND` if partition is not present
- * @return `ESP_FAIL` otherwise.
- */
 esp_err_t Web_init(void);
 esp_err_t Web_storageInit();
 esp_err_t Web_off(void);
@@ -38,6 +34,6 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
 								  uint8_t state_web, uint8_t arm);
 esp_err_t Web_status_updateconfig(uint64_t SWversion, uint64_t serialNumber, float drougeAlt, float mainAlt); //zakładam wykonywanie tego przy okazji odczyty konfiguracji konfiguracji, czyli na starcie i po zmienie konfiguracji
 esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats);
-esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr);
+esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr);
 esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt); //ADCS = Attitude Determination and Control System
 

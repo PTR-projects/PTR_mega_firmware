@@ -14,7 +14,7 @@
 #define MAIN 			1
 #define SECOND_STAGE	2
 #define AUX 			3
-
+ 
 //----- Private functions ----------
 static void FlightState_STARTUP					(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_PREFLIGHT				(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
@@ -110,15 +110,15 @@ esp_err_t FSD_detect(uint64_t time_ms){
 		break;
 	
 	case FLIGHTSTATE_SECOND_STAGE_DELAY:
-		FlightState_SECOND_STAGE_BOOST(time_ms, currentState, ahrs);
+		FlightState_SECOND_STAGE_DELAY(time_ms, currentState, ahrs);
 		break;
 
 	case FLIGHTSTATE_SECOND_STAGE_IGNITION:
-		FlightState_SECOND_STAGE_BOOST(time_ms, currentState, ahrs);
+		FlightState_SECOND_STAGE_IGNITION(time_ms, currentState, ahrs);
 		break;
 
 	case FLIGHTSTATE_SECOND_STAGE_BOOST:
-		FlightState_BOOST(time_ms, currentState, ahrs);
+		FlightState_SECOND_STAGE_BOOST(time_ms, currentState, ahrs);
 		break;
 	
 	case FLIGHTSTATE_FREEFLIGHT:
@@ -141,8 +141,8 @@ esp_err_t FSD_detect(uint64_t time_ms){
 		FlightState_MAINSHUTE_FALL(time_ms, currentState, ahrs);
 		break;
 
-	case FLIGHTSTATE_FAILURE:
-		FlightState_FAILURE(time_ms, currentState, ahrs);
+	case FLIGHTSTATE_RECOVERY_FAILURE:
+		FlightState_RECOVERY_FAILURE(time_ms, currentState, ahrs);
 		break;
 
 	case FLIGHTSTATE_LANDING:
@@ -167,7 +167,7 @@ static void FlightState_STARTUP	(uint64_t time_ms, FlightState_t * currentState,
 
 	//Executed every loop
 	Sensors_UpdateReferencePressure();
-	Sensors_calibrateGyro(0.1f);
+	Sensors_calibrateGyro(1.0f);
 
 
 	//State change conditions
@@ -203,7 +203,9 @@ static void FlightState_BOOST(uint64_t time_ms, FlightState_t * currentState, AH
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
 		stateChangeTime = time_ms;
+
 		AHRS_setInFlight();
+
 	}
 
 	//Executed every loop
@@ -251,7 +253,7 @@ static void FlightState_SECOND_STAGE_IGNITION(uint64_t time_ms, FlightState_t * 
 		currentState->state = FLIGHTSTATE_SECOND_STAGE_BOOST;
 		currentState->state_ready = false;
 	}
-	else if(TIME_ELAPSED(stateChangeTime, time_ms, 5000))
+	else if(TIME_ELAPSED(stateChangeTime, time_ms, 3000))
 	{
 		currentState->state = FLIGHTSTATE_FREEFLIGHT;
 		currentState->state_ready = false;
@@ -349,6 +351,7 @@ static void FlightState_DRAGCHUTE_FAILURE (uint64_t time_ms, FlightState_t * cur
 	//State change conditions
 	if(TIME_ELAPSED(stateChangeTime, time_ms, 100)){
 
+		IGN_set(APO, 1);
 		IGN_set(MAIN, 1);
 
 		currentState->state = FLIGHTSTATE_MAINSHUTE_FALL;
@@ -385,6 +388,12 @@ static void FlightState_RECOVERY_FAILURE (uint64_t time_ms, FlightState_t * curr
 	}
 
 	//Executed every loop
+
+	//State change conditions
+	if(TIME_ELAPSED(stateChangeTime, time_ms, 30000)  && (ahrs->altitudeP < 200.0f) && (ahrs->velocityP > -2.0f)){
+		currentState->state = FLIGHTSTATE_LANDING;
+		currentState->state_ready = false;
+	}
 }
 
 static void FlightState_LANDING	(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
@@ -400,7 +409,7 @@ static void FlightState_LANDING	(uint64_t time_ms, FlightState_t * currentState,
 
 
 	//State change conditions
-	if (TIME_ELAPSED(stateChangeTime, time_ms, 60000)){
+	if (TIME_ELAPSED(stateChangeTime, time_ms, 30000)){
 		currentState->state = FLIGHTSTATE_SHUTDOWN;
 		currentState->state_ready = false;
 	}
