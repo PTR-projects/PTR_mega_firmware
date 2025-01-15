@@ -8,6 +8,7 @@
 #include "IGN_driver.h"
 
 #define TIME_ELAPSED(start_ms, now_ms, wait_ms) (start_ms <= (now_ms - wait_ms))
+#define ALTITUDE_DROP_TRIGGER 10.0f
 
 //----- Our defines ----------
 #define APO 			0
@@ -213,8 +214,8 @@ static void FlightState_BOOST(uint64_t time_ms, FlightState_t * currentState, AH
 
 	//State change conditions
 	if((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && (ahrs->acc_axis_lowpass < 0.0f) ) {
-			currentState->state = FLIGHTSTATE_SECOND_STAGE_DELAY;
-			currentState->state_ready = false;
+		currentState->state = FLIGHTSTATE_SECOND_STAGE_DELAY;
+		currentState->state_ready = false;
 	}
 }
 
@@ -228,12 +229,18 @@ static void FlightState_SECOND_STAGE_DELAY(uint64_t time_ms, FlightState_t * cur
 	//Executed every loop
 
 
-	//State change conditions
+	//State change conditions (second stage ignition)
 	if((TIME_ELAPSED(stateChangeTime, time_ms, FSD_settings_d.staging_delay_ms))) { 
 
 		IGN_set(SECOND_STAGE, 1);
 
 		currentState->state = FLIGHTSTATE_SECOND_STAGE_IGNITION;
+		currentState->state_ready = false;
+	}
+
+	//State change conditions (altitude)
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
+		currentState->state = FLIGHTSTATE_FREEFALL;
 		currentState->state_ready = false;
 	}
 }
@@ -248,14 +255,22 @@ static void FlightState_SECOND_STAGE_IGNITION(uint64_t time_ms, FlightState_t * 
 	//Executed every loop
 
 
-	//State change conditions
+	//State change conditions (second stage burn)
 	if((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (1.6f * 9.81f)) ) { 
 		currentState->state = FLIGHTSTATE_SECOND_STAGE_BOOST;
 		currentState->state_ready = false;
 	}
-	else if(TIME_ELAPSED(stateChangeTime, time_ms, 3000))
+
+	//State change conditions (second stage ignition failed)
+	if(TIME_ELAPSED(stateChangeTime, time_ms, 3000))
 	{
 		currentState->state = FLIGHTSTATE_FREEFLIGHT;
+		currentState->state_ready = false;
+	}
+
+	//State change conditions (altitude)
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 1000))  && ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
+		currentState->state = FLIGHTSTATE_FREEFALL;
 		currentState->state_ready = false;
 	}
 }
@@ -272,8 +287,8 @@ static void FlightState_SECOND_STAGE_BOOST(uint64_t time_ms, FlightState_t * cur
 
 	//State change conditions // do poprawy
 	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && (ahrs->acc_axis_lowpass < 0.0f) ) {
-			currentState->state = FLIGHTSTATE_FREEFLIGHT;
-			currentState->state_ready = false;
+		currentState->state = FLIGHTSTATE_FREEFLIGHT;
+		currentState->state_ready = false;
 	}
 }
 
@@ -288,7 +303,7 @@ static void FlightState_FREEFLIGHT(uint64_t time_ms, FlightState_t * currentStat
 
 
 	//State change conditions
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && ((ahrs->max_altitude - ahrs->altitudeP) > 10.0f) ) {
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
 			currentState->state = FLIGHTSTATE_FREEFALL;
 			currentState->state_ready = false;
 	}
@@ -305,7 +320,7 @@ static void FlightState_FREEFALL (uint64_t time_ms, FlightState_t * currentState
 
 
 	//State change conditions
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100))) {
+	if (/*(TIME_ELAPSED(stateChangeTime, time_ms, 100))*/ 1) {
 
 		IGN_set(APO, 1);
 
