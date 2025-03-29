@@ -90,7 +90,7 @@ esp_err_t FSD_detect(uint64_t time_ms){
 	if(FSD_checkArmed() == DISARMED){
 		flightState_d.state = FLIGHTSTATE_STARTUP;
 		Sensors_UpdateReferencePressure();
-		Sensors_calibrateGyro(0.1f);
+		//Sensors_calibrateGyro(0.1f);
 		return ESP_OK;
 	}
 
@@ -206,7 +206,6 @@ static void FlightState_BOOST(uint64_t time_ms, FlightState_t * currentState, AH
 		stateChangeTime = time_ms;
 
 		AHRS_setInFlight();
-
 	}
 
 	//Executed every loop
@@ -420,8 +419,6 @@ static void FlightState_LANDING	(uint64_t time_ms, FlightState_t * currentState,
 
 
 	//Executed every loop
-
-
 
 	//State change conditions
 	if (TIME_ELAPSED(stateChangeTime, time_ms, 30000)){

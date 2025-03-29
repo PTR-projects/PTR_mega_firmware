@@ -107,7 +107,7 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	/** \desc Kalman update gain. */
 	static float kalman_gain;
 	/** \desc Kalman filter coefficient used when rocket ascending. */
-	static float kalman_Q1 = 0.4f;
+	static float kalman_w = 0.4f;
 	/** \desc Kalman filter constant coefficient. */
 	static float kalman_R = 207.0f;
 	/** \desc Kalman filter is initialized? */
@@ -123,7 +123,7 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	 if((press > 1000) && (press < 120000)){
 		 //------- Prediction ------------
 		 kalman_priori = kalman_post + kalman_derivativePost;		// Predict next data
-		 kalman_errorCovPriori = kalman_errorCovPost + kalman_Q1;
+		 kalman_errorCovPriori = kalman_errorCovPost + kalman_w;
 		 kalman_gain = kalman_errorCovPriori / (kalman_errorCovPriori + kalman_R );	// Gain calculation
 
 		 //------- Update ---------------
@@ -143,10 +143,6 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	if((AHRS_d.max_altitude) < AHRS_d.altitudeP){
 		AHRS_d.max_altitude = AHRS_d.altitudeP;
 	}
-
-	//Altitude calculation from pressure only
-	
-	
 }
 
 static void AHRS_CalcVelocityPosition(){
@@ -207,14 +203,13 @@ static void AHRS_MahonyUpdate( float dt,
 	float ex = 0, ey = 0, ez = 0;
 
 	
-	// Change reference frame from X-up to Z-up
-	/*float _gx = gx;		float _ax = ax;		float _mx = mx;
+	// Change reference frame to NED
+	float _gx = gx;		float _ax = ax;		float _mx = mx;
 	float _gy = gy;		float _ay = ay;		float _my = my;
 	float _gz = gz;		float _az = az;		float _mz = mz;
-	gx =  _gz;		ax =  _az;		mx =  _mz;
-	gy = (-1.0f) * _gy;		ay = (-1.0f) * _ay;		my = (-1.0f) * _my;
-	gz =  _gx;		az =  _ax;		mz =  _mx;
-	*/
+	gx =  _gx;		ax =  _ax;		mx =  _mx;
+	gy =  -_gy;		ay =  -_ay;		my =  -_my;
+	gz = -_gz;		az =  -_az;		mz =  -_mz;
 	
 	// Convert spin rate from deg/s to rad/s
 	gx = DEGREES_TO_RADIANS(gx);
@@ -354,38 +349,45 @@ static void AHRS_UpdateEulerAngles(orientation_t * orient){
 	
 	quaternions_t q = orient->quaternions;
 
-	float res_0 = atan2f(2.0f * (q.w * q.x + q.y * q.z), q.w * q.w -q.x * q.x - q.y * q.y + q.z * q.z);   
-	float res_1 = atan2f(2.0f * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
-	float res_2 = -asinf(2.0f * (q.x * q.z - q.w  *q.y));
+	float roll = atan2(2.0f * (q.w * q.x + q.y * q.z), 1.0f - 2.0f * (q.x * q.x + q.y * q.y));
 
+	float sinp = 2.0f * (q.w * q.y - q.z * q.x);
+	float pitch = 0.0f;
+    if (fabs(sinp) >= 1.0f)
+		pitch = copysign(M_PI / 2, sinp); // Clamp to +-90 degrees
+    else
+		pitch = asin(sinp);
 
-	orient->euler.roll = RADIANS_TO_DEGREES(res_1);
+	float yaw = atan2(2.0f * (q.w * q.z + q.x * q.y), 1.0f - 2.0f * (q.y * q.y + q.z * q.z));
 
-    orient->euler.pitch = RADIANS_TO_DEGREES(res_2);
-    orient->euler.yaw = RADIANS_TO_DEGREES(res_0);
+	orient->euler.roll = RADIANS_TO_DEGREES(roll);
+	orient->euler.pitch = RADIANS_TO_DEGREES(pitch);
+	orient->euler.yaw = RADIANS_TO_DEGREES(yaw);
+
 
 	orient->euler.tilt = sqrtf(orient->euler.pitch * orient->euler.pitch + orient->euler.yaw * orient->euler.yaw);
 
-	
+	//ESP_LOGI(TAG, "%f, %f, %f",orient->euler.yaw,orient->euler.pitch,orient->euler.roll);
+	//ESP_LOGI(TAG, "%f, %f, %f, %f", q.w, q.x, q.y, q.z);
 }
 
 static void AHRS_TransformAccToENU(){
-	vectorf_t acc_enu;
+	vectorf_t acc_ned;
 
 	vectorf_t acc_rf;
 
-
-	// Use Z-up
 	acc_rf.x =  AHRS_d.acc_rf.x;
-	acc_rf.y = 	AHRS_d.acc_rf.y;
-	acc_rf.z =  AHRS_d.acc_rf.z;
+	acc_rf.y = 	-AHRS_d.acc_rf.y;
+	acc_rf.z =  -AHRS_d.acc_rf.z;
 
 	// From body frame to earth frame
-	quaternionRotateVectorInv(&acc_enu, &acc_rf, &(AHRS_d.orientation.quaternions));
+	quaternionRotateVectorInv(&acc_ned, &acc_rf, &(AHRS_d.orientation.quaternions));
 
 	// Store vertical acceleration (Z component)
-	AHRS_d.acc_up = acc_enu.z - GRAVITY;
-	AHRS_d.acc_enu = acc_enu;
+	AHRS_d.acc_up = acc_ned.z;
+	AHRS_d.acc_enu = acc_ned;
+
+	//ESP_LOGI(TAG, "%f, %f, %f", acc_ned.x, acc_ned.y,acc_ned.z);
 }
 
 
