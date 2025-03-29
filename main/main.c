@@ -377,12 +377,16 @@ void task_kpptr_sysmgr(void *pvParameter){
 				}
 				if((esp_timer_get_time() - ready_to_arm_time) > auto_arming_time && auto_arming == true){
 					FSD_arming();
-					if(FSD_checkArmed() == ARMED){
-						SysMgr_setArm(system_armed);
-						BUZZER_beep(70, 70, 5);
-					}
 				}
 			}
+		}
+		if(FSD_checkArmed() == ARMED && SysMgr_getArm() != system_armed){
+			SysMgr_setArm(system_armed);
+			BUZZER_beep(70, 70, 5);
+		}
+
+		if(FSD_checkArmed() == DISARMED && SysMgr_getArm() == system_armed){
+			SysMgr_setArm(system_dissarmed);
 		}
 
 		//----- FSD change beep ----------

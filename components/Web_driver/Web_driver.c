@@ -25,6 +25,7 @@
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
 #include "AHRS_driver.h"
+#include "FlightStateDetector.h"
 
 #include "Web_driver.h"
 #include "Web_driver_json.h"

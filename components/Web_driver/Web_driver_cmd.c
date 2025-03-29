@@ -18,6 +18,7 @@
 
 #include "IGN_driver.h"
 #include "Preferences.h"
+#include "AHRS_driver.h"
 #include "FlightStateDetector.h"
 
 #include "Web_driver.h"
@@ -118,12 +119,18 @@ esp_err_t Web_cmd_handler(char *buf){
 	}
 
 	if(strcmp(cmd,"arm") == 0){
-		FSD_arming();
+		if(FSD_checkArmed() == DISARMED){
+			FSD_arming();
+		}
+
+
+		ESP_LOGI(TAG, "ARMING!");
 		return ESP_OK;
 	}
 
 	if(strcmp(cmd,"disarm") == 0){
 		FSD_disarming();
+		ESP_LOGI(TAG, "DISARMING!");
 		return ESP_OK;
 	}
 
