@@ -17,10 +17,13 @@
 #include "lwip/sys.h"
 
 #include "IGN_driver.h"
+#include "Preferences.h"
+#include "FlightStateDetector.h"
+
 #include "Web_driver.h"
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
-#include "Preferences.h"
+
 
 static const char *TAG = "Web_driver_cmd";
 
@@ -112,6 +115,16 @@ esp_err_t Web_cmd_handler(char *buf){
 		Preferences_restore_dafaults();
 		return ESP_OK;
 		//Reset config to default
+	}
+
+	if(strcmp(cmd,"arm") == 0){
+		FSD_arming();
+		return ESP_OK;
+	}
+
+	if(strcmp(cmd,"disarm") == 0){
+		FSD_disarming();
+		return ESP_OK;
 	}
 
 	cJSON_Delete(json);

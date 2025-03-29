@@ -319,7 +319,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 	Preferences_data_t pref;
 	
 	//Check if auto arming time is between 30s and 10 minutes
-	if(Preferences_get(&pref) == ESP_OK && pref.auto_arming_time_s >= 30 && pref.auto_arming_time_s >= 300){
+	if(Preferences_get(&pref) == ESP_OK && pref.auto_arming_time_s >= 30 && pref.auto_arming_time_s <= 300){
 		auto_arming_time = (int64_t)(pref.auto_arming_time_s * 1000000);
 	}
 	if(Preferences_get(&pref) == ESP_OK){

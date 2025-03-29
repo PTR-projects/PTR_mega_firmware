@@ -5,7 +5,7 @@ var current_tab = 1;
 const preferencesData = {
 	wifi_pass: "your_wifi_pass",
 	main_alt: 200,
-	drouge_alt: 0,
+	drouge_alt: 0, 
 	rail_height: 2,
 	max_tilt: 45,
 	staging_delay: 0,
@@ -344,14 +344,14 @@ function TabsSelect(num){
 function main_arming_handler () {
 	console.log("Main - Arming button pressed");
 	if(confirm('Do you want to Arm?\n\nAfter that command Flight Computer will be ready to flight and igniters will be armed!\n\nUse with caution!')) { 
-		/*POST_simple("/delete/storage/meas.bin", '');*/
+		POST_simple("/cmd", '{"cmd":"arm","key":2137}');
 	}
 }
 
 function main_disarming_handler () {
 	console.log("Main - Arming button pressed");
 	if(confirm('Do you want to Disarm?\n\nAfter that command Flight Computer will be disarmed and will not work during flight!\n\nIt will be safe to approach :)')) { 
-		/*POST_simple("/delete/storage/meas.bin", '');*/
+		POST_simple("/cmd", '{"cmd":"disarm","key":2137}');
 	}
 }
 
