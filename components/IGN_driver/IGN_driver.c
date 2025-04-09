@@ -8,7 +8,7 @@
 static esp_err_t IGN_init_en_pin(int8_t pin);
 static esp_err_t IGN_srv_handler(int8_t num);
 
-#define CONFIG_IGN_DURATION_TICKS 1
+#define CONFIG_IGN_DURATION_TICKS 20 //Around 500ms
 static const char *TAG = "IGN_driver";
 
 static uint32_t periodic_timer 			= 0;
@@ -56,8 +56,10 @@ esp_err_t IGN_set(uint8_t ign_no, uint8_t state){
 		if((IGN_counter[ign_no] == 0) && state){
 			gpio_set_level(IGN_PIN[ign_no], 1);
 			IGN_counter[ign_no] = ign_duration;
+			ESP_LOGI(TAG, "IGN %d set %d", ign_no, state);
 		} else if(state == 0){
 			gpio_set_level(IGN_PIN[ign_no], 0);
+			ESP_LOGI(TAG, "IGN %d set 0", ign_no);
 		}
 	}
 

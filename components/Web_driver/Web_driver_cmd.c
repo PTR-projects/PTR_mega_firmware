@@ -86,22 +86,22 @@ esp_err_t Web_cmd_handler(char *buf){
 		int32_t arg1 =  cJSON_GetObjectItem(json, "arg1")->valueint;
 		switch(arg1){
 			case 1:
-				return IGN_handle(arg1);
+				return IGN_handle(0);
 				return ESP_OK;
 			break;
 
 			case 2:
-				return IGN_handle(arg1);
+				return IGN_handle(1);
 				return ESP_OK;
 			break;
 
 			case 3:
-				return IGN_handle(arg1);
+				return IGN_handle(2);
 				return ESP_OK;
 			break;
 
 			case 4:
-				return IGN_handle(arg1);
+				return IGN_handle(3);
 				return ESP_OK;
 			break;
 

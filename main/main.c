@@ -107,7 +107,7 @@ void task_kpptr_main(void *pvParameter){
 		//Send data to RF every 1000/CONFIG_TELEMETRY_FREQUENCY ms
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL);
+			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
 		}
 #endif
