@@ -99,3 +99,8 @@ void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag);
  * @brief TODO
  */
 void AHRS_setInFlight();
+
+/**
+ * @brief TODO
+ */
+void AHRS_resetMaxAltitude();

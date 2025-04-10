@@ -51,6 +51,10 @@ AHRS_t * AHRS_getData(){
 	return &AHRS_d;
 }
 
+void AHRS_resetMaxAltitude(){
+	AHRS_d.max_altitude = AHRS_d.altitudeP;
+}
+
 esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors, gps_t gps){
 	// Calculate time diference and store new timestamp
 	AHRS_d.dt = (time_us - AHRS_d.prev_time_us) / 1000000.0f;	//us to s
@@ -143,6 +147,8 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	if((AHRS_d.max_altitude) < AHRS_d.altitudeP){
 		AHRS_d.max_altitude = AHRS_d.altitudeP;
 	}
+
+	ESP_LOGI(TAG, "Altitude: %f, Max: %f",AHRS_d.altitudeP, AHRS_d.max_altitude);
 }
 
 static void AHRS_CalcVelocityPosition(){

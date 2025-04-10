@@ -82,6 +82,7 @@ esp_err_t FSD_init(AHRS_t * ahrs){
 
 	flightState_d.state = FLIGHTSTATE_STARTUP;
 	FSD_disarming();
+	
 
 	return ESP_OK;
 }
@@ -90,7 +91,8 @@ esp_err_t FSD_detect(uint64_t time_ms){
 	if(FSD_checkArmed() == DISARMED){
 		flightState_d.state = FLIGHTSTATE_STARTUP;
 		Sensors_UpdateReferencePressure();
-		//Sensors_calibrateGyro(0.1f);
+		AHRS_resetMaxAltitude();
+		Sensors_calibrateGyro(0.1f);
 		return ESP_OK;
 	}
 
@@ -169,6 +171,7 @@ static void FlightState_STARTUP	(uint64_t time_ms, FlightState_t * currentState,
 	//Executed every loop
 	Sensors_UpdateReferencePressure();
 	Sensors_calibrateGyro(1.0f);
+	AHRS_resetMaxAltitude();
 
 
 	//State change conditions
@@ -188,6 +191,7 @@ static void FlightState_PREFLIGHT (uint64_t time_ms, FlightState_t * currentStat
 	//Executed every loop
 	Sensors_UpdateReferencePressure();
 	Sensors_calibrateGyro(0.001f);
+	AHRS_resetMaxAltitude();
 
 	//State change conditions
 	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (1.6f * 9.81f)) ) {

@@ -105,11 +105,22 @@ void task_kpptr_main(void *pvParameter){
 
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 		//Send data to RF every 1000/CONFIG_TELEMETRY_FREQUENCY ms
+	if((FSD_getState() < FLIGHTSTATE_BOOST) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN)){
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
 			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
 		}
+	}
+	else{
+		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY_FLIGHT )) <= xLastWakeTime)){
+			prevTickCountRF = xLastWakeTime;
+			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
+			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
+		}
+	}	
+
+		
 #endif
 
 		//Send data to Web every 1000ms
