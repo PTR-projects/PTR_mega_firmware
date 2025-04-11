@@ -194,7 +194,7 @@ static void FlightState_PREFLIGHT (uint64_t time_ms, FlightState_t * currentStat
 	AHRS_resetMaxAltitude();
 
 	//State change conditions
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (1.6f * 9.81f)) ) {
+	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (2.6f * 9.81f)) ) {
 
 		flightState_d.ignition_time_ms = time_ms;
 
@@ -216,7 +216,7 @@ static void FlightState_BOOST(uint64_t time_ms, FlightState_t * currentState, AH
 
 
 	//State change conditions
-	if((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && (ahrs->acc_axis_lowpass < 0.0f) ) {
+	if((TIME_ELAPSED(stateChangeTime, time_ms, 2500))  && (ahrs->acc_axis_lowpass < 0.0f) ) {
 		currentState->state = FLIGHTSTATE_SECOND_STAGE_DELAY;
 		currentState->state_ready = false;
 	}
