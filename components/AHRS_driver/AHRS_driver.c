@@ -391,7 +391,7 @@ static void AHRS_TransformAccToENU(){
 
 	// Store vertical acceleration (Z component)
 	AHRS_d.acc_up = acc_ned.z;
-	AHRS_d.acc_enu = acc_ned;
+	AHRS_d.acc_ned = acc_ned;
 
 	//ESP_LOGI(TAG, "%f, %f, %f", acc_ned.x, acc_ned.y,acc_ned.z);
 }

@@ -49,9 +49,7 @@ typedef struct{
 	vectorf_t vel_rf;				/*!< Velocity in the rocket frame. */
 	vectorf_t pos_rf;				/*!< Positon in the rocket frame. */
 
-	vectorf_t acc_enu;				/*!< Acceleration in the rocket frame. */
-	vectorf_t vel_enu;				/*!< Velocity in the rocket frame. */
-	vectorf_t pos_enu;				/*!< Positon in the ECEF frame. */
+	vectorf_t acc_ned;				/*!< Acceleration in the rocket frame. */
 
 	orientation_t orientation;		/*!< Orientation of the rocket. */
 
