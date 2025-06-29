@@ -24,6 +24,7 @@
 #include "DataManager.h"
 #include "SysMgr.h"
 #include "Servo_driver.h"
+#include "ResetReason.h"
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
@@ -387,6 +388,7 @@ void task_kpptr_sysmgr(void *pvParameter){
  */
 void app_main(void)
 {
+    log_reset_reason();
     nvs_flash_init();
     Web_storageInit();
     Preferences_init();
