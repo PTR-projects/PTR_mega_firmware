@@ -148,7 +148,7 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 		AHRS_d.max_altitude = AHRS_d.altitudeP;
 	}
 
-	ESP_LOGI(TAG, "Altitude: %f, Max: %f",AHRS_d.altitudeP, AHRS_d.max_altitude);
+	//ESP_LOGI(TAG, "Altitude: %f, Max: %f",AHRS_d.altitudeP, AHRS_d.max_altitude);
 }
 
 static void AHRS_CalcVelocityPosition(){
@@ -214,8 +214,8 @@ static void AHRS_MahonyUpdate( float dt,
 	float _gy = gy;		float _ay = ay;		float _my = my;
 	float _gz = gz;		float _az = az;		float _mz = mz;
 	gx =  _gx;		ax =  _ax;		mx =  _mx;
-	gy =  -_gy;		ay =  -_ay;		my =  -_my;
-	gz = -_gz;		az =  -_az;		mz =  -_mz;
+	gy =  _gy;		ay =  _ay;		my =  _my;
+	gz = _gz;		az =  _az;		mz =  _mz;
 	
 	// Convert spin rate from deg/s to rad/s
 	gx = DEGREES_TO_RADIANS(gx);
@@ -383,16 +383,17 @@ static void AHRS_TransformAccToENU(){
 	vectorf_t acc_rf;
 
 	acc_rf.x =  AHRS_d.acc_rf.x;
-	acc_rf.y = 	-AHRS_d.acc_rf.y;
-	acc_rf.z =  -AHRS_d.acc_rf.z;
+	acc_rf.y = 	AHRS_d.acc_rf.y;
+	acc_rf.z =  AHRS_d.acc_rf.z;
 
 	// From body frame to earth frame
 	quaternionRotateVectorInv(&acc_ned, &acc_rf, &(AHRS_d.orientation.quaternions));
 
 	// Store vertical acceleration (Z component)
-	AHRS_d.acc_up = acc_ned.z;
+	AHRS_d.acc_up = acc_ned.z - GRAVITY;
 	AHRS_d.acc_ned = acc_ned;
 
+	//ESP_LOGI(TAG, "%f", AHRS_d.acc_up);
 	//ESP_LOGI(TAG, "%f, %f, %f", acc_ned.x, acc_ned.y,acc_ned.z);
 }
 
