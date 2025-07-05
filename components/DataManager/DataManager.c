@@ -176,13 +176,13 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 
 }
 
-void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign){
+void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
 	package->id           = 1024;
 	package->packet_no    = packet_counter++;
 	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
 	package->timestamp_ms = (uint32_t)(time_us/1000);
 
-	package->vbat_10  = 0;						// 1mV/LSB -> 100mV/LSB
+	package->vbat_10  = (uint8_t)(analog->vbat_mV / 100.0f);						// 1mV/LSB -> 100mV/LSB
 	package->accX_100 = (int16_t)(sensors->LSM6DSO32.accX * 100.0f);
 	package->accY_100 = (int16_t)(sensors->LSM6DSO32.accY * 100.0f);
 	package->accZ_100 = (int16_t)(sensors->LSM6DSO32.accZ * 100.0f);
@@ -200,3 +200,4 @@ void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_
 
 	package->state = flightstate;
 }
+ 

@@ -2,11 +2,18 @@
 #include <math.h>
 #include "esp_log.h"
 #include "esp_err.h"
+
+#include "AHRS_driver.h"
+
 #include "Sensors.h"
+#include "GNSS_driver.h"
+
 #include "quaternion.h"
 #include "common.h"
 #include "KF_AltitudeAscent.h"
-#include "AHRS_driver.h"
+
+
+static const char *TAG = "AHRS";
 
 #define GRAVITY 9.81f
 
@@ -28,7 +35,6 @@ static uint8_t orientation_useAcc = 1;
 static uint8_t orientation_useMag = 0;
 static bool flag_in_flight = false;
 
-// !!!! This library is NOT thread-safe !!!!
 
 esp_err_t AHRS_init(int64_t time_us){
 	AHRS_d.max_altitude = 0.0f;
@@ -36,6 +42,7 @@ esp_err_t AHRS_init(int64_t time_us){
 
 	AHRS_InitOrientation(&(AHRS_d.orientation));
 	AHRS_kalmanAltitudeAscent_init(0.1f, 0.1f);
+	
 
 	return ESP_OK;
 }
@@ -44,7 +51,11 @@ AHRS_t * AHRS_getData(){
 	return &AHRS_d;
 }
 
-esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors){
+void AHRS_resetMaxAltitude(){
+	AHRS_d.max_altitude = AHRS_d.altitudeP;
+}
+
+esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors, gps_t gps){
 	// Calculate time diference and store new timestamp
 	AHRS_d.dt = (time_us - AHRS_d.prev_time_us) / 1000000.0f;	//us to s
 	AHRS_d.prev_time_us = time_us;
@@ -59,13 +70,14 @@ esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors){
 
 	if(flag_in_flight == false){
 		AHRS_CalcOrientation(sensors, false);
+		AHRS_TransformAccToENU();
 	}
 	else {
 		AHRS_CalcOrientation(sensors, true);
 		AHRS_TransformAccToENU();
 		AHRS_CalcVelocityPosition();
 	}
-
+	
 	return ESP_OK;
 }
 
@@ -76,6 +88,7 @@ void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag){
 
 void AHRS_setInFlight(){
 	flag_in_flight = true;
+	orientation_useAcc = 0;
 }
 
 //------------------ AHRS private functions -------------------
@@ -98,7 +111,7 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	/** \desc Kalman update gain. */
 	static float kalman_gain;
 	/** \desc Kalman filter coefficient used when rocket ascending. */
-	static float kalman_Q1 = 0.4f;
+	static float kalman_w = 0.4f;
 	/** \desc Kalman filter constant coefficient. */
 	static float kalman_R = 207.0f;
 	/** \desc Kalman filter is initialized? */
@@ -114,7 +127,7 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	 if((press > 1000) && (press < 120000)){
 		 //------- Prediction ------------
 		 kalman_priori = kalman_post + kalman_derivativePost;		// Predict next data
-		 kalman_errorCovPriori = kalman_errorCovPost + kalman_Q1;
+		 kalman_errorCovPriori = kalman_errorCovPost + kalman_w;
 		 kalman_gain = kalman_errorCovPriori / (kalman_errorCovPriori + kalman_R );	// Gain calculation
 
 		 //------- Update ---------------
@@ -126,20 +139,21 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 		//filters
 	 }
 
-	//ALTITUDE CALCULATIONS
+	
 	float alti_new =  (1.0-powf(kalman_post/ref_press, 0.190295f)) * 44330.0f;
-
-
-	//wykrycie maksymalnego pułapu
-	if((AHRS_d.max_altitude) < alti_new)
-		AHRS_d.max_altitude = alti_new;
-
 	AHRS_d.velocityP = 0.95f*AHRS_d.velocityP + 0.05f*(((alti_new) - AHRS_d.altitudeP) / AHRS_d.dt);
 	AHRS_d.altitudeP = alti_new;
+	
+	if((AHRS_d.max_altitude) < AHRS_d.altitudeP){
+		AHRS_d.max_altitude = AHRS_d.altitudeP;
+	}
+
+	//ESP_LOGI(TAG, "Altitude: %f, Max: %f",AHRS_d.altitudeP, AHRS_d.max_altitude);
 }
 
 static void AHRS_CalcVelocityPosition(){
 	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up, &(AHRS_d.altitude), &AHRS_d.ascent_rate);
+	
 }
 
 static void AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro){
@@ -174,9 +188,9 @@ static void AHRS_InitOrientation(orientation_t * orient){
 	orient->rMat[2][1] = 0.0f;
 	orient->rMat[2][2] = 1.0f;
 
-	orient->euler.tilt = 0.0f;
-	orient->euler.dir  = 0.0f;
-	orient->euler.rot  = 0.0f;
+	orient->euler.pitch = 0.0f;
+	orient->euler.yaw  = 0.0f;
+	orient->euler.roll  = 0.0f;
 }
 
 // https://github.com/betaflight/betaflight/blob/master/src/main/flight/imu.c
@@ -194,14 +208,21 @@ static void AHRS_MahonyUpdate( float dt,
 	// Errors
 	float ex = 0, ey = 0, ez = 0;
 
-	// Change reference frame from X-up to Z-up
+	
+	// Change reference frame to NED
 	float _gx = gx;		float _ax = ax;		float _mx = mx;
 	float _gy = gy;		float _ay = ay;		float _my = my;
 	float _gz = gz;		float _az = az;		float _mz = mz;
-	gx =  _gz;		ax =  _az;		mx =  _mz;
-	gy = -_gy;		ay = -_ay;		my = -_my;
-	gz =  _gx;		az =  _ax;		mz =  _mx;
+	gx =  _gx;		ax =  _ax;		mx =  _mx;
+	gy =  _gy;		ay =  _ay;		my =  _my;
+	gz = _gz;		az =  _az;		mz =  _mz;
+	
+	// Convert spin rate from deg/s to rad/s
+	gx = DEGREES_TO_RADIANS(gx);
+	gy = DEGREES_TO_RADIANS(gy);
+	gz = DEGREES_TO_RADIANS(gz);
 
+	
 	// If gyro disabled -> zero gyro meas
 	if(!useGyro){
 		gx = 0.0f;
@@ -209,13 +230,9 @@ static void AHRS_MahonyUpdate( float dt,
 		gz = 0.0f;
 	}
 
-	// Convert spin rate from deg/s to rad/s
-	gx = DEGREES_TO_RADIANS(gx);
-	gy = DEGREES_TO_RADIANS(gy);
-	gz = DEGREES_TO_RADIANS(gz);
-
 	// Calculate general spin rate (rad/s)
 	float spin_rate = sqrtf(POW2(gx) + POW2(gy) + POW2(gz));
+
 
 	// Rotate magnetic field from body to Earth and get horizontal component
 	float recipMagNorm = POW2(mx) + POW2(my) + POW2(mz);
@@ -246,7 +263,8 @@ static void AHRS_MahonyUpdate( float dt,
 		ey += orient->rMat[2][1] * ez_ef;
 		ez += orient->rMat[2][2] * ez_ef;
 	}
-
+	
+	
 	// Use measured acceleration vector
 	float recipAccNorm = POW2(ax) + POW2(ay) + POW2(az);
 	if (useAcc && (recipAccNorm > 0.9f) && (recipAccNorm < 1.1f)) {
@@ -261,7 +279,7 @@ static void AHRS_MahonyUpdate( float dt,
 		ey += (az * orient->rMat[2][0] - ax * orient->rMat[2][2]);
 		ez += (ax * orient->rMat[2][1] - ay * orient->rMat[2][0]);
 	}
-
+	
 	// Compute and apply integral feedback if enabled
 	//if (imuRuntimeConfig.dcm_ki > 0.0f) {					//<<--------------------------------------------zrobić zmienny Ki
 	if(1){
@@ -279,10 +297,12 @@ static void AHRS_MahonyUpdate( float dt,
 		integralFBz = 0.0f;
 	}
 
+	
 	// Apply proportional and integral feedback
 	gx += dcmKpGain * ex + integralFBx;
 	gy += dcmKpGain * ey + integralFBy;
 	gz += dcmKpGain * ez + integralFBz;
+	
 
 	// Integrate rate of change of quaternion
 	gx *= (0.5f * dt);
@@ -301,7 +321,7 @@ static void AHRS_MahonyUpdate( float dt,
 	orient->quaternions.z += (+buffer.w * gz + buffer.x * gy - buffer.y * gx);
 
 	// Normalise quaternion
-	float recipNorm = 1 / sqrtf(POW2(orient->quaternions.w)
+	float recipNorm = 1.0f / sqrtf(POW2(orient->quaternions.w)
 								+ POW2(orient->quaternions.x)
 								+ POW2(orient->quaternions.y)
 								+ POW2(orient->quaternions.z));
@@ -332,38 +352,49 @@ static void AHRS_ComputeRotationMatrix(orientation_t * orient){
 }
 
 static void AHRS_UpdateEulerAngles(orientation_t * orient){
+	
 	quaternions_t q = orient->quaternions;
 
-	float r11 =  2*(q.y*q.z - q.w*q.x);
-	float r12 =  2*(q.x*q.z + q.w*q.y);
-	float r21 =     q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z;
-	float r31 =  2*(q.y*q.z + q.w*q.x);
-	float r32 = -2*(q.x*q.z - q.w*q.y);
+	float roll = atan2(2.0f * (q.w * q.x + q.y * q.z), 1.0f - 2.0f * (q.x * q.x + q.y * q.y));
 
-	float res_0 = atan2f(r11, r12);
-	float res_1 = acosf(r21);
-	float res_2 = atan2f(r31, r32);
+	float sinp = 2.0f * (q.w * q.y - q.z * q.x);
+	float pitch = 0.0f;
+    if (fabs(sinp) >= 1.0f)
+		pitch = copysign(M_PI / 2, sinp); // Clamp to +-90 degrees
+    else
+		pitch = asin(sinp);
 
-	orient->euler.dir  = RADIANS_TO_DEGREES(res_0);
-	orient->euler.tilt = RADIANS_TO_DEGREES(res_1);
-	orient->euler.rot  = RADIANS_TO_DEGREES(res_2);
+	float yaw = atan2(2.0f * (q.w * q.z + q.x * q.y), 1.0f - 2.0f * (q.y * q.y + q.z * q.z));
+
+	orient->euler.roll = RADIANS_TO_DEGREES(roll);
+	orient->euler.pitch = RADIANS_TO_DEGREES(pitch);
+	orient->euler.yaw = RADIANS_TO_DEGREES(yaw);
+
+
+	orient->euler.tilt = sqrtf(orient->euler.pitch * orient->euler.pitch + orient->euler.yaw * orient->euler.yaw);
+
+	//ESP_LOGI(TAG, "%f, %f, %f",orient->euler.yaw,orient->euler.pitch,orient->euler.roll);
+	//ESP_LOGI(TAG, "%f, %f, %f, %f", q.w, q.x, q.y, q.z);
 }
 
 static void AHRS_TransformAccToENU(){
-	vectorf_t acc_enu;
+	vectorf_t acc_ned;
 
 	vectorf_t acc_rf;
 
-	// Use Z-up
-	acc_rf.x =  AHRS_d.acc_rf.z;
-	acc_rf.y = -AHRS_d.acc_rf.y;
-	acc_rf.z =  AHRS_d.acc_rf.x;
+	acc_rf.x =  AHRS_d.acc_rf.x;
+	acc_rf.y = 	AHRS_d.acc_rf.y;
+	acc_rf.z =  AHRS_d.acc_rf.z;
 
 	// From body frame to earth frame
-	quaternionRotateVectorInv(&acc_enu, &acc_rf, &(AHRS_d.orientation.quaternions));
+	quaternionRotateVectorInv(&acc_ned, &acc_rf, &(AHRS_d.orientation.quaternions));
 
 	// Store vertical acceleration (Z component)
-	AHRS_d.acc_up = acc_enu.z - GRAVITY;
+	AHRS_d.acc_up = acc_ned.z - GRAVITY;
+	AHRS_d.acc_ned = acc_ned;
+
+	//ESP_LOGI(TAG, "%f", AHRS_d.acc_up);
+	//ESP_LOGI(TAG, "%f, %f, %f", acc_ned.x, acc_ned.y,acc_ned.z);
 }
 
 

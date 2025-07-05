@@ -5,7 +5,7 @@
 #include "common.h"
 #include "quaternion.h"
 #include "Sensors.h"
-
+#include "GNSS_driver.h"
 
 /**
  * @brief Data union representing a set of Euler angles.
@@ -46,8 +46,12 @@ typedef struct{
 	float altitude;					/*!< Altitude above a reference point. [m] */
 
 	vectorf_t acc_rf;				/*!< Acceleration in the rocket frame. */
+	vectorf_t vel_rf;				/*!< Velocity in the rocket frame. */
+	vectorf_t pos_rf;				/*!< Positon in the rocket frame. */
 
-	orientation_t orientation;		/*!< Orientation of the device. */
+	vectorf_t acc_ned;				/*!< Acceleration in the rocket frame. */
+
+	orientation_t orientation;		/*!< Orientation of the rocket. */
 
 	float max_altitude;				/*!< Maximum altitude reached. [m] */
 	float acc_axis_lowpass;			/*!< Low-pass filtered acceleration on the three axes. */
@@ -57,6 +61,8 @@ typedef struct{
 
 	uint64_t prev_time_us;			/*!< Previous time stamp (in microseconds). */
 	float dt;						/*!< Time step (in seconds). */
+
+	float reference_altitude_ASL;
 } AHRS_t;
 
 /**
@@ -78,7 +84,7 @@ AHRS_t * AHRS_getData();
  * @param[in] sensors A pointer to the sensor data structure.
  * @return ESP_OK if computation was successful, ESP_FAIL otherwise.
  */
-esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors);
+esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors, gps_t gps);
 
 /**
  * @brief Configures the orientation settings for the AHRS module.
@@ -91,3 +97,8 @@ void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag);
  * @brief TODO
  */
 void AHRS_setInFlight();
+
+/**
+ * @brief TODO
+ */
+void AHRS_resetMaxAltitude();

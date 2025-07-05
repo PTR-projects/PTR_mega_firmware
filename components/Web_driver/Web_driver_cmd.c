@@ -17,10 +17,14 @@
 #include "lwip/sys.h"
 
 #include "IGN_driver.h"
+#include "Preferences.h"
+#include "AHRS_driver.h"
+#include "FlightStateDetector.h"
+
 #include "Web_driver.h"
 #include "Web_driver_json.h"
 #include "Web_driver_cmd.h"
-#include "Preferences.h"
+
 
 static const char *TAG = "Web_driver_cmd";
 
@@ -82,22 +86,22 @@ esp_err_t Web_cmd_handler(char *buf){
 		int32_t arg1 =  cJSON_GetObjectItem(json, "arg1")->valueint;
 		switch(arg1){
 			case 1:
-				return IGN_handle(arg1);
+				return IGN_handle(0);
 				return ESP_OK;
 			break;
 
 			case 2:
-				return IGN_handle(arg1);
+				return IGN_handle(1);
 				return ESP_OK;
 			break;
 
 			case 3:
-				return IGN_handle(arg1);
+				return IGN_handle(2);
 				return ESP_OK;
 			break;
 
 			case 4:
-				return IGN_handle(arg1);
+				return IGN_handle(3);
 				return ESP_OK;
 			break;
 
@@ -112,6 +116,22 @@ esp_err_t Web_cmd_handler(char *buf){
 		Preferences_restore_dafaults();
 		return ESP_OK;
 		//Reset config to default
+	}
+
+	if(strcmp(cmd,"arm") == 0){
+		if(FSD_checkArmed() == DISARMED){
+			FSD_arming();
+		}
+
+
+		ESP_LOGI(TAG, "ARMING!");
+		return ESP_OK;
+	}
+
+	if(strcmp(cmd,"disarm") == 0){
+		FSD_disarming();
+		ESP_LOGI(TAG, "DISARMING!");
+		return ESP_OK;
 	}
 
 	cJSON_Delete(json);

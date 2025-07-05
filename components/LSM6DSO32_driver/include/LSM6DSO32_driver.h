@@ -17,13 +17,13 @@
 typedef struct{
 	float temp;			/*!< Temperature */
 
-	float accX;			/*!< X axis acceleration */
-	float accY;			/*!< Y axis acceleration */
-	float accZ;			/*!< Z axis acceleration */
+	float accX;			/*!< X axis acceleration in g */
+	float accY;			/*!< Y axis acceleration in g */
+	float accZ;			/*!< Z axis acceleration in g */
 
-	float gyroX;		/*!< X axis angular velocity */
-	float gyroY;		/*!< Y axis angular velocity */
-	float gyroZ;		/*!< Z axis angular velocity */
+	float gyroX;		/*!< X axis angular velocity in dps*/
+	float gyroY;		/*!< Y axis angular velocity in dps */
+	float gyroZ;		/*!< Z axis angular velocity in dps */
 } LSM6DS_meas_t;
 
 const typedef enum LSM6DSO32_register_addr_t{
