@@ -172,6 +172,7 @@ static void FlightState_STARTUP	(uint64_t time_ms, FlightState_t * currentState,
 	Sensors_UpdateReferencePressure();
 	Sensors_calibrateGyro(1.0f);
 	AHRS_resetMaxAltitude();
+	AHRS_initOrientation();
 
 
 	//State change conditions

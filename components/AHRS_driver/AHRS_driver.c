@@ -47,6 +47,48 @@ esp_err_t AHRS_init(int64_t time_us){
 	return ESP_OK;
 }
 
+void AHRS_initOrientation(){
+	float ax, ay, az;
+
+	Sensors_t * sensors = Sensors_get();
+
+	if(AHRS_d.acc_rf.x == 0.0){
+		ax = sensors->LSM6DSO32.accX;
+		ay = sensors->LSM6DSO32.accY;
+		az = sensors->LSM6DSO32.accZ;
+	}else{
+		ax = AHRS_d.acc_rf.x;
+		ay = AHRS_d.acc_rf.y;
+		az = AHRS_d.acc_rf.z;
+	}
+
+	ax = 0.95f * ax + 0.05 * AHRS_d.acc_rf.x;
+	ay = 0.95f * ay + 0.05 * AHRS_d.acc_rf.y;
+	az = 0.95f * az + 0.05 * AHRS_d.acc_rf.z;
+
+	float accNorm = sqrtf(POW2(ax) + POW2(ay) + POW2(az));
+
+	ax /= accNorm;
+	ay /= accNorm;
+	az /= accNorm;
+
+	float pitch = atan2(-ax, sqrtf(POW2(ay) + POW2(az)));
+	float roll  = atan2(ay, az);  
+	float yaw = 0.0f; //Cannot determine yaw purely from acceleration
+
+	float cy = cosf(yaw * 0.5f);
+    float sy = sinf(yaw * 0.5f);
+    float cp = cosf(pitch * 0.5f);
+    float sp = sinf(pitch * 0.5f);
+    float cr = cosf(roll * 0.5f);
+    float sr = sinf(roll * 0.5f);
+
+	AHRS_d.orientation.quaternions.w = cr * cp * cy + sr * sp * sy;
+	AHRS_d.orientation.quaternions.x = sr * cp * cy - cr * sp * sy;
+	AHRS_d.orientation.quaternions.y = cr * sp * cy + sr * cp * sy;
+	AHRS_d.orientation.quaternions.z = cr * cp * sy - sr * sp * cy;
+}
+
 AHRS_t * AHRS_getData(){
 	return &AHRS_d;
 }

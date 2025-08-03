@@ -102,3 +102,8 @@ void AHRS_setInFlight();
  * @brief TODO
  */
 void AHRS_resetMaxAltitude();
+
+/**
+ * @brief TODO
+ */
+void AHRS_initOrientation();
