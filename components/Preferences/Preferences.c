@@ -42,8 +42,8 @@ esp_err_t Preferences_init(){
 	Preferences_default.max_tilt_deg 		= 45;
 	Preferences_default.staging_delay_ms 	= 0;
 	Preferences_default.rail_height_mm 		= 2000;
-	Preferences_default.auto_arming 		= true;
-	Preferences_default.auto_arming_time_s 	= 60;
+	Preferences_default.auto_arming 		= false;
+	Preferences_default.auto_arming_time_s 	= 120;
 	Preferences_default.lora_freq_khz 		= 433125;
 	Preferences_default.wifi_pass = (char*) wifi_pass;
 	Preferences_default.lora_key 			= 0;

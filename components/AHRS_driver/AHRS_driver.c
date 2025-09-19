@@ -43,7 +43,6 @@ esp_err_t AHRS_init(int64_t time_us){
 	AHRS_InitOrientation(&(AHRS_d.orientation));
 	AHRS_kalmanAltitudeAscent_init(0.1f, 0.1f);
 	
-
 	return ESP_OK;
 }
 
@@ -208,7 +207,7 @@ static void AHRS_MahonyUpdate( float dt,
 	// Errors
 	float ex = 0, ey = 0, ez = 0;
 
-	
+	/*
 	// Change reference frame to NED
 	float _gx = gx;		float _ax = ax;		float _mx = mx;
 	float _gy = gy;		float _ay = ay;		float _my = my;
@@ -216,7 +215,8 @@ static void AHRS_MahonyUpdate( float dt,
 	gx =  _gx;		ax =  _ax;		mx =  _mx;
 	gy =  _gy;		ay =  _ay;		my =  _my;
 	gz = _gz;		az =  _az;		mz =  _mz;
-	
+	*/
+
 	// Convert spin rate from deg/s to rad/s
 	gx = DEGREES_TO_RADIANS(gx);
 	gy = DEGREES_TO_RADIANS(gy);
@@ -325,6 +325,7 @@ static void AHRS_MahonyUpdate( float dt,
 								+ POW2(orient->quaternions.x)
 								+ POW2(orient->quaternions.y)
 								+ POW2(orient->quaternions.z));
+								
 	orient->quaternions.w *= recipNorm;
 	orient->quaternions.x *= recipNorm;
 	orient->quaternions.y *= recipNorm;
@@ -354,27 +355,15 @@ static void AHRS_ComputeRotationMatrix(orientation_t * orient){
 static void AHRS_UpdateEulerAngles(orientation_t * orient){
 	
 	quaternions_t q = orient->quaternions;
-
-	float roll = atan2(2.0f * (q.w * q.x + q.y * q.z), 1.0f - 2.0f * (q.x * q.x + q.y * q.y));
-
-	float sinp = 2.0f * (q.w * q.y - q.z * q.x);
-	float pitch = 0.0f;
-    if (fabs(sinp) >= 1.0f)
-		pitch = copysign(M_PI / 2, sinp); // Clamp to +-90 degrees
-    else
-		pitch = asin(sinp);
-
-	float yaw = atan2(2.0f * (q.w * q.z + q.x * q.y), 1.0f - 2.0f * (q.y * q.y + q.z * q.z));
-
-	orient->euler.roll = RADIANS_TO_DEGREES(roll);
-	orient->euler.pitch = RADIANS_TO_DEGREES(pitch);
-	orient->euler.yaw = RADIANS_TO_DEGREES(yaw);
-
+	
+	orient->euler.roll  = RADIANS_TO_DEGREES(atan2f(orient->rMat[1][2],orient->rMat[2][2]));
+	orient->euler.pitch = RADIANS_TO_DEGREES(asinf(-1.0f * orient->rMat[0][2]));
+	orient->euler.yaw   = RADIANS_TO_DEGREES(atan2f(orient->rMat[0][1],orient->rMat[0][0]));
 
 	orient->euler.tilt = sqrtf(orient->euler.pitch * orient->euler.pitch + orient->euler.yaw * orient->euler.yaw);
 
 	//ESP_LOGI(TAG, "%f, %f, %f",orient->euler.yaw,orient->euler.pitch,orient->euler.roll);
-	//ESP_LOGI(TAG, "%f, %f, %f, %f", q.w, q.x, q.y, q.z);
+	//ESP_LOGI(TAG, "%f, %f, %f, %f, %f, %f, %f", q.w, q.x, q.y, q.z,orient->euler.yaw,orient->euler.pitch,orient->euler.roll);
 }
 
 static void AHRS_TransformAccToENU(){
