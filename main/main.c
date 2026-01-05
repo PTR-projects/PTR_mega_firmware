@@ -1,4 +1,6 @@
 #include <stdio.h>
+//#include "sdkconfig.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
@@ -14,6 +16,8 @@
 #include "SPI_driver.h"
 #include "LED_driver.h"
 #include "LORA_driver.h"
+#include "SX126x_driver.h"
+#include "sx126x_hal.h"
 #include "GNSS_driver.h"
 #include "Analog_driver.h"
 #include "Storage_driver.h"
@@ -25,7 +29,7 @@
 #include "DataManager.h"
 #include "SysMgr.h"
 #include "Servo_driver.h"
-#include "CONFIG.h"
+#include "BOARD_cfg.h"
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0

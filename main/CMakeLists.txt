@@ -1,6 +1,7 @@
 idf_component_register(SRC_DIRS "."
                        INCLUDE_DIRS  "."
-                       REQUIRED_IDF_TARGETS esp32s3)
+                       REQUIRED_IDF_TARGETS esp32s3
+					   REQUIRES soc nvs_flash driver hal)
                        
 
 set(STORAGE_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/storage_fs")
@@ -14,4 +15,3 @@ elseif(CONFIG_FS_SPIFFS)
 	    message(FATAL_ERROR "${STORAGE_SRC_DIR} doesn't exit. Please run 'npm run build' in ${STORAGE_SRC_DIR}")
 	endif()
 endif()
-
