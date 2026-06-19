@@ -2,6 +2,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
+#include "PTR_DataPacket.h"
 #include "BOARD_cfg.h"
 #include "DataManager.h"
 #define DA_MAIN_QUEUE_SIZE 100
@@ -176,28 +177,30 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 
 }
 
-void IRAM_ATTR DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
-	package->id           = 1024;
-	package->packet_no    = packet_counter++;
-	package->packet_id    = 0x00AA;	//packet_id - 0x0001 -> first type of test frame
-	package->timestamp_ms = (uint32_t)(time_us/1000);
+void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
+	kppacket_payload_legacyfull_t payload = {0};
 
-	package->vbat_10  = (uint8_t)(analog->vbat_mV / 100.0f);						// 1mV/LSB -> 100mV/LSB
-	package->accX_100 = (int16_t)(sensors->LSM6DSO32.accX * 100.0f);
-	package->accY_100 = (int16_t)(sensors->LSM6DSO32.accY * 100.0f);
-	package->accZ_100 = (int16_t)(sensors->LSM6DSO32.accZ * 100.0f);
+	payload.state       = (uint8_t)flightstate;
+	payload.flags       = 0;
+	payload.vbat_10     = (uint8_t)(analog->vbat_mV / 100.0f);
+	payload.accX_100    = (int16_t)(sensors->LSM6DSO32.accX * 100.0f);
+	payload.accY_100    = (int16_t)(sensors->LSM6DSO32.accY * 100.0f);
+	payload.accZ_100    = (int16_t)(sensors->LSM6DSO32.accZ * 100.0f);
+	payload.gyroX_10    = (int16_t)(sensors->LSM6DSO32.gyroX * 10.0f);
+	payload.gyroY_10    = (int16_t)(sensors->LSM6DSO32.gyroY * 10.0f);
+	payload.gyroZ_10    = (int16_t)(sensors->LSM6DSO32.gyroZ * 10.0f);
+	payload.tilt_100    = (int16_t)(ahrs->orientation.euler.tilt * 100.0f);
+	payload.pressure    = sensors->MS5607.press;
+	payload.velocity_10 = (int16_t)(ahrs->ascent_rate * 10.0f);
+	payload.altitude    = (uint16_t)ahrs->altitude;
+	payload.lat         = (int32_t)(gps->latitude  * 10000000.0f);
+	payload.lon         = (int32_t)(gps->longitude * 10000000.0f);
+	payload.alti_gps    = (int32_t)(gps->altitude);
+	payload.sats_fix    = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
 
-	package->gyroX_10 = (int16_t)(sensors->LSM6DSO32.gyroX * 100.0f);
-	package->gyroY_10 = (int16_t)(sensors->LSM6DSO32.gyroY * 100.0f);
-	package->gyroZ_10 = (int16_t)(sensors->LSM6DSO32.gyroZ * 100.0f);
-
-	package->pressure = sensors->MS5607.press;
-
-	package->lat      = (int32_t)(gps->latitude  * 10000000.0f);
-	package->lon      = (int32_t)(gps->longitude * 10000000.0f);
-	package->alti_gps = (int32_t)(gps->altitude);
-	package->sats_fix     = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
-
-	package->state = flightstate;
+	DataPacket_build_msg(package, PACKET_LEGACY_FULL, false,
+	                     0, 0, packet_counter++,
+	                     (uint32_t)(time_us / 1000),
+	                     &payload, sizeof(payload));
 }
  

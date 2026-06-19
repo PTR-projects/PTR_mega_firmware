@@ -27,6 +27,7 @@
 #include "Web_driver.h"
 #include "Preferences.h"
 #include "DataManager.h"
+#include "PTR_DataPacket.h"
 #include "SysMgr.h"
 #include "Servo_driver.h"
 #include "BOARD_cfg.h"
@@ -54,7 +55,7 @@ void task_kpptr_main(void *pvParameter){
 	TickType_t 		 prevTickCountWeb = 0;
 	DataPackage_t *  DataPackage_ptr = NULL;
 	DataPackage_t    DataPackage_d;
-	DataPackageRF_t  DataPackageRF_d;
+	kppacket_t 		 DataPackageRF_d;
 	gps_t 			 gps_d;
 	Analog_meas_t 	 Analog_meas;
 	
@@ -144,7 +145,7 @@ void task_kpptr_main(void *pvParameter){
  */
 void task_kpptr_telemetry(void *pvParameter){
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
-	DataPackageRF_t DataPackageRF_d;
+	kppacket_t DataPackageRF_d;
 	while(LORA_init() != ESP_OK){
 		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);
@@ -154,7 +155,7 @@ void task_kpptr_telemetry(void *pvParameter){
 	SysMgr_checkout(checkout_lora, check_ready);
 	while(1){
 		if(xQueueReceive(queue_MainToTelemetry, &DataPackageRF_d, 100)){
-			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), LORA_TX_NO_WAIT);
+			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d.legacyheader, DataPackageRF_d.packet_len, LORA_TX_NO_WAIT);
 		}
 	}
 #else
@@ -454,7 +455,7 @@ void app_main(void)
 
     //----- Create queues ---------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t   ) );
-    queue_MainToTelemetry = xQueueCreate( 1, sizeof( DataPackageRF_t ) );
+    queue_MainToTelemetry = xQueueCreate( 1, sizeof( kppacket_t      ) );
     queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t   ) );
 
     //----- Check queues ----------
