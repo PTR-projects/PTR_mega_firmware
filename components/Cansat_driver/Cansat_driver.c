@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_system.h"
 
 #include "AHRS_driver.h"
 #include "Servo_driver.h"
@@ -271,6 +272,77 @@ static void CansatState_MANUAL(uint64_t time_ms, Cansat_t * cs, AHRS_t * ahrs){
     //State change conditions: none, disarm() or arm() transitions externally
 }
 
+
+//----- Packet parser ----------
+
+static uint16_t crc16(const uint8_t *data, uint16_t len) {
+    uint16_t crc = 0x0000;
+    while(len--) {
+        crc ^= (uint16_t)(*data++) << 8;
+        for(uint8_t i = 0; i < 8; i++)
+            crc = (crc & 0x8000) ? (crc << 1) ^ 0x8005 : (crc << 1);
+    }
+    return crc;
+}
+
+esp_err_t Cansat_parsePacket(const kppacket_payload_cansat_t *pkt) {
+    // 1. CRC16 over bytes [0..13]
+    if(crc16((const uint8_t *)pkt, 14) != pkt->checksum) {
+        ESP_LOGE(TAG, "Packet CRC mismatch");
+        return ESP_ERR_INVALID_CRC;
+    }
+
+    // 2. cmd integrity: cmd XOR cmd_inv must equal 0xFF
+    if((pkt->cmd ^ pkt->cmd_inv) != 0xFF) {
+        ESP_LOGE(TAG, "cmd_inv check failed (0x%02X ^ 0x%02X)", pkt->cmd, pkt->cmd_inv);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 3. Effector state validation: bit pattern 11 is illegal
+    if(pkt->cmd == CANSAT_CMD_SET_EFFECTORS) {
+        for(uint8_t i = 0; i < 32; i++) {
+            if(((pkt->effector_states >> (i * 2)) & 0x03) == 0x03) {
+                ESP_LOGE(TAG, "Illegal effector bit pattern at effector %d", i);
+                return ESP_ERR_INVALID_ARG;
+            }
+        }
+    }
+
+    // 4. Dispatch
+    switch((cansat_cmd_t)pkt->cmd) {
+        case CANSAT_CMD_NOP:
+            break;
+        case CANSAT_CMD_ARM_IGN:
+        case CANSAT_CMD_DISARM_IGN:
+        case CANSAT_CMD_ARM_SERVO:
+        case CANSAT_CMD_DISARM_SERVO:
+        case CANSAT_CMD_ARM_FSD:
+        case CANSAT_CMD_DISARM_FSD:
+        case CANSAT_CMD_SET_EFFECTORS:
+            // TODO: dispatch to Effector_driver / FlightStateDetector
+            ESP_LOGW(TAG, "CMD 0x%02X not yet implemented", pkt->cmd);
+            break;
+        case CANSAT_CMD_CANSAT_MANUAL:
+            Cansat_enterManual();
+            break;
+        case CANSAT_CMD_CANSAT_IDLE:
+            Cansat_exitManual();
+            break;
+        case CANSAT_CMD_REBOOT:
+            ESP_LOGW(TAG, "Reboot command received");
+            esp_restart();
+            break;
+        case CANSAT_CMD_MEM_ERASE:
+            // TODO: dispatch to Storage_driver
+            ESP_LOGW(TAG, "Memory erase not yet implemented");
+            break;
+        default:
+            ESP_LOGE(TAG, "Unknown CMD 0x%02X", pkt->cmd);
+            return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    return ESP_OK;
+}
 
 //----- Deployment functions ----------
 

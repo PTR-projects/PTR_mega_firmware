@@ -2,6 +2,7 @@
 
 #include "esp_err.h"
 #include "AHRS_driver.h"
+#include "Packet_custom_cansat.h"
 
 /**
  * @brief Enum representing the cansat deployment states.
@@ -77,3 +78,14 @@ void Cansat_forceClose(uint8_t batch);
  * @return Pointer to the internal Cansat_t structure.
  */
 Cansat_t * Cansat_getData();
+
+/**
+ * @brief Validates and dispatches an incoming cansat command packet.
+ *        Checks CRC16, cmd/cmd_inv integrity, and illegal effector bit patterns
+ *        before dispatching the command.
+ * @param[in] pkt Pointer to the received cansat payload.
+ * @return ESP_OK on success, ESP_ERR_INVALID_CRC on checksum mismatch,
+ *         ESP_ERR_INVALID_ARG on integrity or effector validation failure,
+ *         ESP_ERR_NOT_SUPPORTED for unrecognised command codes.
+ */
+esp_err_t Cansat_parsePacket(const kppacket_payload_cansat_t *pkt);

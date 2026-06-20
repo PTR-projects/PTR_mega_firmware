@@ -180,6 +180,5 @@ typedef struct __attribute__((__packed__)){
     };
 } kppacket_t;
 
-
 void   DataPacket_init();
 int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint8_t sender_id, uint8_t dest_id, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len);

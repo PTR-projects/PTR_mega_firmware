@@ -5,7 +5,6 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
-#include "BOARD_cfg.h"
 #include "Preferences.h"
 #include "SX126x_driver.h"
 #include "LORA_driver.h"
@@ -139,6 +138,102 @@ static uint16_t SX126X_readIrqStatus(){
 	sx126x_get_irq_status(0, (sx126x_irq_mask_t*) &res );
 
 	return res;
+}
+
+esp_err_t LORA_waitTXDone(uint32_t timeout_ms) {
+	uint32_t elapsed = 0;
+	while(elapsed < timeout_ms) {
+		if(SX126X_readIrqStatus() & SX126X_IRQ_TX_DONE)
+			return ESP_OK;
+		vTaskDelay(pdMS_TO_TICKS(1));
+		elapsed++;
+	}
+	return ESP_ERR_TIMEOUT;
+}
+
+esp_err_t LORA_startRX(void) {
+	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
+	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
+
+	sx126x_pkt_params_lora_t sx126x_pkt_params_lora_d;
+	sx126x_pkt_params_lora_d.crc_is_on            = true;
+	sx126x_pkt_params_lora_d.header_type          = SX126X_LORA_PKT_EXPLICIT;
+	sx126x_pkt_params_lora_d.invert_iq_is_on      = false;
+	sx126x_pkt_params_lora_d.pld_len_in_bytes     = 255;
+	sx126x_pkt_params_lora_d.preamble_len_in_symb = 8;
+	sx126x_set_lora_pkt_params(0, &sx126x_pkt_params_lora_d);
+
+	sx126x_set_rx_with_timeout_in_rtc_step(0, 0xFFFFFF);  // 0xFFFFFF = continuous RX mode
+	return ESP_OK;
+}
+
+esp_err_t LORA_performCAD(void) {
+	sx126x_irq_mask_t irq_status;
+	sx126x_cad_params_t par;
+	par.cad_detect_min  = 10;
+	par.cad_detect_peak = 23;
+	par.cad_exit_mode   = SX126X_CAD_LBT;
+	par.cad_symb_nb     = SX126X_CAD_04_SYMB;
+	par.cad_timeout     = 0;
+
+	sx126x_set_cad_params(0, &par);
+	sx126x_set_cad(0);
+	vTaskDelay(pdMS_TO_TICKS(10));
+	sx126x_get_irq_status(0, &irq_status);
+	sx126x_clear_irq_status(0, SX126X_IRQ_CAD_DONE | SX126X_IRQ_CAD_DETECTED);
+
+	if(irq_status & SX126X_IRQ_CAD_DETECTED)
+		return ESP_FAIL;  // channel busy
+
+	return ESP_OK;  // channel clear
+}
+
+esp_err_t LORA_receive(uint8_t *rxbuffer, uint8_t *size) {
+	esp_err_t ret = LORA_receivePacketLoRa(rxbuffer, size);
+	if(ret == ESP_OK)
+		LORA_startRX();
+	return ret;
+}
+
+esp_err_t LORA_sendWithLBT(uint8_t *txbuffer, uint8_t size) {
+	bool channel_clear = false;
+	for(uint8_t i = 0; i < 5; i++){
+		if(LORA_performCAD() == ESP_OK){
+			channel_clear = true;
+			break;
+		}
+		vTaskDelay(pdMS_TO_TICKS(5));
+	}
+
+	if(channel_clear){
+		LORA_sendPacketLoRa(txbuffer, size, LORA_TX_NO_WAIT);
+		LORA_waitTXDone(500);
+	} else {
+		ESP_LOGW(TAG, "LBT: channel busy, TX skipped");
+	}
+
+	LORA_startRX();
+	return channel_clear ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t LORA_receivePacketLoRa(uint8_t *rxbuffer, uint8_t *size) {
+	uint16_t irq = SX126X_readIrqStatus();
+
+	if(!(irq & SX126X_IRQ_RX_DONE))
+		return ESP_ERR_NOT_FOUND;
+
+	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
+
+	if(irq & SX126X_IRQ_CRC_ERROR)
+		return ESP_FAIL;
+
+	sx126x_rx_buffer_status_t buf_status;
+	sx126x_get_rx_buffer_status(0, &buf_status);
+
+	*size = buf_status.pld_len_in_bytes;
+	sx126x_read_buffer(0, buf_status.buffer_start_pointer, rxbuffer, *size);
+
+	return ESP_OK;
 }
 
 esp_err_t LORA_sendPacketLoRa(uint8_t *txbuffer, uint16_t size, uint32_t txtimeout) {

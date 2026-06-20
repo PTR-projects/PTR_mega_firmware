@@ -16,6 +16,7 @@
 #include "SPI_driver.h"
 #include "LED_driver.h"
 #include "LORA_driver.h"
+#include "TMTC.h"
 #include "SX126x_driver.h"
 #include "sx126x_hal.h"
 #include "GNSS_driver.h"
@@ -40,7 +41,6 @@ static const char *TAG = "KP-PTR";
 
 //----------- Queues etc ---------------
 QueueHandle_t queue_AnalogToMain;
-QueueHandle_t queue_MainToTelemetry;
 QueueHandle_t queue_MainToWeb;
 
 /**
@@ -114,14 +114,14 @@ void task_kpptr_main(void *pvParameter){
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
-			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
+			TMTC_send(&DataPackageRF_d);
 		}
 	}
 	else{
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY_FLIGHT )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
-			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
+			TMTC_send(&DataPackageRF_d);
 		}
 	}	
 
@@ -145,7 +145,6 @@ void task_kpptr_main(void *pvParameter){
  */
 void task_kpptr_telemetry(void *pvParameter){
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
-	kppacket_t DataPackageRF_d;
 	while(LORA_init() != ESP_OK){
 		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);
@@ -153,10 +152,10 @@ void task_kpptr_telemetry(void *pvParameter){
 	}
 
 	SysMgr_checkout(checkout_lora, check_ready);
+	TMTC_init();
+
 	while(1){
-		if(xQueueReceive(queue_MainToTelemetry, &DataPackageRF_d, 100)){
-			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d.legacyheader, DataPackageRF_d.packet_len, LORA_TX_NO_WAIT);
-		}
+		TMTC_process();
 	}
 #else
 	SysMgr_checkout(checkout_lora, check_ready);
@@ -455,7 +454,6 @@ void app_main(void)
 
     //----- Create queues ---------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t   ) );
-    queue_MainToTelemetry = xQueueCreate( 1, sizeof( kppacket_t      ) );
     queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t   ) );
 
     //----- Check queues ----------
