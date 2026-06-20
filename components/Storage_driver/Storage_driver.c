@@ -69,7 +69,8 @@ esp_err_t Storage_init(){
     Storage_data_d.MasterKey 				= CONFIG_KPPTR_MASTERKEY;
     Storage_data_d.minFreeMem 				= 100;
 
-    strcpy(Storage_data_d.path, "/storage/meas.bin");
+     strncpy(Storage_data_d.path, "/storage/meas.bin", sizeof(Storage_data_d.path) - 1);
+    Storage_data_d.path[sizeof(Storage_data_d.path) - 1] = '\0';
 
 #if defined(CONFIG_FS_SPIFFS)
 	ret = Storage_init_Spiffs(STORAGE_KEY);

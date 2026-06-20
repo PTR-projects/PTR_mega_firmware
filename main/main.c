@@ -466,8 +466,8 @@ void app_main(void)
     queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t   ) );
 
     //----- Check queues ----------
-    if(queue_AnalogToMain == 0)
-    	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
+    if(queue_AnalogToMain == 0)   	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
+	if(queue_MainToWeb == 0)    	ESP_LOGE(TAG, "Failed to create queue -> queue_MainToWeb");
 
     xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 14, NULL, ESP_CORE_0);

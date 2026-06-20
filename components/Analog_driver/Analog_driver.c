@@ -196,8 +196,8 @@ void Analog_update(Analog_meas_t *meas)
 
 int8_t Analog_getIGNstate(Analog_meas_t *meas, uint8_t ign_no)
 {
-    if (ign_no > IGN_NUM) return -1;
-    if (meas == NULL)     return -1;
+    if (ign_no >= IGN_NUM) return -1;
+    if (meas == NULL)      return -1;
     return meas->IGN_det[ign_no];
 }
 

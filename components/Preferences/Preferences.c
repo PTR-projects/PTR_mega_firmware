@@ -113,9 +113,13 @@ esp_err_t Preferences_init(){
 	Preferences_data_d.lora_freq_khz 		= cJSON_GetObjectItem(json, "lora_freq")->valueint;
 	Preferences_data_d.lora_mode 			= cJSON_GetObjectItem(json, "lora_mode")->valueint;
 	Preferences_data_d.lora_key 			= cJSON_GetObjectItem(json, "lora_key")->valueint;
+
 	Preferences_data_d.wifi_pass 			= (char*)wifi_pass;
-	memcpy(Preferences_data_d.wifi_pass, 	  cJSON_GetObjectItem(json, "wifi_pass")->valuestring,
-											  strlen(cJSON_GetObjectItem(json, "wifi_pass")->valuestring));
+	strncpy(Preferences_data_d.wifi_pass,
+	        cJSON_GetObjectItem(json, "wifi_pass")->valuestring,
+	        sizeof(wifi_pass) - 1);
+	Preferences_data_d.wifi_pass[sizeof(wifi_pass) - 1] = '\0';
+
 	cJSON_Delete(json);
 	pref_init_done = true;
 	
@@ -267,6 +271,11 @@ static bool json_check_cfg(cJSON * json){
 	json_check |= (NULL == cJSON_GetObjectItem(json, "lora_mode"));
 	json_check |= (NULL == cJSON_GetObjectItem(json, "lora_key"));
 	json_check |= (NULL == cJSON_GetObjectItem(json, "wifi_pass"));
+	json_check |= (NULL == cJSON_GetObjectItem(json, "drouge_alt"));
+	json_check |= (NULL == cJSON_GetObjectItem(json, "key"));
+
+	if(!json_check)
+		json_check |= !cJSON_IsString(cJSON_GetObjectItem(json, "wifi_pass"));
 
 	return !json_check;
 }

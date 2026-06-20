@@ -318,10 +318,14 @@ static esp_err_t ws2812_control_deinit(void) {
 }
 
 static esp_err_t  ws2812_update(void) {
-	ESP_ERROR_CHECK(
-			rmt_write_items(STRIP_LED_CHANNEL, led_data_buffer,
-					LED_WS_BUFFER_ITEMS, false));
-	ESP_ERROR_CHECK (rmt_wait_tx_done( STRIP_LED_CHANNEL, portMAX_DELAY));
+	if(rmt_write_items(STRIP_LED_CHANNEL, led_data_buffer, LED_WS_BUFFER_ITEMS, false) != ESP_OK){
+		ESP_LOGE(TAG, "rmt_write_items failed");
+		return ESP_FAIL;
+	}
+	if(rmt_wait_tx_done(STRIP_LED_CHANNEL, portMAX_DELAY) != ESP_OK){
+		ESP_LOGE(TAG, "rmt_wait_tx_done failed");
+		return ESP_FAIL;
+	}
 	return ESP_OK;
 }
 

@@ -46,7 +46,7 @@ esp_err_t SysMgr_checkout(sysmgr_checkout_component_t component, sysmgr_checkout
 	tmp.component = component;
 	tmp.state 	  = state;
 
-	while(queue_SysMgrCheckout == NULL) {}	//wait for SysMgr to init
+	while(queue_SysMgrCheckout == NULL) { vTaskDelay(pdMS_TO_TICKS(10));}	//wait for SysMgr to init
 
 	if(xQueueSend(queue_SysMgrCheckout, (void *)&tmp, 0) != pdTRUE){
 		ESP_LOGE(TAG, "SysMgr Checkout Queue too full to write new Msg!");
