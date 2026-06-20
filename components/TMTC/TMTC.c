@@ -40,7 +40,7 @@ void TMTC_process(void) {
         tmtc_dispatch_rx(rx_buf, rx_size);
 
     kppacket_t tx_pkt;
-    if(xQueueReceive(s_tx_queue, &tx_pkt, pdMS_TO_TICKS(10)) == pdTRUE)
+    if(xQueueReceive(s_tx_queue, &tx_pkt, 0) == pdTRUE)
         LORA_sendWithLBT((uint8_t *)&tx_pkt.legacyheader, tx_pkt.packet_len);
 }
 

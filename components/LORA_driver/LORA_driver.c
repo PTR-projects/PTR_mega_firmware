@@ -145,8 +145,8 @@ esp_err_t LORA_waitTXDone(uint32_t timeout_ms) {
 	while(elapsed < timeout_ms) {
 		if(SX126X_readIrqStatus() & SX126X_IRQ_TX_DONE)
 			return ESP_OK;
-		vTaskDelay(pdMS_TO_TICKS(1));
-		elapsed++;
+		vTaskDelay(pdMS_TO_TICKS(5));
+		elapsed += 5;
 	}
 	return ESP_ERR_TIMEOUT;
 }

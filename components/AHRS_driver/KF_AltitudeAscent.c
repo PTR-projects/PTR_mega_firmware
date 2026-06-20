@@ -11,8 +11,8 @@
 #include "common.h"
 #include "KF_AltitudeAscent.h"
 
-static void AHRS_kalmanAltitudeAscent_propagate (KF_AltitudeAscent_t * KF, float acc, float dt);
-static void AHRS_kalmanAltitudeAscent_update	(KF_AltitudeAscent_t * KF, float altitudeP);
+static void IRAM_ATTR AHRS_kalmanAltitudeAscent_propagate (KF_AltitudeAscent_t * KF, float acc, float dt);
+static void IRAM_ATTR AHRS_kalmanAltitudeAscent_update	(KF_AltitudeAscent_t * KF, float altitudeP);
 
 KF_AltitudeAscent_t KF_data;
 
@@ -29,7 +29,7 @@ void AHRS_kalmanAltitudeAscent_init(float Q_accel, float R_altitude){
 	KF_data.R_altitude 	= R_altitude;
 }
 
-void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, float * altitude_result, float * ascentrate_result){
+void IRAM_ATTR AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, float * altitude_result, float * ascentrate_result){
 	AHRS_kalmanAltitudeAscent_propagate(&KF_data, acc_up, dt);
 	AHRS_kalmanAltitudeAscent_update   (&KF_data, altitudeP);
 
@@ -40,7 +40,7 @@ void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, flo
 
 
 // https://github.com/rblilja/AltitudeKF/blob/master/altitude_kf.cpp
-static void AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float acc_up, float dt){
+static void IRAM_ATTR AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float acc_up, float dt){
 	// Repeated arithmetics
 	float _dtdt = dt * dt;
 
@@ -87,7 +87,7 @@ static void AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float 
 	KF->P[1][1] = KF->P[1][1] + _Q_accel_dtdt;
 }
 
-static void AHRS_kalmanAltitudeAscent_update(KF_AltitudeAscent_t * KF, float altitudeP){
+static void IRAM_ATTR AHRS_kalmanAltitudeAscent_update(KF_AltitudeAscent_t * KF, float altitudeP){
 	// Observation vector 'zhat' from the current state estimate:
 	//
 	// zhat_k = [ 1 0 ] * [ h_k ]

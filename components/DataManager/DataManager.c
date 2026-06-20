@@ -98,7 +98,7 @@ esp_err_t IRAM_ATTR DM_getFreePointerToMainRB(DataPackage_t ** ptr){
 	return ESP_OK;
 }
 
-esp_err_t DM_addToMainRB(DataPackage_t ** ptr){
+esp_err_t IRAM_ATTR DM_addToMainRB(DataPackage_t ** ptr){
 	if(xQueueSend(queue_StorageUsed, ptr, 0) != pdTRUE)
 		return ESP_FAIL;
 

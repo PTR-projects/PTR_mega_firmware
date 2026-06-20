@@ -49,7 +49,7 @@ QueueHandle_t queue_MainToWeb;
  *
  * @param pvParameter
  */
-void task_kpptr_main(void *pvParameter){
+void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	TickType_t 		 xLastWakeTime = 0;
 	TickType_t 		 prevTickCountRF = 0;
 	TickType_t 		 prevTickCountWeb = 0;
@@ -92,9 +92,14 @@ void task_kpptr_main(void *pvParameter){
 		AHRS_compute(time_us, Sensors_get(), gps_d);
 		FSD_detect(time_us/1000);
 
+		Sensors_t     *sensors   = Sensors_get ();
+		AHRS_t        *ahrs      = AHRS_getData();
+		flightstate_t  fsd_state = FSD_getState();
+		servo_t		  *servos    = Servo_get   ();
+
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
-		DM_collectFlash(&DataPackage_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas, Servo_get());
+		DM_collectFlash(&DataPackage_d, time_us, sensors, &gps_d, ahrs, fsd_state, NULL, &Analog_meas, servos);
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
@@ -110,22 +115,20 @@ void task_kpptr_main(void *pvParameter){
 
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 		//Send data to RF every 1000/CONFIG_TELEMETRY_FREQUENCY ms
-	if((FSD_getState() < FLIGHTSTATE_BOOST) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN)){
+	if((fsd_state < FLIGHTSTATE_BOOST) || (fsd_state >= FLIGHTSTATE_SHUTDOWN)){
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
+			DM_collectRF(&DataPackageRF_d, time_us, sensors, &gps_d, ahrs, fsd_state, NULL, &Analog_meas);
 			TMTC_send(&DataPackageRF_d);
 		}
 	}
 	else{
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY_FLIGHT )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
+			DM_collectRF(&DataPackageRF_d, time_us, sensors, &gps_d, ahrs, fsd_state, NULL, &Analog_meas);
 			TMTC_send(&DataPackageRF_d);
 		}
 	}	
-
-		
 #endif
 
 		//Send data to Web every 1000ms
@@ -202,6 +205,12 @@ void task_kpptr_storage(void *pvParameter){
 
 		// Skip if too many write errors occured but free used pointer
 		if(write_error_cnt > 1000){
+			static bool storage_fail_reported = false;
+			if(storage_fail_reported == false){
+				ESP_LOGE(TAG, "Storage: too many write errors, halting writes");
+				SysMgr_checkout(checkout_storage, check_fail);
+				storage_fail_reported = true;
+			}
 			DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			continue;
 		}

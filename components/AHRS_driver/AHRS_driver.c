@@ -50,7 +50,7 @@ esp_err_t AHRS_init(int64_t time_us){
 	return ESP_OK;
 }
 
-AHRS_t * AHRS_getData(){
+AHRS_t * IRAM_ATTR AHRS_getData(){
 	return &AHRS_d;
 }
 
@@ -58,7 +58,7 @@ void AHRS_resetMaxAltitude(){
 	AHRS_d.max_altitude = AHRS_d.altitudeP;
 }
 
-esp_err_t AHRS_compute(int64_t time_us, Sensors_t * sensors, gps_t gps){
+esp_err_t IRAM_ATTR AHRS_compute(int64_t time_us, Sensors_t * sensors, gps_t gps){
 	// Calculate time diference and store new timestamp
 	AHRS_d.dt = (time_us - AHRS_d.prev_time_us) / 1000000.0f;	//us to s
 	AHRS_d.prev_time_us = time_us;
@@ -97,7 +97,7 @@ void AHRS_setInFlight(){
 
 //------------------ AHRS private functions -------------------
 // Arecorder Kalman for pressure and altitude
-static void AHRS_CalcAltitudeP(float press, float ref_press){
+static void IRAM_ATTR AHRS_CalcAltitudeP(float press, float ref_press){
 	/** \desc Raw pressure data read from pressure sensor [Pa]. */
 	float kalman_raw = press;
 	/** \desc Pressure after current prediction [Pa]. */
@@ -155,19 +155,19 @@ static void AHRS_CalcAltitudeP(float press, float ref_press){
 	ESP_LOGI(TAG, "Altitude: %f, Max: %f",AHRS_d.altitudeP, AHRS_d.max_altitude);
 }
 
-static void AHRS_CalcVelocityPosition(){
+static void IRAM_ATTR AHRS_CalcVelocityPosition(){
 	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up, &(AHRS_d.altitude), &AHRS_d.ascent_rate);
 	
 }
 
-static void AHRS_CalcApogeeEstimation(){
+static void IRAM_ATTR AHRS_CalcApogeeEstimation(){
 	if(AHRS_d.ascent_rate > 0.0f){
 		AHRS_d.time_to_apogee_est  = AHRS_d.ascent_rate / GRAVITY;
 		AHRS_d.apogee_altitude_est = AHRS_d.altitude + (AHRS_d.ascent_rate * AHRS_d.ascent_rate) / (2.0f * GRAVITY);
 	}
 }
 
-static void AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro){
+static void IRAM_ATTR AHRS_CalcOrientation(Sensors_t * sensors, bool useGyro){
 	bool useMag = orientation_useMag;
 	bool useAcc = orientation_useAcc;
 	float dcmKpGain = 2.5f;
@@ -206,7 +206,7 @@ static void AHRS_InitOrientation(orientation_t * orient){
 
 // https://github.com/betaflight/betaflight/blob/master/src/main/flight/imu.c
 // https://github.com/iNavFlight/inav/blob/master/src/main/flight/imu.c
-static void AHRS_MahonyUpdate( float dt,
+static void IRAM_ATTR AHRS_MahonyUpdate( float dt,
 		 	 	 	 	 	   uint8_t useGyro, float gx, float gy, float gz,
 						 	   uint8_t useAcc,  float ax, float ay, float az,
 						 	   uint8_t useMag,  float mx, float my, float mz,
@@ -345,7 +345,7 @@ static void AHRS_MahonyUpdate( float dt,
 	AHRS_ComputeRotationMatrix(orient);
 }
 
-static void AHRS_ComputeRotationMatrix(orientation_t * orient){
+static void IRAM_ATTR AHRS_ComputeRotationMatrix(orientation_t * orient){
 	quaternionsProd_t qP;
 	quaternionComputeProducts(&(orient->quaternions), &qP);
 
@@ -362,7 +362,7 @@ static void AHRS_ComputeRotationMatrix(orientation_t * orient){
     orient->rMat[2][2] = 1.0f - 2.0f * qP.xx - 2.0f * qP.yy;
 }
 
-static void AHRS_UpdateEulerAngles(orientation_t * orient){
+static void IRAM_ATTR AHRS_UpdateEulerAngles(orientation_t * orient){
 	
 	quaternions_t q = orient->quaternions;
 
@@ -388,7 +388,7 @@ static void AHRS_UpdateEulerAngles(orientation_t * orient){
 	//ESP_LOGI(TAG, "%f, %f, %f, %f", q.w, q.x, q.y, q.z);
 }
 
-static void AHRS_TransformAccToENU(){
+static void IRAM_ATTR AHRS_TransformAccToENU(){
 	vectorf_t acc_ned;
 
 	vectorf_t acc_rf;
@@ -406,5 +406,3 @@ static void AHRS_TransformAccToENU(){
 
 	//ESP_LOGI(TAG, "%f, %f, %f", acc_ned.x, acc_ned.y,acc_ned.z);
 }
-
-

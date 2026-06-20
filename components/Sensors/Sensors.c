@@ -8,7 +8,7 @@
 #include "Sensors.h"
 
 static const char *TAG = "Sensors";
-esp_err_t Sensors_axes_translation();
+esp_err_t IRAM_ATTR Sensors_axes_translation();
 
 //--------- Private var ---------------
 static Sensors_t Sensors_d;
@@ -27,7 +27,7 @@ esp_err_t Sensors_init(){
 	return ESP_OK; 	//ESP_FAIL
 }
 
-esp_err_t  Sensors_update(){
+esp_err_t IRAM_ATTR Sensors_update(){
 	//get new data from sensors
 
 	MS5607_getReloadSmart();
@@ -45,7 +45,7 @@ esp_err_t  Sensors_update(){
 	return ESP_OK;
 }
 
-esp_err_t Sensors_axes_translation(){
+esp_err_t IRAM_ATTR Sensors_axes_translation(){
 	Sensors_t Sensors_b = Sensors_d;
 #if defined (CONFIG_BOARD_PTR_MEGA_VER_0_REV_1) || defined (CONFIG_BOARD_PTR_MEGA_VER_1_REV_0)
 	Sensors_d.LIS331.accX	  =  Sensors_b.LIS331.accX;
@@ -83,7 +83,7 @@ esp_err_t Sensors_axes_translation(){
 	return ESP_OK;
 }
 
-Sensors_t * Sensors_get(){
+Sensors_t * IRAM_ATTR Sensors_get(){
 	return &Sensors_d;
 }
 
