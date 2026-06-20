@@ -140,15 +140,13 @@ esp_err_t Web_wifi_init(void){
     memset(ssid, 0x00, ssid_size);
     snprintf((char *)ssid, ssid_size, "%s-%s", CONFIG_ESP_WIFI_SSID, mac_addr);
     ESP_LOGI(TAG, "SSID: %s", ssid);
-    wifi_config_t wifi_config = {
-    	.ap = {
-            .ssid_len = strlen((char *)ssid),
-    		.channel = WIFI_CHANNEL,
-    		.password =  CONFIG_ESP_WIFI_PASSWORD,
-    		.max_connection = MAX_STA_CONN,
-    		.authmode = WIFI_AUTH_WPA_WPA2_PSK
-    	},
-    };
+    wifi_config_t wifi_config = {0};
+    wifi_config.ap.ssid_len       = strlen((char *)ssid);
+    wifi_config.ap.channel        = WIFI_CHANNEL;
+    wifi_config.ap.max_connection = MAX_STA_CONN;
+    wifi_config.ap.authmode       = WIFI_AUTH_WPA_WPA2_PSK;
+    strncpy((char *)wifi_config.ap.password, CONFIG_ESP_WIFI_PASSWORD,
+            sizeof(wifi_config.ap.password) - 1);
     strncpy((char *)wifi_config.ap.ssid, (char *)ssid, ssid_size);
 
     Preferences_data_t pref;
@@ -1015,6 +1013,8 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 
 
 esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr){
+    if(DataPackage_ptr == NULL || ahrs_ptr == NULL)
+        return ESP_FAIL;
     Web_driver_live_t     live_web;
 
     live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
@@ -1028,13 +1028,13 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ah
     live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
     live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
     live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
-    live_web.LSM6DS32_1.ax = 69.0f;
-    live_web.LSM6DS32_1.ay = 69.0f;
-    live_web.LSM6DS32_1.az = 69.0f;
-    live_web.LSM6DS32_1.gx = 69.0f;
-    live_web.LSM6DS32_1.gy = 69.0f;
-    live_web.LSM6DS32_1.gz = 69.0f;
-    live_web.LSM6DS32_1.temperature = 69.0f;
+    live_web.LSM6DS32_1.ax = 0.0f;
+    live_web.LSM6DS32_1.ay = 0.0f;
+    live_web.LSM6DS32_1.az = 0.0f;
+    live_web.LSM6DS32_1.gx = 0.0f;
+    live_web.LSM6DS32_1.gy = 0.0f;
+    live_web.LSM6DS32_1.gz = 0.0f;
+    live_web.LSM6DS32_1.temperature = 0.0f;
     live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
     live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
     live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;

@@ -43,7 +43,8 @@ esp_err_t Web_cmd_init(uint32_t key){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Web_cmd_handler(char *buf){
-	cJSON *json = cJSON_Parse(buf); 
+	esp_err_t ret = ESP_OK;
+	cJSON *json = cJSON_Parse(buf);
 	ESP_LOGI(TAG, "%s", buf);
 
 	if(json == NULL){
@@ -51,93 +52,64 @@ esp_err_t Web_cmd_handler(char *buf){
 		return ESP_FAIL;
 	}
 
-	//Parse CMD
-	if(NULL == cJSON_GetObjectItem(json, "cmd")){
+	cJSON *cmd_item = cJSON_GetObjectItem(json, "cmd");
+	if(cmd_item == NULL || !cJSON_IsString(cmd_item) || cmd_item->valuestring == NULL){
 		ESP_LOGE(TAG, "Cannot read cmd!");
+		cJSON_Delete(json);
 		return ESP_FAIL;
 	}
-
-
-	char *cmd = cJSON_GetObjectItem(json, "cmd")->valuestring;
+	char *cmd = cmd_item->valuestring;
 	ESP_LOGV(TAG, "Command: %s", cmd);
 
-	//Parse Key
 	if(NULL == cJSON_GetObjectItem(json, "key")){
 		ESP_LOGE(TAG, "Cannot read key!");
+		cJSON_Delete(json);
 		return ESP_FAIL;
 	}
 
-	uint32_t key =  cJSON_GetObjectItem(json, "key")->valueint;
+	uint32_t key = cJSON_GetObjectItem(json, "key")->valueint;
 	ESP_LOGV(TAG, "Key: %d", key);
 
 	if(key != Web_driver_cmd_d.key){
 		ESP_LOGE(TAG, "Wrong key, given value was: %d", key);
+		cJSON_Delete(json);
 		return ESP_FAIL;
 	}
 
-	//Parse Arg1
-	
 	if(strcmp(cmd,"ign_set") == 0){
 		if(NULL == cJSON_GetObjectItem(json, "arg1")){
 			ESP_LOGE(TAG, "Cannot read arg1!");
+			cJSON_Delete(json);
 			return ESP_FAIL;
 		}
 
-		int32_t arg1 =  cJSON_GetObjectItem(json, "arg1")->valueint;
+		int32_t arg1 = cJSON_GetObjectItem(json, "arg1")->valueint;
 		switch(arg1){
-			case 1:
-				return IGN_handle(0);
-				return ESP_OK;
-			break;
-
-			case 2:
-				return IGN_handle(1);
-				return ESP_OK;
-			break;
-
-			case 3:
-				return IGN_handle(2);
-				return ESP_OK;
-			break;
-
-			case 4:
-				return IGN_handle(3);
-				return ESP_OK;
-			break;
-
+			case 1: ret = IGN_handle(0); break;
+			case 2: ret = IGN_handle(1); break;
+			case 3: ret = IGN_handle(2); break;
+			case 4: ret = IGN_handle(3); break;
 			default:
 				ESP_LOGE(TAG, "Cannot fire igniter, bad arguments!");
-				return ESP_FAIL;
-			break;
+				ret = ESP_FAIL;
+				break;
 		}
-	}
-
-	if(strcmp(cmd,"config_default") == 0){
+	} else if(strcmp(cmd,"config_default") == 0){
 		Preferences_restore_dafaults();
-		return ESP_OK;
-		//Reset config to default
-	}
-
-	if(strcmp(cmd,"arm") == 0){
+	} else if(strcmp(cmd,"arm") == 0){
 		if(FSD_checkArmed() == DISARMED){
 			FSD_arming();
 		}
-
-
 		ESP_LOGI(TAG, "ARMING!");
-		return ESP_OK;
-	}
-
-	if(strcmp(cmd,"disarm") == 0){
+	} else if(strcmp(cmd,"disarm") == 0){
 		FSD_disarming();
 		ESP_LOGI(TAG, "DISARMING!");
-		return ESP_OK;
+	} else {
+		ESP_LOGW(TAG, "Command not supported");
 	}
 
 	cJSON_Delete(json);
-
-	ESP_LOGW(TAG, "Command not supported");
-	return ESP_OK;
+	return ret;
 }
 
 
