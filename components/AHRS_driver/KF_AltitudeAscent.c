@@ -11,10 +11,10 @@
 #include "common.h"
 #include "KF_AltitudeAscent.h"
 
-static void IRAM_ATTR AHRS_kalmanAltitudeAscent_propagate (KF_AltitudeAscent_t * KF, float acc, float dt);
-static void IRAM_ATTR AHRS_kalmanAltitudeAscent_update	(KF_AltitudeAscent_t * KF, float altitudeP);
+static void AHRS_kalmanAltitudeAscent_propagate (KF_AltitudeAscent_t * KF, float acc, float dt);
+static void AHRS_kalmanAltitudeAscent_update	(KF_AltitudeAscent_t * KF, float altitudeP);
 
-KF_AltitudeAscent_t KF_data;
+static KF_AltitudeAscent_t KF_data;
 
 void AHRS_kalmanAltitudeAscent_init(float Q_accel, float R_altitude){
 	KF_data.P[0][0] = 1.0f;
@@ -130,8 +130,14 @@ static void IRAM_ATTR AHRS_kalmanAltitudeAscent_update(KF_AltitudeAscent_t * KF,
 	//					[ -K_1    1 ]   [ P_10 P_11 ]   [ (-K_1*P_00 + P_10) (-K_1*P_01 + P_11) ]
 
 	// Calculate the state estimate covariance
-	KF->P[0][0] = KF->P[0][0] - (K[0] * KF->P[0][0]);
-	KF->P[0][1] = KF->P[0][1] - (K[0] * KF->P[0][1]);
-	KF->P[1][0] = KF->P[1][0] - (K[1] * KF->P[0][0]);
-	KF->P[1][1] = KF->P[1][1] - (K[1] * KF->P[0][1]);
+	// Save originals before in-place update — P[1][x] formulas need the pre-update P[0][x] values
+	float P00 = KF->P[0][0];
+	float P01 = KF->P[0][1];
+	float P10 = KF->P[1][0];
+	float P11 = KF->P[1][1];
+	
+	KF->P[0][0] = P00 - K[0] * P00;
+	KF->P[0][1] = P01 - K[0] * P01;
+	KF->P[1][0] = P10 - K[1] * P00;
+	KF->P[1][1] = P11 - K[1] * P01;
 }

@@ -41,7 +41,7 @@ esp_err_t AHRS_init(int64_t time_us){
 	AHRS_d.max_altitude        =  0.0f;
 	AHRS_d.apogee_altitude_est =  0.0f;
 	AHRS_d.time_to_apogee_est  =  0.0f;
-	AHRS_d.prev_time_us        = -1;
+	AHRS_d.prev_time_us        = (uint64_t)time_us;
 
 	AHRS_InitOrientation(&(AHRS_d.orientation));
 	AHRS_kalmanAltitudeAscent_init(0.1f, 0.1f);
@@ -277,10 +277,10 @@ static void IRAM_ATTR AHRS_MahonyUpdate( float dt,
 	
 	
 	// Use measured acceleration vector
-	float recipAccNorm = POW2(ax) + POW2(ay) + POW2(az);
-	if (useAcc && (recipAccNorm > 0.9f) && (recipAccNorm < 1.1f)) {
-		// Normalise accelerometer measurement
-		recipAccNorm = 1 / sqrtf(recipAccNorm);
+	float accNormSq = POW2(ax) + POW2(ay) + POW2(az);
+	if (useAcc && (accNormSq > 0.9f) && (accNormSq < 1.1f)) {
+		// Normalise accelerometer measurementS
+		float recipAccNorm = 1 / sqrtf(accNormSq);
 		ax *= recipAccNorm;
 		ay *= recipAccNorm;
 		az *= recipAccNorm;
@@ -381,11 +381,8 @@ static void IRAM_ATTR AHRS_UpdateEulerAngles(orientation_t * orient){
 	orient->euler.pitch = RADIANS_TO_DEGREES(pitch);
 	orient->euler.yaw = RADIANS_TO_DEGREES(yaw);
 
-
-	orient->euler.tilt = sqrtf(orient->euler.pitch * orient->euler.pitch + orient->euler.yaw * orient->euler.yaw);
-
-	//ESP_LOGI(TAG, "%f, %f, %f",orient->euler.yaw,orient->euler.pitch,orient->euler.roll);
-	//ESP_LOGI(TAG, "%f, %f, %f, %f", q.w, q.x, q.y, q.z);
+	//orient->euler.tilt = RADIANS_TO_DEGREES(acosf(orient->rMat[2][2]));	// possibly better
+	 orient->euler.tilt = sqrtf(orient->euler.pitch * orient->euler.pitch + orient->euler.yaw * orient->euler.yaw);
 }
 
 static void IRAM_ATTR AHRS_TransformAccToENU(){
