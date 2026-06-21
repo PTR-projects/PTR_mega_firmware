@@ -8,7 +8,7 @@
 #include "Sensors.h"
 
 static const char *TAG = "Sensors";
-esp_err_t IRAM_ATTR Sensors_axes_translation();
+esp_err_t Sensors_axes_translation();
 
 //--------- Private var ---------------
 static Sensors_t Sensors_d;

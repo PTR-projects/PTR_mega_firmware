@@ -31,6 +31,7 @@
 #include "PTR_DataPacket.h"
 #include "SysMgr.h"
 #include "Servo_driver.h"
+#include "Cansat_driver.h"
 #include "BOARD_cfg.h"
 
 //----------- Our defines --------------
