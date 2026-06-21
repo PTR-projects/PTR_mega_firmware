@@ -1,0 +1,428 @@
+var getDataIntervalID;
+var getDataLiveIntervalID;
+var current_tab = 1;
+
+const preferencesData = {
+	wifi_pass: "your_wifi_pass",
+	main_alt: 200,
+	drouge_alt: 0,
+	rail_height: 2,
+	max_tilt: 45,
+	staging_delay: 0,
+	staging_max_tilt: 45,
+	auto_arming_time_s: 60,
+	auto_arming: true,
+	key: 12345678, /* Replace with your key value */
+	lora_freq: 433125,
+	lora_mode: true, /* true for network, false for exclusive */
+	lora_tx_dbm: 0,
+	lora_key: 0
+};
+
+/* Tab content div IDs in order (index 0 = tab 1) */
+const TAB_IDS = ['tab-main', 'tab-storage', 'tab-igniters', 'tab-settings', 'tab-live'];
+
+/* Menu element pairs in the same order as TAB_IDS */
+const MENU_ITEMS = [
+	{ el: 'menu_home',     td: 'menu_home_td' },
+	{ el: 'menu_storage',  td: 'menu_storage_td' },
+	{ el: 'menu_ign',      td: 'menu_ign_td' },
+	{ el: 'menu_settings', td: 'menu_settings_td' },
+	{ el: 'menu_live',     td: 'menu_live_td' }
+];
+
+/* Fix 7: single generic section switcher */
+function SelectSection(idx) {
+	window.scrollTo(0, 0);
+	TabsSelect(idx + 1);
+	TAB_IDS.forEach((id, i) => {
+		document.getElementById(id).style.display = i === idx ? 'block' : 'none';
+	});
+	clearInterval(getDataLiveIntervalID);
+	if (idx === 3) getPref();
+	if (idx === 4) getDataLiveIntervalID = setInterval(getDataLive, 1000);
+}
+
+/* Named wrappers keep HTML onclick= compatibility */
+function SelectSection_Home()     { SelectSection(0); }
+function SelectSection_Storage()  { SelectSection(1); }
+function SelectSection_Ign()      { SelectSection(2); }
+function SelectSection_Settings() { SelectSection(3); }
+function SelectSection_Live()     { SelectSection(4); }
+
+let touchstartX = 0;
+let touchendX   = 0;
+let touchstartY = 0;
+let touchendY   = 0;
+
+function checkDirection() {
+	const verticalDistance = Math.abs(touchstartY - touchendY);
+	const swipeDistance    = touchendX - touchstartX;
+	if ((Math.abs(swipeDistance) > 80) && (verticalDistance < 50)) {
+		if (swipeDistance > 0) Tab_swipeRight();
+		else                   Tab_swipeLeft();
+	}
+}
+
+document.addEventListener('touchstart', e => {
+	touchstartX = e.changedTouches[0].screenX;
+	touchstartY = e.changedTouches[0].screenY;
+});
+
+document.addEventListener('touchend', e => {
+	touchendX = e.changedTouches[0].screenX;
+	touchendY = e.changedTouches[0].screenY;
+	checkDirection();
+});
+
+function Tab_swipeRight() {
+	if (current_tab > 1) SelectSection(current_tab - 2);
+}
+
+function Tab_swipeLeft() {
+	if (current_tab < 5) SelectSection(current_tab);
+}
+
+/* Fix 8: delegate to SelectSection instead of duplicating tab init logic */
+function TabsInit() {
+	console.log("Tabs init");
+	SelectSection(0);
+}
+
+/* Fix 6: loop replaces 6-case switch with 90 repeated assignment statements */
+function TabsSelect(num) {
+	current_tab = num;
+	MENU_ITEMS.forEach((item, i) => {
+		const active = i === num - 1;
+		const color  = active ? 'black'  : '#f2f2f2';
+		const bg     = active ? '#ddd'   : '#333';
+		const el     = document.getElementById(item.el);
+		const td     = document.getElementById(item.td);
+		el.style.color      = color;
+		el.style.background = bg;
+		td.style.background = bg;
+	});
+}
+
+/*-------------------- Main tab -------------------------------*/
+function main_arming_handler() {
+	console.log("Main - Arming button pressed");
+	if (confirm('Do you want to Arm?\n\nAfter that command Flight Computer will be ready to flight and igniters will be armed!\n\nUse with caution!'))
+		POST_simple("/cmd", '{"cmd":"arm","key":2137}');
+}
+
+function main_disarming_handler() {
+	console.log("Main - Disarming button pressed");
+	if (confirm('Do you want to Disarm?\n\nAfter that command Flight Computer will be disarmed and will not work during flight!\n\nIt will be safe to approach :)'))
+		POST_simple("/cmd", '{"cmd":"disarm","key":2137}');
+}
+
+/*-------------------- Storage tab -------------------------------*/
+function storage_download_handler() {
+	console.log("Storage - Download pressed");
+	location.href = '/storage/meas.bin';
+}
+
+function storage_remove_handler() {
+	console.log("Storage - Remove pressed");
+	if (confirm('Are you sure?'))
+		POST_simple("/delete/storage/meas.bin", '');
+}
+
+function vibrate(time) {
+	if ('vibrate' in navigator) navigator.vibrate(time);
+}
+
+/*--------------------- Igniters tab ------------------------------*/
+/* Fix 9: single generic unlock handler */
+function ign_unlock_handler(n) {
+	const fireBtn   = document.getElementById('button-ign' + n + '-fire');
+	const unlockBtn = document.getElementById('button-ign' + n + '-unlock');
+	const lockLabel = document.getElementById('label-igniter' + n + '-lock-status');
+
+	if (!fireBtn.disabled) {
+		unlockBtn.textContent = 'UNLOCK';
+		fireBtn.disabled      = true;
+		lockLabel.textContent = 'Status Locked';
+		lockLabel.style.color = 'black';
+		return;
+	}
+	vibrate(200);
+	setTimeout(function() {
+		if (confirm('Are you sure? Igniter ' + n + ' will be unlocked!')) {
+			unlockBtn.textContent = 'SECURE';
+			fireBtn.disabled      = false;
+			lockLabel.textContent = 'Unlocked!';
+			lockLabel.style.color = 'red';
+		}
+	}, 200);
+}
+
+function ign_ign1_unlock_handler() { ign_unlock_handler(1); }
+function ign_ign2_unlock_handler() { ign_unlock_handler(2); }
+function ign_ign3_unlock_handler() { ign_unlock_handler(3); }
+function ign_ign4_unlock_handler() { ign_unlock_handler(4); }
+
+/* Fix 10: single generic fire handler */
+function ign_fire_handler(n) {
+	console.log("Igniters - Fire ign " + n);
+	vibrate(200);
+	POST_simple("/cmd", '{"cmd":"ign_set","arg1":' + n + ',"key":2137}');
+}
+
+function ign_ign1_fire_handler() { ign_fire_handler(1); }
+function ign_ign2_fire_handler() { ign_fire_handler(2); }
+function ign_ign3_fire_handler() { ign_fire_handler(3); }
+function ign_ign4_fire_handler() { ign_fire_handler(4); }
+
+function POST_simple(url, data) {
+	return fetch(url, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: data});
+}
+
+/* Fix 12: shared helper eliminates repeated getElementById + 3-property update */
+function setLabel(id, text, color) {
+	const el            = document.getElementById(id);
+	el.textContent      = text;
+	el.style.color      = color;
+	el.style.fontWeight = 'bold';
+}
+
+function SysMgr_statusToLabel(status, label_id) {
+	if (status === 0x01) return setLabel(label_id, 'OK',      'green');
+	if (status === 0x02) return setLabel(label_id, 'WARNING', 'red');
+	if (status === 0x04) return setLabel(label_id, 'FAIL',    'red');
+	setLabel(label_id, 'ERROR', 'red');
+}
+
+function SysMgr_armingStatusToLabel(status, label_id) {
+	if (status === 0x01) return setLabel(label_id, 'ARMED!',    'green');
+	if (status === 0x02) return setLabel(label_id, 'Disarmed!', 'red');
+	if (status === 0x04) return setLabel(label_id, 'ERROR :(',  'red');
+	setLabel(label_id, 'ERROR', 'red');
+}
+
+function GpsFix_fixToLabel(status, label_id) {
+	if (status === 0) return setLabel(label_id, 'No Fix', 'red');
+	if (status === 1) return setLabel(label_id, 'Fix OK', 'green');
+	setLabel(label_id, 'ERROR', 'red');
+}
+
+function getDataStatus() {
+	fetch("/status")
+		.then(r => r.ok ? r.json() : Promise.reject('Error ' + r.status))
+		.then(data => {
+			console.log("Refresh Status OK");
+			document.getElementById('label-status-serial-number').textContent    = data.configuration.serial_number;
+			document.getElementById('label-status-software-version').textContent = data.configuration.software_version;
+
+			SysMgr_armingStatusToLabel(data.sysMgr.sysmgr_arm_state,     'label-status-arming');
+			document.getElementById('label-status-timestamp_ms').textContent = data.system.timestamp_ms + ' ms';
+
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_system_status,  'label-status-system');
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_analog_status,  'label-status-analog');
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_lora_status,    'label-status-lora');
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_adcs_status,    'label-status-adcs');
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_storage_status, 'label-status-storage');
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_sysmgr_status,  'label-status-sysmgr');
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_utils_status,   'label-status-utils');
+			SysMgr_statusToLabel(data.sysMgr.sysmgr_web_status,     'label-status-web');
+
+			document.getElementById('label-status-pressure').textContent = data.sensors.pressure;
+			document.getElementById('label-status-angle').textContent    = data.sensors.rocket_tilt.toFixed(2) + ' deg';
+			GpsFix_fixToLabel(data.sensors.gpsfix, 'label-status-gpsstat');
+			document.getElementById('label-status-gpssats').textContent  = data.sensors.gpssats;
+
+			if (data.system.battery_voltage > 3.0)
+				document.getElementById('label-status-vbat').textContent = data.system.battery_voltage.toFixed(2) + ' V';
+			else
+				document.getElementById('label-status-vbat').textContent = 'LOW!';
+
+			IGN_contToLabel(data.igniters[0].continuity, 'label-igniter1-cont-status');
+			IGN_contToLabel(data.igniters[1].continuity, 'label-igniter2-cont-status');
+			IGN_contToLabel(data.igniters[2].continuity, 'label-igniter3-cont-status');
+			IGN_contToLabel(data.igniters[3].continuity, 'label-igniter4-cont-status');
+		})
+		.catch(console.error);
+}
+
+function IGN_contToLabel(cont, label) {
+	const text  = cont === 0 ? 'Missing!'    : cont === 1 ? 'Connected' : 'BAT missing!';
+	const color = cont === 0 ? 'red'         : cont === 1 ? 'green'     : 'orange';
+	setLabel(label, text, color);
+}
+
+function webInit() {
+	TabsInit();
+	setInterval(getDataStatus, 1000);
+	initDataLive();
+	getDataStatus();
+}
+
+/* Fix 13: shared ID builder used by both live table functions */
+function makeElementId(category, key) {
+	return category.replace(/\s/g, '_') + '-' + key.replace(/\s/g, '_') + '-value';
+}
+
+/* Fix 2: textContent prevents XSS from server-supplied string values */
+function setLiveValue(el, value) {
+	if (typeof value === 'number')
+		el.textContent = Number.parseFloat(value).toPrecision(6);
+	else if (typeof value === 'string')
+		el.textContent = value;
+	else
+		el.textContent = 'NaN';
+}
+
+function createLiveTable(json) {
+	if (typeof json === 'undefined') {
+		console.log("JSON does not exist!");
+		return;
+	}
+
+	const entries = Object.entries(json);
+	if (entries.length === 0) {
+		console.log("JSON length equal to zero!");
+		return;
+	}
+
+	const body    = document.getElementById('tab-live');
+	const tbl     = document.createElement('table');
+	tbl.className = 'table-live';
+
+	for (let i = 0; i < entries.length; i++) {
+		if (i > 0) {
+			const spacer = tbl.insertRow();
+			spacer.insertCell();
+			spacer.insertCell();
+			spacer.style.backgroundColor = '#f2f2f2';
+		}
+		const headerRow          = tbl.insertRow();
+		const headerCell         = headerRow.insertCell();
+		headerCell.textContent   = entries[i][0];
+		headerCell.style.fontWeight = 'bold';
+
+		const object_entries = Object.entries(entries[i][1]);
+		for (let j = 0; j < object_entries.length; j++) {
+			const row = tbl.insertRow();
+			row.insertCell().textContent = object_entries[j][0];
+			const lbl  = document.createElement('label');
+			lbl.id     = makeElementId(entries[i][0], object_entries[j][0]);
+			setLiveValue(lbl, object_entries[j][1]);
+			row.insertCell().appendChild(lbl);
+		}
+	}
+	body.appendChild(tbl);
+}
+
+function updateLiveTable(json) {
+	if (typeof json === 'undefined') {
+		console.log("JSON does not exist!");
+		return;
+	}
+
+	const entries = Object.entries(json);
+	if (entries.length === 0) {
+		console.log("JSON length equal to zero!");
+		return;
+	}
+
+	for (let i = 0; i < entries.length; i++) {
+		const object_entries = Object.entries(entries[i][1]);
+		for (let j = 0; j < object_entries.length; j++) {
+			const el = document.getElementById(makeElementId(entries[i][0], object_entries[j][0]));
+			if (el) setLiveValue(el, object_entries[j][1]);
+		}
+	}
+}
+
+/* Fix 11: shared fetch helper eliminates duplicate fetch chains in initDataLive/getDataLive */
+function fetchLive(callback) {
+	fetch('/live')
+		.then(r => r.ok ? r.json() : Promise.reject('Error ' + r.status))
+		.then(data => {
+			console.log("Refresh Status OK");
+			callback(data);
+		})
+		.catch(console.error);
+}
+
+function initDataLive() { fetchLive(createLiveTable); }
+function getDataLive()  { fetchLive(updateLiveTable); }
+
+/* CRC16-CCITT (initial value 0xFFFF) */
+function calculateCRC16(data) {
+	const poly = 0x1021;
+	let crc = 0xffff;
+	for (let i = 0; i < data.length; i++) {
+		crc ^= data.charCodeAt(i) << 8;
+		for (let j = 0; j < 8; j++)
+			crc = (crc & 0x8000) ? ((crc << 1) ^ poly) : (crc << 1);
+	}
+	return crc & 0xffff;
+}
+
+function sendPreferencesData(preferencesData) {
+	if (confirm('Save and restart? If you changed WiFi password then change your phone settings too.')) {
+		const jsonData = JSON.stringify(preferencesData, null, '\t');
+		const crc16    = calculateCRC16(jsonData);
+		console.log("Sending preferencesData:", preferencesData);
+		POST_simple('/config', crc16 + ',' + jsonData);
+		/* Fix 1: pass function reference, not the result of calling it */
+		setTimeout(getPref, 5000);
+	}
+}
+
+function formatWifiPass(wifiPass) {
+	if (wifiPass.length > 12) {
+		return wifiPass.substring(0, 12);
+	} else {
+		return wifiPass;
+	}
+}
+
+function updatePreferencesData() {
+	preferencesData.rail_height        = parseInt(1000 * document.getElementById('pref-launchpad-height').value);
+	preferencesData.main_alt           = parseInt(document.getElementById('pref-main-alt').value);
+	preferencesData.drouge_alt         = parseInt(document.getElementById('pref-drouge-alt').value);
+	preferencesData.staging_delay      = parseInt(1000 * document.getElementById('pref-staging-delay').value);
+	preferencesData.staging_max_tilt   = parseInt(document.getElementById('pref-staging-tilt').value);
+	preferencesData.auto_arming_time_s = parseInt(document.getElementById('pref-autoarm-delay').value);
+	preferencesData.auto_arming        = parseInt(document.getElementById('pref-autoarm-enable').selectedIndex);
+	preferencesData.lora_freq          = parseInt(1000 * document.getElementById('pref-lora-frequency').value);
+	preferencesData.lora_mode          = parseInt(document.getElementById('pref-lora-mode').selectedIndex);
+	preferencesData.lora_key           = parseInt(document.getElementById('pref-lora-key').value);
+	preferencesData.lora_tx_dbm        = 0;
+	preferencesData.wifi_pass          = document.getElementById('pref-wifi-pass').value;
+	console.log("Updated preferencesData:", preferencesData);
+}
+
+function preferencesDataLoraMode(state) {
+	preferencesData.lora_mode = state;
+}
+
+function preferencesDataAutoarming(state) {
+	preferencesData.auto_arming = state;
+}
+
+function getPref() {
+	fetch('/pref')
+		.then(r => r.ok ? r.json() : Promise.reject('Error ' + r.status))
+		.then(data => {
+			console.log("Refresh Pref OK");
+			console.log(data);
+			document.getElementById('pref-launchpad-height').value       = parseFloat(data.pref_launchpad_height * 0.001);
+			document.getElementById('pref-main-alt').value               = parseInt(data.pref_main_alt);
+			document.getElementById('pref-drouge-alt').value             = parseInt(data.pref_drouge_alt);
+			document.getElementById('pref-staging-delay').value          = parseFloat(data.pref_staging_delay * 0.001);
+			document.getElementById('pref-staging-tilt').value           = parseInt(data.pref_staging_tilt);
+			document.getElementById('pref-autoarm-delay').value          = parseInt(data.pref_autoarm_delay);
+			document.getElementById('pref-lora-frequency').value         = parseFloat(data.pref_lora_frequency * 0.001);
+			document.getElementById('pref-wifi-pass').value              = data.pref_wifi_pass;
+			document.getElementById('pref-autoarm-enable').selectedIndex = parseInt(data.pref_autoarming);
+			document.getElementById('pref-lora-mode').selectedIndex      = parseInt(data.pref_lora_mode);
+			document.getElementById('pref-lora-key').value               = parseInt(data.pref_lora_key);
+			updatePreferencesData();
+			preferencesData.wifi_pass = document.getElementById('pref-wifi-pass').value;
+		})
+		.catch(console.error);
+}
