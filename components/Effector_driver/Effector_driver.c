@@ -5,10 +5,10 @@
 #include "esp_err.h"
 #include "esp_check.h"
 
-#include "Effector_driver.h"
 #include "Servo_driver.h"
 #include "SBUS_driver.h"
 #include "IGN_driver.h"
+#include "Effector_driver.h"
 
 static const char *TAG = "Effector";
 

@@ -31,7 +31,9 @@
 #include "PTR_DataPacket.h"
 #include "SysMgr.h"
 #include "Servo_driver.h"
+#include "SBUS_driver.h"
 #include "Cansat_driver.h"
+#include "Effector_driver.h"
 #include "BOARD_cfg.h"
 
 //----------- Our defines --------------
@@ -243,7 +245,6 @@ void task_kpptr_utils(void *pvParameter){
 		status  = ESP_OK;
 		status |= LED_init(interval_ms);
 		status |= BUZZER_init();
-		status |= IGN_init();
 
 		if(status != ESP_OK){
 			ESP_LOGW(TAG, "Task Utils - failed to init!");
@@ -264,7 +265,6 @@ void task_kpptr_utils(void *pvParameter){
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		LED_srv();
-		IGN_srv(pdTICKS_TO_MS(xTaskGetTickCount ()));
 
 		if(xQueueReceive(queue_MainToWeb, &DataPackage_d, 0)){
 			Web_live_from_DataPackage(&DataPackage_d, AHRS_getData());
@@ -285,6 +285,60 @@ void task_kpptr_utils(void *pvParameter){
 
 		}
 	}
+	vTaskDelete(NULL);
+}
+
+/**
+ * @brief Effector task - manages all igniters, servos etc
+ * 
+ * @param pvParameter
+ */
+void task_kpptr_effector(void *pvParameter){
+	TickType_t 	  xLastWakeTime = 0;
+	uint32_t 	  interval_ms = 20;
+	esp_err_t 	  status = ESP_FAIL;
+
+	while(status != ESP_OK){
+		status  = ESP_OK;
+		status |= IGN_init();
+		status |= Servo_init(1500, 2500, 50);
+		status |= SBUS_init();
+		status |= Effector_init();
+
+		if(status != ESP_OK){
+			ESP_LOGW(TAG, "Task Effector - failed to init!");
+			SysMgr_checkout(checkout_effector, check_fail);
+			vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		}
+	}
+
+	// Init servo driver channels
+	//esp_err_t Servo_configSingle(uint8_t servo_num, int min_pulsewidth, int max_pulsewidth, int frequency);
+
+	// Init default effectors configuration
+	//esp_err_t Effector_register(effector_id_t id, effector_type_t type, effector_hw_t hw, int8_t active_value, int8_t inactive_value, bool ignore_arm);
+	Effector_register(EFFECTOR_DROGUE,     EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 0}, 1, 0, false);
+	Effector_register(EFFECTOR_MAIN,       EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 1}, 1, 0, false);
+	Effector_register(EFFECTOR_STAGE2_IGN, EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 2}, 1, 0, false);
+
+#ifdef CFG_CANSAT_ROCKET
+	// Init effectors for Cansat rocket
+	Effector_register(MAIN,              EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true);
+	Effector_register(EFFECTOR_CANSAT_1, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 1}, 100, 0, true);
+	Effector_register(EFFECTOR_CANSAT_2, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 2}, 100, 0, true);
+	Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true);
+#endif
+
+	ESP_LOGI(TAG, "Task Effetor - ready!");
+
+	SysMgr_checkout(checkout_effector, check_ready);
+	xLastWakeTime = xTaskGetTickCount ();
+
+	while(1){
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
+		IGN_srv(pdTICKS_TO_MS(xTaskGetTickCount ()));
+	}
+
 	vTaskDelete(NULL);
 }
 
@@ -392,6 +446,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 												SysMgr_getComponentState(checkout_lora), 	SysMgr_getComponentState(checkout_main),
 												SysMgr_getComponentState(checkout_storage), SysMgr_getComponentState(checkout_sysmgr),
 												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web),
+												SysMgr_getComponentState(checkout_effector),
 												SysMgr_getArm());
 
 		//----- Autoarming ----------
@@ -475,6 +530,8 @@ void app_main(void)
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
+	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);
+
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 

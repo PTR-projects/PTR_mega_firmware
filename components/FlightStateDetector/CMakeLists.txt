@@ -1,4 +1,4 @@
 idf_component_register(SRCS "FlightStateDetector.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES AHRS_driver Preferences IGN_driver)
+                    REQUIRES Effector_driver AHRS_driver Preferences)
 
