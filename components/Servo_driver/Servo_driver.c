@@ -51,6 +51,7 @@ servo_t         Servo_d;
 esp_err_t  Servo_init(int min_pulsewidth, int max_pulsewidth, int frequency) { return ESP_FAIL; }
 esp_err_t  Servo_enable(void)   { return ESP_FAIL; }
 esp_err_t  Servo_disable(void)  { return ESP_FAIL; }
+esp_err_t  Servo_driveSinglePWM(uint8_t servo_num, int8_t position) { return ESP_FAIL; }
 esp_err_t  Servo_drive(int8_t S1_position, int8_t S2_position,
                         int8_t S3_position, int8_t S4_position) { return ESP_FAIL; }
 servo_t   *Servo_get(void)      { return &Servo_d; }
