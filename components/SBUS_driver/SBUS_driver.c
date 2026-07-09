@@ -1,5 +1,3 @@
-#include "SBUS_driver.h"
-
 #include <stdio.h>
 #include <string.h>
 
@@ -9,6 +7,7 @@
 #include "driver/uart.h"
 
 #include "BOARD_cfg.h"
+#include "SBUS_driver.h"
 
 static const char *TAG = "SBUS";
 
@@ -35,9 +34,10 @@ esp_err_t SBUS_init(){
         SBUS_channel_config_d[i].max_value = 1811;
     }
 
-    ESP_RETURN_ON_ERROR(uart_param_config(UART_NUM_1, &uart_config), TAG, "uart_param_config failed");
-    ESP_RETURN_ON_ERROR(uart_set_pin(UART_NUM_1, UART_EXT_OUT, UART_EXT_IN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE), TAG, "uart_set_pin failed");
-    ESP_RETURN_ON_ERROR(uart_driver_install(UART_NUM_1, BUF_SIZE * 2, 0, 0, NULL, 0), TAG, "uart_driver_install failed");
+    ESP_RETURN_ON_ERROR(uart_param_config(UART_EXT_UART, &uart_config), TAG, "uart_param_config failed");
+    ESP_RETURN_ON_ERROR(uart_set_pin(UART_EXT_UART, UART_EXT_OUT, UART_EXT_IN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE), TAG, "uart_set_pin failed");
+    ESP_RETURN_ON_ERROR(uart_driver_install(UART_EXT_UART, BUF_SIZE * 2, 0, 0, NULL, 0), TAG, "uart_driver_install failed");
+    ESP_RETURN_ON_ERROR(uart_set_line_inverse(UART_EXT_UART, UART_SIGNAL_TXD_INV), TAG, "uart inverse mode failed");
 
     return ESP_OK;
 }

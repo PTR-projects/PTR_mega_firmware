@@ -63,6 +63,7 @@
 
 #define UART_EXT_OUT			13
 #define UART_EXT_IN				14
+#define UART_EXT_UART 			UART_NUM_1
 
 #define IGN_NUM					4
 #define IGN1_EN_PIN				9
@@ -149,6 +150,7 @@
 
 #define UART_EXT_OUT			13
 #define UART_EXT_IN				14
+#define UART_EXT_UART 			UART_NUM_1
 
 #define IGN_NUM					4
 #define IGN1_EN_PIN				12
@@ -214,6 +216,7 @@
 
 #define UART_EXT_OUT			2
 #define UART_EXT_IN				3
+#define UART_EXT_UART 			UART_NUM_1
 
 #define IGN_NUM					3
 #define IGN1_EN_PIN				9
