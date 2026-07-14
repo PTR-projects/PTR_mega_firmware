@@ -29,9 +29,12 @@ static const char* TAG = "Analog";
 #define ADC_SAMPLES_PER_CH      128
 #define ADC_TOTAL_SAMPLES       (ADC_CHANNELS_NUM * ADC_SAMPLES_PER_CH)
 
-// Total clock rate: fast enough that all conversions finish in ~1 ms.
-// 128 samples × ADC_CHANNELS_NUM channels × 1000 Hz gives us ~1 ms burst.
-#define ADC_SAMPLE_FREQ_HZ      (ADC_CHANNELS_NUM * ADC_SAMPLES_PER_CH * 1000)
+// Total ADC clock rate (across all channels). The ESP32-S3 continuous ADC only
+// accepts SOC_ADC_SAMPLE_FREQ_THRES_LOW..SOC_ADC_SAMPLE_FREQ_THRES_HIGH
+// (611 Hz..83.333 kHz), so run at the hardware maximum. A full burst of
+// ADC_TOTAL_SAMPLES then completes in ADC_TOTAL_SAMPLES / ADC_SAMPLE_FREQ_HZ
+// seconds (e.g. ~6 ms for 4 channels × 128 samples).
+#define ADC_SAMPLE_FREQ_HZ      SOC_ADC_SAMPLE_FREQ_THRES_HIGH
 
 // ── Calibration scheme selection ──────────────────────────────────────────────
 // ESP32 supports curve-fitting calibration; earlier chips only have line-fitting.

@@ -152,7 +152,7 @@ static void IRAM_ATTR AHRS_CalcAltitudeP(float press, float ref_press){
 		AHRS_d.max_altitude = AHRS_d.altitudeP;
 	}
 
-	ESP_LOGI(TAG, "Altitude: %f, Max: %f",AHRS_d.altitudeP, AHRS_d.max_altitude);
+	//ESP_LOGI(TAG, "Altitude: %f, Max: %f",AHRS_d.altitudeP, AHRS_d.max_altitude);
 }
 
 static void IRAM_ATTR AHRS_CalcVelocityPosition(){

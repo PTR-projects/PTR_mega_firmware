@@ -27,6 +27,13 @@ static const uart_config_t uart_config = {
     };
 
 esp_err_t SBUS_init(){
+    // Already initialized successfully - the UART driver is installed, so nothing
+    // to do. This makes repeated init calls (e.g. from the effector init retry
+    // loop) safe instead of failing with "UART driver already installed".
+    if(uart_is_driver_installed(UART_EXT_UART)){
+        return ESP_OK;
+    }
+
     memset(&SBUS_config_d, 0, sizeof(SBUS_config_d));
 
     for(int i = 0; i < SBUS_CHANNELS; i++){

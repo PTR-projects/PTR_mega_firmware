@@ -301,7 +301,9 @@ void task_kpptr_effector(void *pvParameter){
 	while(status != ESP_OK){
 		status  = ESP_OK;
 		status |= IGN_init();
+#ifdef BOARD_SERVO_PWM_NUM
 		status |= Servo_init(1500, 2500, 50);
+#endif
 		status |= SBUS_init();
 		status |= Effector_init();
 
@@ -517,10 +519,10 @@ void app_main(void)
 	vTaskDelay(pdMS_TO_TICKS( 2000 )); // Limit loop rate to max 1Hz
 	Effector_register(EFFECTOR_MAIN,  EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 500);
 
-	while(1) {
+	/*while(1) {
 		Effector_activate(EFFECTOR_MAIN);
 		vTaskDelay(pdMS_TO_TICKS( 2000 ));
-	}
+	}*/
 
     
     Preferences_data_t pref;
