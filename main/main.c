@@ -317,16 +317,16 @@ void task_kpptr_effector(void *pvParameter){
 
 	// Init default effectors configuration
 	//esp_err_t Effector_register(effector_id_t id, effector_type_t type, effector_hw_t hw, int8_t active_value, int8_t inactive_value, bool ignore_arm);
-	Effector_register(EFFECTOR_DROGUE,     EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 0}, 1, 0, false);
-	Effector_register(EFFECTOR_MAIN,       EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 1}, 1, 0, false);
-	Effector_register(EFFECTOR_STAGE2_IGN, EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 2}, 1, 0, false);
+	Effector_register(EFFECTOR_DROGUE,     EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 0}, 1, 0, false, 100);
+	Effector_register(EFFECTOR_MAIN,       EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 1}, 1, 0, false, 100);
+	Effector_register(EFFECTOR_STAGE2_IGN, EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 2}, 1, 0, false, 100);
 
 #ifdef CFG_CANSAT_ROCKET
 	// Init effectors for Cansat rocket
-	Effector_register(MAIN,              EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true);
-	Effector_register(EFFECTOR_CANSAT_1, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 1}, 100, 0, true);
-	Effector_register(EFFECTOR_CANSAT_2, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 2}, 100, 0, true);
-	Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true);
+	Effector_register(EFFECTOR_MAIN,     EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 0);
+	Effector_register(EFFECTOR_CANSAT_1, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 1}, 100, 0, true, 0);
+	Effector_register(EFFECTOR_CANSAT_2, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 2}, 100, 0, true, 0);
+	Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true, 0);
 #endif
 
 	ESP_LOGI(TAG, "Task Effetor - ready!");
@@ -336,7 +336,7 @@ void task_kpptr_effector(void *pvParameter){
 
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
-		IGN_srv(pdTICKS_TO_MS(xTaskGetTickCount ()));
+		Effector_srv();
 	}
 
 	vTaskDelete(NULL);
@@ -510,6 +510,17 @@ void app_main(void)
 
     SPI_init();
     DM_init();
+
+
+	ESP_LOGI(TAG, "SBUS init start");
+	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);	ESP_LOGI(TAG, "SBUS init done");
+	vTaskDelay(pdMS_TO_TICKS( 2000 )); // Limit loop rate to max 1Hz
+	Effector_register(EFFECTOR_MAIN,  EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 500);
+
+	while(1) {
+		Effector_activate(EFFECTOR_MAIN);
+		vTaskDelay(pdMS_TO_TICKS( 2000 ));
+	}
 
     
     Preferences_data_t pref;

@@ -12,13 +12,6 @@ typedef struct{
 esp_err_t IGN_init(void);
 
 /**
- * @brief Function to ensure that igniters turn off after specific time
- *
- * @param time system time in ms
- */
-esp_err_t IGN_srv(uint32_t time);
-
-/**
  * @brief Get state of selected igniter 
  *
  * @param ign_no igniter ID
