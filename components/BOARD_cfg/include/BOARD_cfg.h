@@ -2,7 +2,16 @@
 
 // Global configs
 #define CONFIG_ESP_WIFI_PASSWORD "MeteorPTR"
+
+#if defined (CONFIG_BOARD_PTR_MEGA_VER_0_REV_1) || defined (CONFIG_BOARD_PTR_MEGA_VER_1_REV_0)
+
 #define CONFIG_ESP_WIFI_SSID "PTR-mega"
+
+#elif defined (CONFIG_BOARD_ARECORDER_VER_3_REV_0)
+
+#define CONFIG_ESP_WIFI_SSID "PTR-mini"
+
+#endif
 
 #define CONFIG_KPPTR_MASTERKEY 2137
 

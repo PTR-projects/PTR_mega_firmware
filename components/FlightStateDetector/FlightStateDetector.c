@@ -170,7 +170,7 @@ static void IRAM_ATTR FlightState_STARTUP(uint64_t time_ms, FlightState_t * curr
 
 	//Executed every loop
 	Sensors_UpdateReferencePressure();
-	Sensors_calibrateGyro(1.0f);
+	Sensors_calibrateGyro(0.1f);
 	AHRS_resetMaxAltitude();
 
 
@@ -261,7 +261,7 @@ static void IRAM_ATTR FlightState_SECOND_STAGE_IGNITION(uint64_t time_ms, Flight
 
 
 	//State change conditions (second stage burn)
-	if((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (1.6f * 9.81f)) ) { 
+	if((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (2.6f * 9.81f)) ) { 
 		currentState->state = FLIGHTSTATE_SECOND_STAGE_BOOST;
 		currentState->state_ready = false;
 	}

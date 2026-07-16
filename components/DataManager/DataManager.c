@@ -142,7 +142,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->ahrs.q1 = ahrs->orientation.quaternions.q1;
 	package->ahrs.q2 = ahrs->orientation.quaternions.q2;
 	package->ahrs.q3 = ahrs->orientation.quaternions.q3;
-	package->ahrs.tilt = (uint8_t)ahrs->orientation.euler.tilt;
+	package->ahrs.tilt = (uint8_t)AHRS_calcTilt(&(ahrs->orientation.euler));
 
 #if IGN_NUM > 0
 	package->ign.ign1_cont 		= analog->IGN_det[0];
@@ -189,7 +189,7 @@ void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * s
 	payload.gyroX_10    = (int16_t)(sensors->LSM6DSO32.gyroX * 10.0f);
 	payload.gyroY_10    = (int16_t)(sensors->LSM6DSO32.gyroY * 10.0f);
 	payload.gyroZ_10    = (int16_t)(sensors->LSM6DSO32.gyroZ * 10.0f);
-	payload.tilt_100    = (int16_t)(ahrs->orientation.euler.tilt * 100.0f);
+	payload.tilt_100    = (int16_t)(AHRS_calcTilt(&(ahrs->orientation.euler)) * 100.0f);
 	payload.pressure    = sensors->MS5607.press;
 	payload.velocity_10 = (int16_t)(ahrs->ascent_rate * 10.0f);
 	payload.altitude    = (uint16_t)ahrs->altitude;

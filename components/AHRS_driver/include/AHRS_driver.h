@@ -2,6 +2,8 @@
 
 // TODO for future EKF3 - https://github.com/ArduPilot/ardupilot/blob/master/Tools/CPUInfo/EKF_Maths.h
 
+#include <math.h>
+
 #include "common.h"
 #include "quaternion.h"
 #include "Sensors.h"
@@ -10,7 +12,7 @@
 /**
  * @brief Data union representing a set of Euler angles.
  * Euler angles represent the orientation of a device in 3D space.
- * They can be represented in different conventions (roll-pitch-yaw or tilt-dir-rot).
+* They can be represented in different conventions (roll-pitch-yaw or tilt-dir-rot).
  */
 typedef union {
 	struct{
@@ -35,6 +37,15 @@ typedef struct{
 	quaternions_t quaternions;		/*!< Quaternion representation of the orientation. */
 	EulerAngle_t euler;				/*!< Euler angles representation of the orientation. */
 } orientation_t;
+
+/**
+ * @brief Tilt angle from vertical (in degrees), derived from the Euler angles.
+ * Not stored in EulerAngle_t - that union only holds three floats, so a tilt
+ * member would alias roll. Compute it at the point of use instead.
+ */
+static inline float AHRS_calcTilt(const EulerAngle_t * euler){
+	return sqrtf(euler->pitch * euler->pitch + euler->yaw * euler->yaw);
+}
 
 
 /**

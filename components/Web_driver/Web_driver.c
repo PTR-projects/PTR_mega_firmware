@@ -1052,7 +1052,7 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ah
     live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
 
     status_web.flight_state = DataPackage_ptr->flightstate;
-	status_web.rocket_tilt  = ahrs_ptr->orientation.euler.tilt;
+	status_web.rocket_tilt  = AHRS_calcTilt(&(ahrs_ptr->orientation.euler));
 
     Web_live_exchange(live_web);
     return ESP_OK;

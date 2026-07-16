@@ -19,7 +19,11 @@
 
 static const char* TAG = "Analog";
 
-#define ADC_CHANNEL_MAX  8
+// Size of the channel->index lookup table. Must cover every channel id used in
+// ADC_CHANNELS_LIST: the ESP32-S3 ADC1 exposes channels 0..9, and boards do use
+// the upper ones (e.g. VBAT on ADC_CHANNEL_9), so size this from the SoC caps
+// rather than hardcoding - a too-small value silently discards those samples.
+#define ADC_CHANNEL_MAX  SOC_ADC_MAX_CHANNEL_NUM
 
 // ── Channel layout ────────────────────────────────────────────────────────────
 // Channel 0  (index 0) = VBAT   — same order as original ADC_CHANNELS_LIST

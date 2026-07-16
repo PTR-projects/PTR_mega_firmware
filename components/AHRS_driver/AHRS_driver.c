@@ -219,15 +219,6 @@ static void IRAM_ATTR AHRS_MahonyUpdate( float dt,
 	// Errors
 	float ex = 0, ey = 0, ez = 0;
 
-	
-	// Change reference frame to NED
-	float _gx = gx;		float _ax = ax;		float _mx = mx;
-	float _gy = gy;		float _ay = ay;		float _my = my;
-	float _gz = gz;		float _az = az;		float _mz = mz;
-	gx =  _gx;		ax =  _ax;		mx =  _mx;
-	gy =  -_gy;		ay =  -_ay;		my =  -_my;
-	gz = -_gz;		az =  -_az;		mz =  -_mz;
-	
 	// Convert spin rate from deg/s to rad/s
 	gx = DEGREES_TO_RADIANS(gx);
 	gy = DEGREES_TO_RADIANS(gy);
@@ -341,7 +332,6 @@ static void IRAM_ATTR AHRS_MahonyUpdate( float dt,
 	orient->quaternions.y *= recipNorm;
 	orient->quaternions.z *= recipNorm;
 
-	// Pre-compute rotation matrix from quaternion
 	AHRS_ComputeRotationMatrix(orient);
 }
 
@@ -364,25 +354,17 @@ static void IRAM_ATTR AHRS_ComputeRotationMatrix(orientation_t * orient){
 
 static void IRAM_ATTR AHRS_UpdateEulerAngles(orientation_t * orient){
 	
-	quaternions_t q = orient->quaternions;
+	float sinp = -1.0f * orient->rMat[2][0];
+	if(sinp >  1.0f) sinp =  1.0f;
+	if(sinp < -1.0f) sinp = -1.0f;
 
-	float roll = atan2(2.0f * (q.w * q.x + q.y * q.z), 1.0f - 2.0f * (q.x * q.x + q.y * q.y));
+	orient->euler.roll  = RADIANS_TO_DEGREES(atan2f(orient->rMat[2][1],orient->rMat[2][2]));
+	orient->euler.pitch = RADIANS_TO_DEGREES(asinf(sinp));
+	orient->euler.yaw   = RADIANS_TO_DEGREES(atan2f(orient->rMat[1][0],orient->rMat[0][0]));
 
-	float sinp = 2.0f * (q.w * q.y - q.z * q.x);
-	float pitch = 0.0f;
-    if (fabs(sinp) >= 1.0f)
-		pitch = copysign(M_PI / 2, sinp); // Clamp to +-90 degrees
-    else
-		pitch = asin(sinp);
+	//ESP_LOGI(TAG, "%f, %f, %f, %f", AHRS_d.orientation.quaternions.w, AHRS_d.orientation.quaternions.x, AHRS_d.orientation.quaternions.y, AHRS_d.orientation.quaternions.z);
+	//ESP_LOGI(TAG, "%f, %f, %f", AHRS_d.orientation.euler.roll, AHRS_d.orientation.euler.pitch, AHRS_d.orientation.euler.yaw);
 
-	float yaw = atan2(2.0f * (q.w * q.z + q.x * q.y), 1.0f - 2.0f * (q.y * q.y + q.z * q.z));
-
-	orient->euler.roll = RADIANS_TO_DEGREES(roll);
-	orient->euler.pitch = RADIANS_TO_DEGREES(pitch);
-	orient->euler.yaw = RADIANS_TO_DEGREES(yaw);
-
-	//orient->euler.tilt = RADIANS_TO_DEGREES(acosf(orient->rMat[2][2]));	// possibly better
-	 orient->euler.tilt = sqrtf(orient->euler.pitch * orient->euler.pitch + orient->euler.yaw * orient->euler.yaw);
 }
 
 static void IRAM_ATTR AHRS_TransformAccToENU(){
@@ -391,14 +373,14 @@ static void IRAM_ATTR AHRS_TransformAccToENU(){
 	vectorf_t acc_rf;
 
 	acc_rf.x =  AHRS_d.acc_rf.x;
-	acc_rf.y = 	-AHRS_d.acc_rf.y;
-	acc_rf.z =  -AHRS_d.acc_rf.z;
+	acc_rf.y = 	AHRS_d.acc_rf.y;
+	acc_rf.z =  AHRS_d.acc_rf.z;
 
 	// From body frame to earth frame
 	quaternionRotateVectorInv(&acc_ned, &acc_rf, &(AHRS_d.orientation.quaternions));
 
 	// Store vertical acceleration (Z component)
-	AHRS_d.acc_up = acc_ned.z;
+	AHRS_d.acc_up = acc_ned.z - GRAVITY;
 	AHRS_d.acc_enu = acc_ned;
 
 	//ESP_LOGI(TAG, "%f, %f, %f", acc_ned.x, acc_ned.y,acc_ned.z);
