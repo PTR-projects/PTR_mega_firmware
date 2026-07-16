@@ -45,7 +45,7 @@ static void IRAM_ATTR AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * 
 	float _dtdt = dt * dt;
 
 	// The state vector is defined as x = [h v]' where  'h' is altitude above ground and 'v' velocity, both
-	// aligned with the vertical direction of the Earth NED frame, but positive direction being upwards to zenith.
+	// aligned with the vertical direction of the Earth ENU frame, i.e. positive direction being upwards to zenith.
 
 	// State-space system model 'x_k = A*x_k-1 + B*u_k is given by:
 	//

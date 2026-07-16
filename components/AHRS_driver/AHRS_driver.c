@@ -368,20 +368,18 @@ static void IRAM_ATTR AHRS_UpdateEulerAngles(orientation_t * orient){
 }
 
 static void IRAM_ATTR AHRS_TransformAccToENU(){
-	vectorf_t acc_ned;
+	vectorf_t acc_enu;
 
 	vectorf_t acc_rf;
 
 	acc_rf.x =  AHRS_d.acc_rf.x;
 	acc_rf.y = 	AHRS_d.acc_rf.y;
 	acc_rf.z =  AHRS_d.acc_rf.z;
+	quaternionRotateVectorInv(&acc_enu, &acc_rf, &(AHRS_d.orientation.quaternions));
 
-	// From body frame to earth frame
-	quaternionRotateVectorInv(&acc_ned, &acc_rf, &(AHRS_d.orientation.quaternions));
-
-	// Store vertical acceleration (Z component)
-	AHRS_d.acc_up = acc_ned.z - GRAVITY;
-	AHRS_d.acc_enu = acc_ned;
-
-	//ESP_LOGI(TAG, "%f, %f, %f", acc_ned.x, acc_ned.y,acc_ned.z);
+	AHRS_d.acc_up = acc_enu.z - GRAVITY;
+	AHRS_d.acc_enu = acc_enu;
+	
+	//ESP_LOGI(TAG, "%f", AHRS_d.acc_up);
+	//ESP_LOGI(TAG, "%f, %f, %f", acc_enu.x, acc_enu.y,acc_enu.z);
 }
