@@ -169,7 +169,6 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->blank[1]			= 0;
 	package->blank[2]			= 0;
 	package->blank[3]			= 0;
-	package->blank[4]			= 0;
 
 	package->flightstate = (uint8_t)flightstate;
 
