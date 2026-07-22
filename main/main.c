@@ -352,6 +352,7 @@ void task_kpptr_effector(void *pvParameter){
 void task_kpptr_analog(void *pvParameter){
 	TickType_t 				xLastWakeTime = 0;
 	uint32_t 				interval_ms = 100;
+	uint32_t				ign_led_cnt = 0;
 	sysmgr_checkout_state_t vbat_ok = check_void;
 	Analog_meas_t 			Analog_meas;
 
@@ -375,9 +376,14 @@ void task_kpptr_analog(void *pvParameter){
 			SysMgr_checkout(checkout_analog, check_ready);
 		}
 
-		for(uint8_t i=0; i<IGN_NUM; i++){
-			LED_setIGN(i, 20, Analog_meas.IGN_det[i]);
+		if((ign_led_cnt % 5) == 0){
+			ign_led_cnt = 0;
+
+			for(uint8_t i=0; i<IGN_NUM; i++){
+				LED_setIGN(i, 20, Analog_meas.IGN_det[i]);
+			}
 		}
+		ign_led_cnt++;
 
 		xQueueOverwrite(queue_AnalogToMain, (void *)&Analog_meas);
 	}

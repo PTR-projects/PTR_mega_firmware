@@ -250,7 +250,7 @@ esp_err_t LED_setIGN(uint8_t ign_no, uint8_t brightness_percent, int8_t state){
 
 	if(LED_CHECK_IF_WS(LED_POS_IGN[ign_no])){
 		led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
-		return LED_blinkWS(LED_POS_IGN[ign_no], colour, brightness_percent, 100, 0, 0);
+		return LED_blinkWS(LED_POS_IGN[ign_no], colour, brightness_percent, 100, 0, 1);
 	}
 	else if(LED_CHECK_IF_STD(LED_POS_IGN[ign_no])){
 		//return LED_blinkSTD(LED_POS_IGN1, t_on_ms, t_off_ms, blinks_number);
