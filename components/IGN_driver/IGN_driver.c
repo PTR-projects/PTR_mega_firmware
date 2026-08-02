@@ -23,13 +23,14 @@ esp_err_t IGN_init(void)
 	return ESP_OK;
 }
 
-int8_t IGN_getState(uint8_t ign_no){
-	if(ign_no < IGN_NUM){
-		if(gpio_get_level(IGN_PIN[ign_no])) return 1;
-		else return 0;
+IGN_t IGN_getState(){
+	IGN_t ign = {0};
+
+	for(int i=0; i<IGN_NUM; i++){
+		ign.igniter_state[i] = gpio_get_level(IGN_PIN[i]);
 	}
 
-	return -1;
+	return ign;
 }
 
 esp_err_t IGN_set(uint8_t ign_no, uint8_t state){

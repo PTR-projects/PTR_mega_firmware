@@ -42,10 +42,15 @@ static armingstatus_t armstatus_d = DISARMED;
 
 void FSD_arming(){
 	armstatus_d = ARMED;
+
+	Effector_armServos();
+	Effector_armIgniters();
 }
 
 void FSD_disarming(){
 	armstatus_d = DISARMED;
+	Effector_disarmServos();
+	Effector_disarmIgniters();
 }
 
 armingstatus_t IRAM_ATTR FSD_checkArmed(){

@@ -15,13 +15,12 @@ esp_err_t IGN_init(void);
 /**
  * @brief Get state of selected igniter 
  *
- * @param ign_no igniter ID
- * @return int8_t
+ * @return IGN_t
  *  - 1: igniter is ON
  *  - 0: igniter is OFF
  *  - -1: failed to get state
  */
-int8_t IGN_getState(uint8_t ign_no);
+IGN_t IGN_getState();
 
 /**
  * @brief Select state of selected igniter
