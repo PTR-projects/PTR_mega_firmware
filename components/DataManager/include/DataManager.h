@@ -13,6 +13,7 @@
 /**
  * @brief Data structure representing a data package.
  * A data package contains sensor readings, AHRS data, flight state information, and other data.
+ *  !!! Any change to this structure force a change in data parser in Web_driver !!!
  */
 typedef struct __attribute__((__packed__)){
 	uint32_t sys_time;

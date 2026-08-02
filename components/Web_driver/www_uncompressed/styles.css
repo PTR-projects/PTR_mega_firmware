@@ -110,6 +110,17 @@ th {
   text-decoration: none;
 }
 
+.button-log-download-csv {
+  display: block;
+  width: 100%;
+  padding: 14px 28px;
+  text-align: center;
+  font-size: 30px;
+  color: green;
+  cursor: pointer;
+  text-decoration: none;
+}
+
 .button-log-remove {
   display: block;
   width: 100%;
