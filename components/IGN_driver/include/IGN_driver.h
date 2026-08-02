@@ -1,9 +1,10 @@
 #pragma once
 
 #include "esp_err.h"
+#include "BOARD_cfg.h"
 
 typedef struct{
-
+    bool igniter_state[IGN_NUM];
 } IGN_t;
 
 /**

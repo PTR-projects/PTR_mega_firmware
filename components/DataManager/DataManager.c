@@ -108,6 +108,22 @@ esp_err_t IRAM_ATTR DM_addToMainRB(DataPackage_t ** ptr){
 void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
 		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, servo_t * servo){
 
+	assert(package != NULL);
+
+	static Sensors_t sensors_d = {0};
+	static gps_t gps_d = {0};
+	static AHRS_t ahrs_d = {0};
+	static IGN_t ign_d = {0};
+	static Analog_meas_t analog_d = {0};
+	static servo_t servo_d = {0};
+
+	if(sensors == NULL)	sensors = &sensors_d;
+	if(gps == NULL)		gps 	= &gps_d;
+	if(ahrs == NULL)	ahrs 	= &ahrs_d;
+	if(ign == NULL)		ign 	= &ign_d;
+	if(analog == NULL)	analog 	= &analog_d;
+	if(servo == NULL)	servo 	= &servo_d;
+
 	package->sys_time = time_us/100;	// 0.1ms resolution
 
 	package->sensors.accHX 		= sensors->LIS331.accX;
@@ -146,12 +162,16 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 
 #if IGN_NUM > 0
 	package->ign.ign1_cont 		= analog->IGN_det[0];
+	package->ign.ign1_state     = ign->igniter_state[0];
 #if IGN_NUM > 1
 	package->ign.ign2_cont 		= analog->IGN_det[1];
+	package->ign.ign2_state     = ign->igniter_state[1];
 #if IGN_NUM > 2
 	package->ign.ign3_cont 		= analog->IGN_det[2];
+	package->ign.ign3_state     = ign->igniter_state[2];
 #if IGN_NUM > 3
 	package->ign.ign4_cont 		= analog->IGN_det[3];
+	package->ign.ign4_state     = ign->igniter_state[3];
 #endif
 #endif
 #endif
@@ -171,13 +191,26 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->blank[3]			= 0;
 
 	package->flightstate = (uint8_t)flightstate;
-
-	
-
 }
 
 void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
 	kppacket_payload_legacyfull_t payload = {0};
+
+	assert(package != NULL);
+
+	static Sensors_t sensors_d = {0};
+	static gps_t gps_d = {0};
+	static AHRS_t ahrs_d = {0};
+	static IGN_t ign_d = {0};
+	static Analog_meas_t analog_d = {0};
+	//static servo_t servo_d = {0};
+
+	if(sensors == NULL)	sensors = &sensors_d;
+	if(gps == NULL)		gps 	= &gps_d;
+	if(ahrs == NULL)	ahrs 	= &ahrs_d;
+	if(ign == NULL)		ign 	= &ign_d;
+	if(analog == NULL)	analog 	= &analog_d;
+	//if(servo == NULL)	servo 	= &servo_d;
 
 	payload.state       = (uint8_t)flightstate;
 	payload.flags       = 0;
