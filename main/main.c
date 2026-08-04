@@ -505,6 +505,7 @@ void task_kpptr_sysmgr(void *pvParameter){
  */
 void app_main(void)
 {
+	vTaskDelay(pdMS_TO_TICKS(5000)); //Delay used to monitor via serial, debug feature
     nvs_flash_init();
     Web_storageInit();
     Preferences_init();
@@ -521,17 +522,6 @@ void app_main(void)
     DM_init();
 
 
-	ESP_LOGI(TAG, "SBUS init start");
-	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);	ESP_LOGI(TAG, "SBUS init done");
-	vTaskDelay(pdMS_TO_TICKS( 2000 )); // Limit loop rate to max 1Hz
-	Effector_register(EFFECTOR_MAIN,  EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 500);
-
-	/*while(1) {
-		Effector_activate(EFFECTOR_MAIN);
-		vTaskDelay(pdMS_TO_TICKS( 2000 ));
-	}*/
-
-    
     Preferences_data_t pref;
 	if(Preferences_get(&pref) == ESP_OK){
 		Web_status_updateconfig(0, 12345, pref.drouge_alt_m, pref.main_alt_m);

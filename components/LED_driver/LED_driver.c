@@ -78,6 +78,7 @@ esp_err_t BUZZER_init(){
 
 esp_err_t LED_srv() {
 	ESP_LOGV(TAG, "LED UPDATE");
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
 		for (uint8_t i = 0; i < (LED_ARRAY_SIZE); i++) {
 
@@ -136,6 +137,7 @@ esp_err_t LED_srv() {
 
 esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number){
 #if (BUZZER_COUNT > 0)
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
 		if (beeps_number == 0) {
 			led_mode		(BUZZER_ARRAY_POS, LED_MODE_BLINK);
@@ -155,6 +157,7 @@ esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number
 
 esp_err_t LED_blinkSTD(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
 #if (LED_STD_COUNT > 0)
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
 		if (blinks_number == 0) {
 			led_mode(LED_WS_RGB_COUNT + led_no, LED_MODE_BLINK);
@@ -177,6 +180,7 @@ esp_err_t LED_blinkWS(int16_t led_no, led_colour_t colour, uint8_t brightness_pe
 	if(led_no == -1)
 		return ESP_FAIL;
 
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(100)) == pdTRUE){
 		if (blinks_number == 0) {
 			strip_led_colour(led_no, colour, brightness_percent);
