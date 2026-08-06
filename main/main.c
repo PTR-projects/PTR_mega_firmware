@@ -398,6 +398,7 @@ void task_kpptr_analog(void *pvParameter){
  */
 void task_kpptr_sysmgr(void *pvParameter){
 	int64_t ready_to_arm_time = 0;
+	uint8_t ready_to_arm_time_passed = 0;
 	ESP_LOGI(TAG, "SysMgr ready");
 	SysMgr_checkout(checkout_sysmgr, check_ready);
 
@@ -459,18 +460,20 @@ void task_kpptr_sysmgr(void *pvParameter){
 												SysMgr_getArm());
 
 		//----- Autoarming ----------
-		if(FSD_checkArmed() == DISARMED){
+		if(FSD_checkArmed() == DISARMED && !ready_to_arm_time_passed){
 			if(SysMgr_getCheckoutStatus() == check_ready){
 				if(ready_to_arm_time == 0){
 					ready_to_arm_time = esp_timer_get_time();
 				}
 				if((esp_timer_get_time() - ready_to_arm_time) > auto_arming_time && auto_arming == true){
 					FSD_arming();
+					ready_to_arm_time_passed = 1;
 				}
 			}
 		}
 		if(FSD_checkArmed() == ARMED && SysMgr_getArm() != system_armed){
 			SysMgr_setArm(system_armed);
+			ready_to_arm_time_passed = 1;	// backstop has done its job; hands off after any arm (manual or auto)
 			BUZZER_beep(70, 70, 5);
 		}
 

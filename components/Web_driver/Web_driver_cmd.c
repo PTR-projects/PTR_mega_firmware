@@ -114,23 +114,26 @@ esp_err_t Web_cmd_handler(char *buf){
 
 
 esp_err_t IGN_handle(uint8_t ign_no){
-	int8_t status = IGN_getState().igniter_state[ign_no];
-	if(status == 1){
-		ESP_LOGE(TAG, "Igniter: %d, already up!", ign_no);
-		return ESP_FAIL;
-	}
-	else if(status == -1){
-		ESP_LOGE(TAG, "Igniter: %d, cannot check state!", ign_no);
-		return ESP_FAIL;
-	}
+    int8_t status = IGN_getState().igniter_state[ign_no];
+    if(status == 1){
+        ESP_LOGE(TAG, "Igniter: %d, already up!", ign_no);
+        return ESP_FAIL;
+    }
+    else if(status == -1){
+        ESP_LOGE(TAG, "Igniter: %d, cannot check state!", ign_no);
+        return ESP_FAIL;
+    }
 
-	esp_err_t ret = IGN_set(ign_no, 1);
-	if(ret != ESP_OK){
-		ESP_LOGI(TAG, "Igniter: %d, error during fire!", ign_no);
-		return ESP_FAIL;
-	}
-	ESP_LOGI(TAG, "Igniter: %d, fire!", ign_no);
+    esp_err_t ret = IGN_set(ign_no, 1);
+    if(ret != ESP_OK){
+        ESP_LOGI(TAG, "Igniter: %d, error during fire!", ign_no);
+        return ESP_FAIL;
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+    IGN_set(ign_no, 0);
+    
+    ESP_LOGI(TAG, "Igniter: %d, fire!", ign_no);
 
-	return ESP_OK;
+    return ESP_OK;
 }
 
