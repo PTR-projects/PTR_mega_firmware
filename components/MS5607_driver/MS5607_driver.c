@@ -6,7 +6,7 @@
 #include "SPI_driver.h"
 #include "esp_log.h"
 #include "MS5607_driver.h"
-#include "BOARD.h"
+#include "BOARD_cfg.h"
 #include <string.h>
 
 static const char *TAG = "MS5607";

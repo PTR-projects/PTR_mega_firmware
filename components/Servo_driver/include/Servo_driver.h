@@ -1,10 +1,5 @@
 #pragma once
 
-#include "esp_err.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/mcpwm.h"
-
 typedef struct{
     int min_pulsewidth_us;
     int max_pulsewidth_us;

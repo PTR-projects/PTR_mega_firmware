@@ -1,6 +1,6 @@
 #pragma once
 #include "esp_err.h"
-#include "BOARD.h"
+#include "BOARD_cfg.h"
 #include <driver/spi_master.h>
 typedef spi_device_handle_t spi_dev_handle_t;
 

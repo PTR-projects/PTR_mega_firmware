@@ -14,7 +14,7 @@
 static void AHRS_kalmanAltitudeAscent_propagate (KF_AltitudeAscent_t * KF, float acc, float dt);
 static void AHRS_kalmanAltitudeAscent_update	(KF_AltitudeAscent_t * KF, float altitudeP);
 
-KF_AltitudeAscent_t KF_data;
+static KF_AltitudeAscent_t KF_data;
 
 void AHRS_kalmanAltitudeAscent_init(float Q_accel, float R_altitude){
 	KF_data.P[0][0] = 1.0f;
@@ -29,7 +29,7 @@ void AHRS_kalmanAltitudeAscent_init(float Q_accel, float R_altitude){
 	KF_data.R_altitude 	= R_altitude;
 }
 
-void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, float * altitude_result, float * ascentrate_result){
+void IRAM_ATTR AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, float * altitude_result, float * ascentrate_result){
 	AHRS_kalmanAltitudeAscent_propagate(&KF_data, acc_up, dt);
 	AHRS_kalmanAltitudeAscent_update   (&KF_data, altitudeP);
 
@@ -40,12 +40,12 @@ void AHRS_kalmanAltitudeAscent_step(float dt, float altitudeP, float acc_up, flo
 
 
 // https://github.com/rblilja/AltitudeKF/blob/master/altitude_kf.cpp
-static void AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float acc_up, float dt){
+static void IRAM_ATTR AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float acc_up, float dt){
 	// Repeated arithmetics
 	float _dtdt = dt * dt;
 
 	// The state vector is defined as x = [h v]' where  'h' is altitude above ground and 'v' velocity, both
-	// aligned with the vertical direction of the Earth NED frame, but positive direction being upwards to zenith.
+	// aligned with the vertical direction of the Earth ENU frame, i.e. positive direction being upwards to zenith.
 
 	// State-space system model 'x_k = A*x_k-1 + B*u_k is given by:
 	//
@@ -87,7 +87,7 @@ static void AHRS_kalmanAltitudeAscent_propagate(KF_AltitudeAscent_t * KF, float 
 	KF->P[1][1] = KF->P[1][1] + _Q_accel_dtdt;
 }
 
-static void AHRS_kalmanAltitudeAscent_update(KF_AltitudeAscent_t * KF, float altitudeP){
+static void IRAM_ATTR AHRS_kalmanAltitudeAscent_update(KF_AltitudeAscent_t * KF, float altitudeP){
 	// Observation vector 'zhat' from the current state estimate:
 	//
 	// zhat_k = [ 1 0 ] * [ h_k ]
@@ -130,8 +130,14 @@ static void AHRS_kalmanAltitudeAscent_update(KF_AltitudeAscent_t * KF, float alt
 	//					[ -K_1    1 ]   [ P_10 P_11 ]   [ (-K_1*P_00 + P_10) (-K_1*P_01 + P_11) ]
 
 	// Calculate the state estimate covariance
-	KF->P[0][0] = KF->P[0][0] - (K[0] * KF->P[0][0]);
-	KF->P[0][1] = KF->P[0][1] - (K[0] * KF->P[0][1]);
-	KF->P[1][0] = KF->P[1][0] - (K[1] * KF->P[0][0]);
-	KF->P[1][1] = KF->P[1][1] - (K[1] * KF->P[0][1]);
+	// Save originals before in-place update — P[1][x] formulas need the pre-update P[0][x] values
+	float P00 = KF->P[0][0];
+	float P01 = KF->P[0][1];
+	float P10 = KF->P[1][0];
+	float P11 = KF->P[1][1];
+	
+	KF->P[0][0] = P00 - K[0] * P00;
+	KF->P[0][1] = P01 - K[0] * P01;
+	KF->P[1][0] = P10 - K[1] * P00;
+	KF->P[1][1] = P11 - K[1] * P01;
 }

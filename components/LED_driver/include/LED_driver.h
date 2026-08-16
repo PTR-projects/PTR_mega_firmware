@@ -2,7 +2,7 @@
 #define WS2812_CONTROL_H
 #include <stdint.h>
 #include "sdkconfig.h"
-#include "BOARD.h"
+#include "BOARD_cfg.h"
 #include "driver/rmt.h"
 
 /**

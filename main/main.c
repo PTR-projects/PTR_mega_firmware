@@ -1,4 +1,6 @@
 #include <stdio.h>
+//#include "sdkconfig.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
@@ -14,6 +16,9 @@
 #include "SPI_driver.h"
 #include "LED_driver.h"
 #include "LORA_driver.h"
+#include "TMTC.h"
+#include "SX126x_driver.h"
+#include "sx126x_hal.h"
 #include "GNSS_driver.h"
 #include "Analog_driver.h"
 #include "Storage_driver.h"
@@ -23,9 +28,13 @@
 #include "Web_driver.h"
 #include "Preferences.h"
 #include "DataManager.h"
+#include "PTR_DataPacket.h"
 #include "SysMgr.h"
 #include "Servo_driver.h"
-#include "CONFIG.h"
+#include "SBUS_driver.h"
+#include "Cansat_driver.h"
+#include "Effector_driver.h"
+#include "BOARD_cfg.h"
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
@@ -35,7 +44,6 @@ static const char *TAG = "KP-PTR";
 
 //----------- Queues etc ---------------
 QueueHandle_t queue_AnalogToMain;
-QueueHandle_t queue_MainToTelemetry;
 QueueHandle_t queue_MainToWeb;
 
 /**
@@ -44,13 +52,13 @@ QueueHandle_t queue_MainToWeb;
  *
  * @param pvParameter
  */
-void task_kpptr_main(void *pvParameter){
+void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	TickType_t 		 xLastWakeTime = 0;
 	TickType_t 		 prevTickCountRF = 0;
 	TickType_t 		 prevTickCountWeb = 0;
 	DataPackage_t *  DataPackage_ptr = NULL;
 	DataPackage_t    DataPackage_d;
-	DataPackageRF_t  DataPackageRF_d;
+	kppacket_t 		 DataPackageRF_d;
 	gps_t 			 gps_d;
 	Analog_meas_t 	 Analog_meas;
 	
@@ -87,9 +95,15 @@ void task_kpptr_main(void *pvParameter){
 		AHRS_compute(time_us, Sensors_get(), gps_d);
 		FSD_detect(time_us/1000);
 
+		Sensors_t     *sensors   = Sensors_get ();
+		AHRS_t        *ahrs      = AHRS_getData();
+		flightstate_t  fsd_state = FSD_getState();
+		servo_t		  *servos    = Servo_get   ();
+		IGN_t		  igniters   = IGN_getState();
+
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
-		DM_collectFlash(&DataPackage_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas, Servo_get());
+		DM_collectFlash(&DataPackage_d, time_us, sensors, &gps_d, ahrs, fsd_state, &igniters, &Analog_meas, servos);
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
@@ -105,22 +119,20 @@ void task_kpptr_main(void *pvParameter){
 
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
 		//Send data to RF every 1000/CONFIG_TELEMETRY_FREQUENCY ms
-	if((FSD_getState() < FLIGHTSTATE_BOOST) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN)){
+	if((fsd_state < FLIGHTSTATE_BOOST) || (fsd_state >= FLIGHTSTATE_SHUTDOWN)){
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
-			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
+			DM_collectRF(&DataPackageRF_d, time_us, sensors, &gps_d, ahrs, fsd_state, NULL, &Analog_meas);
+			TMTC_send(&DataPackageRF_d);
 		}
 	}
 	else{
 		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY_FLIGHT )) <= xLastWakeTime)){
 			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, Sensors_get(), &gps_d, AHRS_getData(), FSD_getState(), NULL, &Analog_meas);
-			xQueueOverwrite(queue_MainToTelemetry, (void *)&DataPackageRF_d); // Add to telemetry queue
+			DM_collectRF(&DataPackageRF_d, time_us, sensors, &gps_d, ahrs, fsd_state, NULL, &Analog_meas);
+			TMTC_send(&DataPackageRF_d);
 		}
 	}	
-
-		
 #endif
 
 		//Send data to Web every 1000ms
@@ -140,7 +152,6 @@ void task_kpptr_main(void *pvParameter){
  */
 void task_kpptr_telemetry(void *pvParameter){
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
-	DataPackageRF_t DataPackageRF_d;
 	while(LORA_init() != ESP_OK){
 		ESP_LOGW(TAG, "Telemetry task - failed to prepare Lora");
 		SysMgr_checkout(checkout_lora, check_fail);
@@ -148,10 +159,10 @@ void task_kpptr_telemetry(void *pvParameter){
 	}
 
 	SysMgr_checkout(checkout_lora, check_ready);
+	TMTC_init();
+
 	while(1){
-		if(xQueueReceive(queue_MainToTelemetry, &DataPackageRF_d, 100)){
-			LORA_sendPacketLoRa((uint8_t *)&DataPackageRF_d, sizeof(DataPackageRF_t), LORA_TX_NO_WAIT);
-		}
+		TMTC_process();
 	}
 #else
 	SysMgr_checkout(checkout_lora, check_ready);
@@ -198,6 +209,12 @@ void task_kpptr_storage(void *pvParameter){
 
 		// Skip if too many write errors occured but free used pointer
 		if(write_error_cnt > 1000){
+			static bool storage_fail_reported = false;
+			if(storage_fail_reported == false){
+				ESP_LOGE(TAG, "Storage: too many write errors, halting writes");
+				SysMgr_checkout(checkout_storage, check_fail);
+				storage_fail_reported = true;
+			}
 			DM_returnUsedPointerToMainRB(&DataPackage_ptr);
 			continue;
 		}
@@ -229,7 +246,6 @@ void task_kpptr_utils(void *pvParameter){
 		status  = ESP_OK;
 		status |= LED_init(interval_ms);
 		status |= BUZZER_init();
-		status |= IGN_init();
 
 		if(status != ESP_OK){
 			ESP_LOGW(TAG, "Task Utils - failed to init!");
@@ -250,7 +266,6 @@ void task_kpptr_utils(void *pvParameter){
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		LED_srv();
-		IGN_srv(pdTICKS_TO_MS(xTaskGetTickCount ()));
 
 		if(xQueueReceive(queue_MainToWeb, &DataPackage_d, 0)){
 			Web_live_from_DataPackage(&DataPackage_d, AHRS_getData());
@@ -275,6 +290,62 @@ void task_kpptr_utils(void *pvParameter){
 }
 
 /**
+ * @brief Effector task - manages all igniters, servos etc
+ * 
+ * @param pvParameter
+ */
+void task_kpptr_effector(void *pvParameter){
+	TickType_t 	  xLastWakeTime = 0;
+	uint32_t 	  interval_ms = 20;
+	esp_err_t 	  status = ESP_FAIL;
+
+	while(status != ESP_OK){
+		status  = ESP_OK;
+		status |= IGN_init();
+#ifdef BOARD_SERVO_PWM_NUM
+		status |= Servo_init(1500, 2500, 50);
+#endif
+		status |= SBUS_init();
+		status |= Effector_init();
+
+		if(status != ESP_OK){
+			ESP_LOGW(TAG, "Task Effector - failed to init!");
+			SysMgr_checkout(checkout_effector, check_fail);
+			vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		}
+	}
+
+	// Init servo driver channels
+	//esp_err_t Servo_configSingle(uint8_t servo_num, int min_pulsewidth, int max_pulsewidth, int frequency);
+
+	// Init default effectors configuration
+	//esp_err_t Effector_register(effector_id_t id, effector_type_t type, effector_hw_t hw, int8_t active_value, int8_t inactive_value, bool ignore_arm);
+	Effector_register(EFFECTOR_DROGUE,     EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 0}, 1, 0, false, 100);
+	Effector_register(EFFECTOR_MAIN,       EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 1}, 1, 0, false, 100);
+	Effector_register(EFFECTOR_STAGE2_IGN, EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 2}, 1, 0, false, 100);
+
+#ifdef CFG_CANSAT_ROCKET
+	// Init effectors for Cansat rocket
+	Effector_register(EFFECTOR_MAIN,     EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 0);
+	Effector_register(EFFECTOR_CANSAT_1, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 1}, 100, 0, true, 0);
+	Effector_register(EFFECTOR_CANSAT_2, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 2}, 100, 0, true, 0);
+	Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true, 0);
+#endif
+
+	ESP_LOGI(TAG, "Task Effetor - ready!");
+
+	SysMgr_checkout(checkout_effector, check_ready);
+	xLastWakeTime = xTaskGetTickCount ();
+
+	while(1){
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
+		Effector_srv();
+	}
+
+	vTaskDelete(NULL);
+}
+
+/**
  * @brief Task handling Analog measurements
  *
  * @param pvParameter
@@ -282,6 +353,7 @@ void task_kpptr_utils(void *pvParameter){
 void task_kpptr_analog(void *pvParameter){
 	TickType_t 				xLastWakeTime = 0;
 	uint32_t 				interval_ms = 100;
+	uint32_t				ign_led_cnt = 0;
 	sysmgr_checkout_state_t vbat_ok = check_void;
 	Analog_meas_t 			Analog_meas;
 
@@ -305,9 +377,14 @@ void task_kpptr_analog(void *pvParameter){
 			SysMgr_checkout(checkout_analog, check_ready);
 		}
 
-		for(uint8_t i=0; i<IGN_NUM; i++){
-			LED_setIGN(i, 20, Analog_meas.IGN_det[i]);
+		if((ign_led_cnt % 5) == 0){
+			ign_led_cnt = 0;
+
+			for(uint8_t i=0; i<IGN_NUM; i++){
+				LED_setIGN(i, 20, Analog_meas.IGN_det[i]);
+			}
 		}
+		ign_led_cnt++;
 
 		xQueueOverwrite(queue_AnalogToMain, (void *)&Analog_meas);
 	}
@@ -321,6 +398,7 @@ void task_kpptr_analog(void *pvParameter){
  */
 void task_kpptr_sysmgr(void *pvParameter){
 	int64_t ready_to_arm_time = 0;
+	uint8_t ready_to_arm_time_passed = 0;
 	ESP_LOGI(TAG, "SysMgr ready");
 	SysMgr_checkout(checkout_sysmgr, check_ready);
 
@@ -378,21 +456,24 @@ void task_kpptr_sysmgr(void *pvParameter){
 												SysMgr_getComponentState(checkout_lora), 	SysMgr_getComponentState(checkout_main),
 												SysMgr_getComponentState(checkout_storage), SysMgr_getComponentState(checkout_sysmgr),
 												SysMgr_getComponentState(checkout_utils), 	SysMgr_getComponentState(checkout_web),
+												SysMgr_getComponentState(checkout_effector),
 												SysMgr_getArm());
 
 		//----- Autoarming ----------
-		if(FSD_checkArmed() == DISARMED){
+		if(FSD_checkArmed() == DISARMED && !ready_to_arm_time_passed){
 			if(SysMgr_getCheckoutStatus() == check_ready){
 				if(ready_to_arm_time == 0){
 					ready_to_arm_time = esp_timer_get_time();
 				}
 				if((esp_timer_get_time() - ready_to_arm_time) > auto_arming_time && auto_arming == true){
 					FSD_arming();
+					ready_to_arm_time_passed = 1;
 				}
 			}
 		}
 		if(FSD_checkArmed() == ARMED && SysMgr_getArm() != system_armed){
 			SysMgr_setArm(system_armed);
+			ready_to_arm_time_passed = 1;	// backstop has done its job; hands off after any arm (manual or auto)
 			BUZZER_beep(70, 70, 5);
 		}
 
@@ -427,6 +508,7 @@ void task_kpptr_sysmgr(void *pvParameter){
  */
 void app_main(void)
 {
+	vTaskDelay(pdMS_TO_TICKS(5000)); //Delay used to monitor via serial, debug feature
     nvs_flash_init();
     Web_storageInit();
     Preferences_init();
@@ -442,7 +524,7 @@ void app_main(void)
     SPI_init();
     DM_init();
 
-    
+
     Preferences_data_t pref;
 	if(Preferences_get(&pref) == ESP_OK){
 		Web_status_updateconfig(0, 12345, pref.drouge_alt_m, pref.main_alt_m);
@@ -450,18 +532,19 @@ void app_main(void)
 
     //----- Create queues ---------
     queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t   ) );
-    queue_MainToTelemetry = xQueueCreate( 1, sizeof( DataPackageRF_t ) );
     queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t   ) );
 
     //----- Check queues ----------
-    if(queue_AnalogToMain == 0)
-    	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
+    if(queue_AnalogToMain == 0)   	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
+	if(queue_MainToWeb == 0)    	ESP_LOGE(TAG, "Failed to create queue -> queue_MainToWeb");
 
     xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 14, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
+	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);
+
     vTaskDelay(pdMS_TO_TICKS( 40 ));
     xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 

@@ -35,11 +35,13 @@
  */
 
 #include <string.h>  // memcpy
+#include "BOARD_cfg.h"
+#include "SPI_driver.h"
 #include "SX126x_driver.h"
 #include "sx126x_hal.h"
 #include "sx126x_regs.h"
 #include "esp_log.h"
-#include "BOARD.h"
+
 
 #if !(defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN))
 

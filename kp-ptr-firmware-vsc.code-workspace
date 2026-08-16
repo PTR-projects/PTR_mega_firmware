@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../../../GitHub/PTR/kp-ptr-firmware-vsc"
+		},
+		{
+			"name": "ptr_mega",
+			"path": "."
+		},
+		{
+			"name": "ptr_mini_sd_test",
+			"path": "../ptr_mini_sd_test"
+		},
+		{
+			"name": "sd_test2",
+			"path": "../sd_test2"
+		}
+	],
+	"settings": {}
+}

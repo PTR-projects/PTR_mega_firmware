@@ -5,7 +5,7 @@
 #include "MMC5983MA_driver.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "BOARD.h"
+#include "BOARD_cfg.h"
 #include <string.h>
 
 static const char* TAG = "MMC5983MA";

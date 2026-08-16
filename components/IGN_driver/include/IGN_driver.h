@@ -1,9 +1,10 @@
 #pragma once
 
 #include "esp_err.h"
+#include "BOARD_cfg.h"
 
 typedef struct{
-
+    bool igniter_state[IGN_NUM];
 } IGN_t;
 
 /**
@@ -12,22 +13,14 @@ typedef struct{
 esp_err_t IGN_init(void);
 
 /**
- * @brief Function to ensure that igniters turn off after specific time
- *
- * @param time system time in ms
- */
-esp_err_t IGN_srv(uint32_t time);
-
-/**
  * @brief Get state of selected igniter 
  *
- * @param ign_no igniter ID
- * @return int8_t
+ * @return IGN_t
  *  - 1: igniter is ON
  *  - 0: igniter is OFF
  *  - -1: failed to get state
  */
-int8_t IGN_getState(uint8_t ign_no);
+IGN_t IGN_getState();
 
 /**
  * @brief Select state of selected igniter

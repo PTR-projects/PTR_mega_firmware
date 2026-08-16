@@ -1,68 +1,33 @@
-name: Build firmware
-on: [push, pull_request]
-  
+name: Build PlatformIO project
+on:
+  push
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
+    strategy:
+        matrix:
+            targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v1_0]
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-      with:
-        submodules: 'recursive'
-        
-    - name: esp-idf build
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: v4.4.6
-        target: esp32s3
-        path: '.'
-        
-    - name: esp-idf build v0 8MB
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: v4.4.6
-        target: esp32s3
-        path: '.'
-        command: idf.py -B build-v0-8m -DSDKCONFIG=build-v0-8m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_v0_8m" build
-        
-    - name: esp-idf build v1 8MB
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: v4.4.6
-        target: esp32s3
-        path: '.'
-        command: idf.py -B build-v1-8m -DSDKCONFIG=build-v1-8m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_v1_8m" build
-        
-    - name: esp-idf build v1 16MB
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: v4.4.6
-        target: esp32s3
-        path: '.'
-        command: idf.py -B build-v1-16m -DSDKCONFIG=build-v1-16m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_v1_16m" build
-        
-    - name: esp-idf build v1 32MB
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: v4.4.6
-        target: esp32s3
-        path: '.'
-        command: idf.py -B build-v1-32m -DSDKCONFIG=build-v1-32m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_v1_32m" build
-        
-    - name: esp-idf build arecorder v3 8MB
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: v4.4.6
-        target: esp32s3
-        path: '.'
-        command: idf.py -B build-arecorder-v3-8m -DSDKCONFIG=build-arecorder-v3-8m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_arecorder_v3_8m" build
-        
-    - name: esp-idf build arecorder v3 32MB
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: v4.4.6
-        target: esp32s3
-        path: '.'
-        command: idf.py -B build-arecorder-v3-32m -DSDKCONFIG=build-arecorder-v3-32m/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig;sdkconfig_arecorder_v3_32m" build
+      # Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+          
+      - name: Pythine setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build PlatformIO Project for ${{ matrix.targets }}
+        run: pio run --environment ${{ matrix.targets }}

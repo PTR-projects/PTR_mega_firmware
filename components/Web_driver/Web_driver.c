@@ -33,8 +33,6 @@
 
 static const char *TAG = "Web_driver";
 
-//#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
-//#define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
 #define WIFI_CHANNEL   1
 #define MAX_STA_CONN   1
 
@@ -142,15 +140,13 @@ esp_err_t Web_wifi_init(void){
     memset(ssid, 0x00, ssid_size);
     snprintf((char *)ssid, ssid_size, "%s-%s", CONFIG_ESP_WIFI_SSID, mac_addr);
     ESP_LOGI(TAG, "SSID: %s", ssid);
-    wifi_config_t wifi_config = {
-    	.ap = {
-            .ssid_len = strlen((char *)ssid),
-    		.channel = WIFI_CHANNEL,
-    		.password =  CONFIG_ESP_WIFI_PASSWORD,
-    		.max_connection = MAX_STA_CONN,
-    		.authmode = WIFI_AUTH_WPA_WPA2_PSK
-    	},
-    };
+    wifi_config_t wifi_config = {0};
+    wifi_config.ap.ssid_len       = strlen((char *)ssid);
+    wifi_config.ap.channel        = WIFI_CHANNEL;
+    wifi_config.ap.max_connection = MAX_STA_CONN;
+    wifi_config.ap.authmode       = WIFI_AUTH_WPA_WPA2_PSK;
+    strncpy((char *)wifi_config.ap.password, CONFIG_ESP_WIFI_PASSWORD,
+            sizeof(wifi_config.ap.password) - 1);
     strncpy((char *)wifi_config.ap.ssid, (char *)ssid, ssid_size);
 
     Preferences_data_t pref;
@@ -170,12 +166,12 @@ esp_err_t Web_wifi_init(void){
 
     ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", wifi_config.ap.ssid, wifi_config.ap.password, wifi_config.ap.channel);
 
-    tcpip_adapter_ip_info_t ip_info;
-    ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
+    // tcpip_adapter_ip_info_t ip_info;
+    // ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
 
-    ESP_LOGI(TAG,"IP Address:  %s", ip4addr_ntoa(&ip_info.ip));
-    ESP_LOGI(TAG,"Subnet mask: %s", ip4addr_ntoa(&ip_info.netmask));
-    ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
+    // ESP_LOGI(TAG,"IP Address:  %s", ip4addr_ntoa(&ip_info.ip));
+    // ESP_LOGI(TAG,"Subnet mask: %s", ip4addr_ntoa(&ip_info.netmask));
+    // ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
 
     return ESP_OK;
 }
@@ -969,6 +965,7 @@ esp_err_t Web_status_updateIgniters(uint8_t ign1_fired, uint8_t ign2_fired, uint
 esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog,
 								  uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage,
 								  uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web,
+                                  uint8_t state_effector,
 								  uint8_t arm){
     status_web.timestamp_ms 			= timestamp_ms;
     status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
@@ -979,6 +976,7 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
     status_web.sysmgr_sysmgr_status     = state_sysmgr;
     status_web.sysmgr_utils_status      = state_utils;
     status_web.sysmgr_web_status        = state_web;
+    status_web.sysmgr_effector_status   = state_effector;
     status_web.sysmgr_arm_state			= arm;
 
     return ESP_OK;
@@ -1017,6 +1015,8 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 
 
 esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr){
+    if(DataPackage_ptr == NULL || ahrs_ptr == NULL)
+        return ESP_FAIL;
     Web_driver_live_t     live_web;
 
     live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
@@ -1052,7 +1052,7 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ah
     live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
 
     status_web.flight_state = DataPackage_ptr->flightstate;
-	status_web.rocket_tilt  = ahrs_ptr->orientation.euler.tilt;
+	status_web.rocket_tilt  = AHRS_calcTilt(&(ahrs_ptr->orientation.euler));
 
     Web_live_exchange(live_web);
     return ESP_OK;

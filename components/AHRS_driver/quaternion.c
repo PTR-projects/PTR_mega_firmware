@@ -24,11 +24,11 @@ void quaternionInitFromVector(quaternions_t * result, quaternions_t * v){
     result->q3 = v->z;
 }
 
-float quaternionNormSqared(quaternions_t * q){
+float IRAM_ATTR quaternionNormSqared(quaternions_t * q){
     return POW2(q->q0) + POW2(q->q1) + POW2(q->q2) + POW2(q->q3);
 }
 
-void quaternionMultiply(quaternions_t * result, quaternions_t * a, quaternions_t * b){
+void IRAM_ATTR quaternionMultiply(quaternions_t * result, quaternions_t * a, quaternions_t * b){
 	quaternions_t p;
 
 	p.q0 = a->q0 * b->q0 - a->q1 * b->q1 - a->q2 * b->q2 - a->q3 * b->q3;
@@ -61,7 +61,7 @@ void quaternionAdd(quaternions_t * result, quaternions_t * a, quaternions_t * b)
     *result = p;
 }
 
-void quaternionConjugate(quaternions_t * result, quaternions_t * q){
+void IRAM_ATTR quaternionConjugate(quaternions_t * result, quaternions_t * q){
     result->q0 =  q->q0;
     result->q1 = -q->q1;
     result->q2 = -q->q2;
@@ -85,7 +85,7 @@ void quaternionNormalize(quaternions_t * result, quaternions_t * q){
     }
 }
 
-void quaternionRotateVector(vectorf_t * result, vectorf_t * vect, quaternions_t * ref){
+void IRAM_ATTR quaternionRotateVector(vectorf_t * result, vectorf_t * vect, quaternions_t * ref){
 	quaternions_t vectQuat, refConj;
 
     vectQuat.q0 = 0;
@@ -102,7 +102,7 @@ void quaternionRotateVector(vectorf_t * result, vectorf_t * vect, quaternions_t 
     result->z = vectQuat.q3;
 }
 
-void quaternionRotateVectorInv(vectorf_t * result, vectorf_t * vect, quaternions_t * ref){
+void IRAM_ATTR quaternionRotateVectorInv(vectorf_t * result, vectorf_t * vect, quaternions_t * ref){
 	quaternions_t vectQuat, refConj;
 
     vectQuat.q0 = 0;
@@ -119,7 +119,7 @@ void quaternionRotateVectorInv(vectorf_t * result, vectorf_t * vect, quaternions
     result->z = vectQuat.q3;
 }
 
-void quaternionComputeProducts(quaternions_t *quat, quaternionsProd_t *quatProd){
+void IRAM_ATTR quaternionComputeProducts(quaternions_t *quat, quaternionsProd_t *quatProd){
     quatProd->ww = quat->w * quat->w;
     quatProd->wx = quat->w * quat->x;
     quatProd->wy = quat->w * quat->y;

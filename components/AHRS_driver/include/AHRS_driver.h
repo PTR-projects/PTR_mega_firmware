@@ -2,6 +2,8 @@
 
 // TODO for future EKF3 - https://github.com/ArduPilot/ardupilot/blob/master/Tools/CPUInfo/EKF_Maths.h
 
+#include <math.h>
+
 #include "common.h"
 #include "quaternion.h"
 #include "Sensors.h"
@@ -10,7 +12,7 @@
 /**
  * @brief Data union representing a set of Euler angles.
  * Euler angles represent the orientation of a device in 3D space.
- * They can be represented in different conventions (roll-pitch-yaw or tilt-dir-rot).
+* They can be represented in different conventions (roll-pitch-yaw or tilt-dir-rot).
  */
 typedef union {
 	struct{
@@ -36,6 +38,15 @@ typedef struct{
 	EulerAngle_t euler;				/*!< Euler angles representation of the orientation. */
 } orientation_t;
 
+/**
+ * @brief Tilt angle from vertical (in degrees), derived from the Euler angles.
+ * Not stored in EulerAngle_t - that union only holds three floats, so a tilt
+ * member would alias roll. Compute it at the point of use instead.
+ */
+static inline float AHRS_calcTilt(const EulerAngle_t * euler){
+	return sqrtf(euler->pitch * euler->pitch + euler->yaw * euler->yaw);
+}
+
 
 /**
  * @brief Data structure representing an Attitude and Heading Reference System (AHRS).
@@ -49,11 +60,16 @@ typedef struct{
 	vectorf_t vel_rf;				/*!< Velocity in the rocket frame. */
 	vectorf_t pos_rf;				/*!< Positon in the rocket frame. */
 
-	vectorf_t acc_ned;				/*!< Acceleration in the rocket frame. */
+	vectorf_t acc_enu;				/*!< Acceleration in the rocket frame. */
+	vectorf_t vel_enu;				/*!< Velocity in the rocket frame. */
+	vectorf_t pos_enu;				/*!< Positon in the ECEF frame. */
 
 	orientation_t orientation;		/*!< Orientation of the rocket. */
 
 	float max_altitude;				/*!< Maximum altitude reached. [m] */
+	float apogee_altitude_est;		/*!< Estimated apogee altitude using free vertical throw model (Hmax = H + v²/2g). [m] */
+	float time_to_apogee_est;		/*!< Estimated time remaining to apogee using free vertical throw model (T = v/g). [s] */
+
 	float acc_axis_lowpass;			/*!< Low-pass filtered acceleration on the three axes. */
 
 	float altitudeP;				/*!< Altitude above a reference point calculated from pressure. [m] */

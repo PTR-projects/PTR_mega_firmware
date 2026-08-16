@@ -1,12 +1,22 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/message_buffer.h"
+
+#include "esp_types.h"
+#include "esp_event.h"
+#include "esp_timer.h"
+#include "esp_err.h"
+
+#include "driver/uart.h"
+
+#include "BOARD_cfg.h"
 #include "esp_log.h"
-#include "GNSS_driver.h"
 #include <string.h>
-#include <ctype.h>
 #include <math.h>
+#include "GNSS_driver.h"
 static const char *TAG = "GNSS";
 
 
@@ -865,7 +875,7 @@ uint16_t crc_calc(char *message)
 
 
 esp_err_t GPS_send_cmd(char *message){
-	sprintf(txMessageBuffer, "$%s*%02X\r\n", message, crc_calc(message));
+	snprintf(txMessageBuffer, sizeof(txMessageBuffer), "$%s*%02X\r\n", message, crc_calc(message));
 
 	if(uart_write_bytes(GNSS_UART, txMessageBuffer, strlen(txMessageBuffer)) == (-1))
 		return ESP_FAIL;
@@ -884,7 +894,7 @@ esp_err_t GPS_baud_rate_set(uint32_t baud){ // default:9600, 4800, 9600, 14400, 
 		ESP_LOGE(TAG, "WRONG BAUDRATE");
 		return ESP_FAIL;
 	}
-	sprintf(message, "PMTK251,%i", baud);
+	snprintf(message, sizeof(message), "PMTK251,%ld", baud);
 
 	if(GPS_send_cmd(message) != ESP_OK){
 		return ESP_FAIL;
@@ -904,7 +914,7 @@ esp_err_t GPS_baud_rate_set_extra(uint32_t baud){ // default:9600, 4800, 9600, 1
 		return ESP_ERR_INVALID_ARG;
 	}
 
-	sprintf(message, "PMTK251,%i", baud);
+	snprintf(message, sizeof(message), "PMTK251,%ld", baud);
 	status = GPS_send_cmd(message);
 
 	if(status == ESP_OK){
@@ -935,13 +945,13 @@ void GPS_fix_interval_set(uint16_t time){ //time in millis 100-10000
 		ESP_LOGE(TAG, "To high fix interval (time in millis 100-10000)");
 		return;
 	}
-	sprintf(message, "PMTK220,%i", time);
+	snprintf(message, sizeof(message), "PMTK220,%i", time);
 	GPS_send_cmd(message);
 }
 
 void GPS_nav_mode_set(gps_nav_mode_t mode){
 	char message[16];
-	sprintf(message, "PMTK886,%i", mode);
+	snprintf(message, sizeof(message), "PMTK886,%i", mode);
 	GPS_send_cmd(message);
 }
 
@@ -971,7 +981,7 @@ void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uin
 		GSV = 5;
 		ESP_LOGE(TAG, "NMEA OUTPUT GSV freq parameter too high set 5 instead");
 		}
-	sprintf(message, "PMTK314,%i,%i,%i,%i,%i,%i,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", GLL , RMC , VTG , GGA , GSA , GSV);
+	snprintf(message, sizeof(message), "PMTK314,%i,%i,%i,%i,%i,%i,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", GLL , RMC , VTG , GGA , GSA , GSV);
 	GPS_send_cmd(message);
 	ESP_LOGI(TAG, "NMEA OUTPUT SET TO:\nGLL %d\nRMC %d\nVTG %d\nGGA %d\nGSA %d\nGSV %d",  GLL , RMC , VTG , GGA , GSA , GSV);
 }
