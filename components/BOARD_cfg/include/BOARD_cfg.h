@@ -264,6 +264,15 @@
 #define BUZZER_GENERATOR		1
 #define BUZZER_POS				BUZZER_POS0
 
+#define SD_ENABLED
+#define SD_CLK_PIN				47
+#define SD_CMD_PIN				48
+#define SD_DAT0_PIN				33
+#define SD_DAT1_PIN				13
+#define SD_DAT2_PIN				14
+#define SD_DAT3_PIN				21
+#define SD_DETECT_PIN			1
+
 #endif
 
 #else

@@ -62,14 +62,16 @@ static const char *TAG = "Storage_driver";
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Storage_init(){
-
+	if(Storage_data_d.ReadyFlag == true)
+		return ESP_OK;
+		
 	esp_err_t ret = ESP_FAIL;
 
     Storage_data_d.ReadyFlag 				= false;
     Storage_data_d.MasterKey 				= CONFIG_KPPTR_MASTERKEY;
     Storage_data_d.minFreeMem 				= 100;
 
-     strncpy(Storage_data_d.path, "/storage/meas.bin", sizeof(Storage_data_d.path) - 1);
+    strncpy(Storage_data_d.path, "/storage/meas.bin", sizeof(Storage_data_d.path) - 1);
     Storage_data_d.path[sizeof(Storage_data_d.path) - 1] = '\0';
 
 #if defined(CONFIG_FS_SPIFFS)
@@ -219,8 +221,8 @@ esp_err_t Storage_erase(uint32_t key){
 #elif defined(CONFIG_FS_LITTLEFS)
         return Storage_erase_Littlefs(key);
 
-#elif defined(CONFIG_FS_SPIFFS)
-    	return SimpleFS_formatMemory(SFS_MAGIC_KEY);
+#elif defined(CONFIG_FS_SIMPLEFS)
+    	return SimpleFS_formatMemory(key, SFS_FORMAT_RANGE);
 #endif
 
     return ESP_FAIL;

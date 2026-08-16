@@ -39,3 +39,4 @@ int32_t 	SimpleFS_dumpMemory(uint32_t chunk_size, void * buffer);
 int32_t 	SimpleFS_readMemoryLL(uint32_t position, uint32_t chunk_size, void * buffer);
 void 		SimpleFS_resetReadPointer();
 uint32_t 	SimpleFS_getFileSize();
+uint16_t 	SimpleFS_crc16(uint8_t *buf, uint32_t len);

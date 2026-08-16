@@ -2,6 +2,7 @@
 #include "esp_err.h"
 #include "esp_spiffs.h"
 #include "esp_flash.h"
+#include "SimpleFS_driver.h"
 
 #define STORAGE_KEY 0xAABBCCDD
 

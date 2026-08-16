@@ -35,6 +35,7 @@
 #include "Cansat_driver.h"
 #include "Effector_driver.h"
 #include "BOARD_cfg.h"
+#include "SD_driver.h"
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
@@ -178,7 +179,12 @@ void task_kpptr_telemetry(void *pvParameter){
  */
 void task_kpptr_storage(void *pvParameter){
 	TickType_t xLastWakeTime = 0;
-	while(Storage_init() != ESP_OK){
+
+	esp_err_t status = ESP_FAIL;
+	while(status != ESP_OK){
+		status = ESP_OK;
+		status |= Storage_init();
+		status |= SD_init();
 		ESP_LOGW(TAG, "Storage task - failed to prepare storage");
 		SysMgr_checkout(checkout_storage, check_void);
 		vTaskDelay(pdMS_TO_TICKS( 3000 ));
@@ -195,6 +201,19 @@ void task_kpptr_storage(void *pvParameter){
 	while(1){
 		// Minimum 2 Ticks for 1 loop - avoid blocking Flash memory for too long
 		vTaskDelayUntil(&xLastWakeTime, 2);
+
+		if(FSD_getState() == FLIGHTSTATE_SHUTDOWN){
+#if defined(SD_ENABLED)
+			if(SD_exportFlightLog() != ESP_OK){
+				ESP_LOGE(TAG, "SD flight log export failed");
+			} else {
+				Storage_erase(SFS_MAGIC_KEY);
+			}
+#endif
+			while(1){
+				vTaskDelay(pdMS_TO_TICKS(1000));
+			}
+		}
 
 		// Skip if we are not flying yet
 		if((FSD_getState() < FLIGHTSTATE_BOOST) || (FSD_getState() >= FLIGHTSTATE_SHUTDOWN)){
@@ -541,7 +560,7 @@ void app_main(void)
     xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 14, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*8, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
 	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);
 
