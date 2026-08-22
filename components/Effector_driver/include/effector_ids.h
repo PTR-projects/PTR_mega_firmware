@@ -14,6 +14,6 @@ typedef enum {
     EFFECTOR_CANSAT_3   = 4,
     EFFECTOR_STAGE1_IGN = 5,
     EFFECTOR_STAGE2_IGN = 6,
-    EFFECTOR_MOV        = 7,
-    EFFECTOR_MFV        = 8
+    EFFECTOR_PITCH      = 7,
+    EFFECTOR_YAW        = 8
 } effector_id_t;

@@ -332,6 +332,26 @@ void task_kpptr_effector(void *pvParameter){
 	Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true, 0);
 #endif
 
+#ifdef CFG_SPIK2
+	// Init effectors for SPIK2 - two PWM servos (KST BLS505x).
+	// Requires BOARD_SERVO_PWM_NUM >= 2 (SERVO1_PIN, SERVO2_PIN). servo_num is 1-based.
+	// The two servos have different travel, so give each its own pulse range. Keep
+	// 50 Hz (changing frequency needs a full timer re-init, which Servo_configSingle
+	// does NOT do). Set min/max to each servo's SAFE mechanical range - start narrow
+	// and widen once endpoints are verified.
+	Servo_configSingle(1, 1000, 2000, 333);   // Servo 1 min/max us  <-- set to your BLS505x #1
+	Servo_configSingle(2, 1000, 2000, 333);   // Servo 2 min/max us  <-- set to your BLS505x #2 (different)
+
+	// active_value/inactive_value are POSITIONS (-100..+100), not us: +100 -> max_us,
+	// 0 -> centre, -100 -> min_us. ignore_arm=false -> gated by Effector_armServos()/
+	// FSD arming (set true for bench testing without arming). INFINITE -> holds position.
+	Effector_register(EFFECTOR_PITCH, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 1}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
+	Effector_register(EFFECTOR_YAW, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 2}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
+
+	Servo_enable();   // assert SERVO_EN_PIN - powers the servo rail (required to move)
+	Effector_armServos();       
+#endif
+
 	ESP_LOGI(TAG, "Task Effetor - ready!");
 
 	SysMgr_checkout(checkout_effector, check_ready);
@@ -340,6 +360,16 @@ void task_kpptr_effector(void *pvParameter){
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		Effector_srv();
+
+		          // REQUIRED — ignore_arm=false gates the servos
+		Effector_set(EFFECTOR_PITCH, 0);       // servo 1 → +60%
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		Effector_set(EFFECTOR_PITCH, 100); 
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		Effector_set(EFFECTOR_PITCH, 0); 
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
+		Effector_set(EFFECTOR_PITCH, -100); 
+		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
 
 	vTaskDelete(NULL);

@@ -1,3 +1,5 @@
 #define CONFIG_MAIN_LOOP_FREQUENCY 100     // Note - for rate > 100Hz change MS5607 settings
 #define CONFIG_TELEMETRY_FREQUENCY 1    
 #define CONFIG_TELEMETRY_FREQUENCY_FLIGHT 2  
+
+#define CFG_SPIK2
