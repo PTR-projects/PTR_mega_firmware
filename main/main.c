@@ -320,6 +320,10 @@ void task_kpptr_effector(void *pvParameter){
 		}
 	}
 
+#ifdef BOARD_SERVO_PWM_NUM
+	Servo_enable();   // power the servo rail at effector init (cut again after apogee, see loop below)
+#endif
+
 	// Init servo driver channels
 	//esp_err_t Servo_configSingle(uint8_t servo_num, int min_pulsewidth, int max_pulsewidth, int frequency);
 
@@ -353,8 +357,7 @@ void task_kpptr_effector(void *pvParameter){
 	Effector_register(EFFECTOR_PITCH, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 1}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
     Effector_register(EFFECTOR_YAW, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 2}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
 
-	Servo_enable();   // assert SERVO_EN_PIN - powers the servo rail (required to move)
-	Effector_armServos();       
+	Effector_armServos();
 #endif
 
 	ESP_LOGI(TAG, "Task Effetor - ready!");
@@ -366,6 +369,16 @@ void task_kpptr_effector(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		Effector_srv();
 
+#ifdef BOARD_SERVO_PWM_NUM
+		// Servo power lifecycle: enabled at init above. Cut the rail after apogee (steering just
+		// ended) to save power and avoid stalling/burning the servos during descent. Re-enable at
+		// burnout so a re-armed flight works without a reboot.
+		static bool prev_steering = false;
+		bool steering = FSD_isSteeringEnabled();
+		if(steering && !prev_steering)  Servo_enable();    // burnout -> steering starts
+		if(!steering && prev_steering)  Servo_disable();   // apogee  -> steering ends
+		prev_steering = steering;
+#endif
 	}
 
 	vTaskDelete(NULL);

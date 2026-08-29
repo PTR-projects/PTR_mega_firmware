@@ -20,6 +20,9 @@
 #define GUID_Q_FLOOR_PA     50.0f    /* dynamic-pressure floor for the guarded divide [Pa] */
 #define GUID_PID_OUT_LIMIT  5000.0f  /* PID clamp BEFORE /q (real limit is the deg saturation) */
 #define GUID_DERIV_TAU      0.02f    /* derivative low-pass time constant [s] */
+#define GUID_VEL_LIMIT_MS   50.0f    /* lateral velocity gate: stop steering if |vel_enu.x| or
+                                        |vel_enu.y| exceeds this (either sign) [m/s]. Set to your
+                                        airframe's max plausible lateral velocity. */
 
 /* ---- Servo command mapping ----
  * Setpoint +-100 spans the servo's full +-SERVO_TRAVEL_DEG travel, so 1 deg =
@@ -61,6 +64,7 @@ void Guidance_setDemand(float vx, float vy, float vz)
 void Guidance_step(AHRS_t *ahrs, Sensors_t *sensors)
 {
     static bool prev_enabled = false;
+    static bool aborted      = false;   /* velocity-gate latch: once tripped, no restart this flight */
     const bool  enabled = FSD_isSteeringEnabled();
 
     if (!enabled) {
@@ -71,11 +75,34 @@ void Guidance_step(AHRS_t *ahrs, Sensors_t *sensors)
         prev_enabled = false;
         return;
     }
-    if (!prev_enabled) {                     /* just enabled (burnout) -> clear windup */
+    if (!prev_enabled) {                     /* just enabled (burnout) -> fresh steering phase */
         PID_reset(&pid_pitch);
         PID_reset(&pid_yaw);
+        aborted = false;                     /* clear the latch for this new flight */
     }
     prev_enabled = true;
+
+    /* Latched velocity-gate abort: once the lateral velocity has exceeded the threshold in this
+     * steering phase, guidance stays OFF for the rest of the flight - it does NOT restart even if
+     * the velocity comes back in range. Fins held at neutral. */
+    if (aborted) {
+        Effector_set(EFFECTOR_PITCH, SERVO_NEUTRAL_CMD);
+        Effector_set(EFFECTOR_YAW,   SERVO_NEUTRAL_CMD);
+        return;
+    }
+
+    /* Velocity sanity gate: if lateral earth-frame velocity is implausibly large in either
+     * direction (|vel_enu.x| or |vel_enu.y| over the threshold), latch the abort, centre the
+     * fins, and stop steering for good this flight. */
+    if ((fabsf(ahrs->vel_enu.x) > GUID_VEL_LIMIT_MS) ||
+        (fabsf(ahrs->vel_enu.y) > GUID_VEL_LIMIT_MS)) {
+        aborted = true;
+        Effector_set(EFFECTOR_PITCH, SERVO_NEUTRAL_CMD);
+        Effector_set(EFFECTOR_YAW,   SERVO_NEUTRAL_CMD);
+        PID_reset(&pid_pitch);
+        PID_reset(&pid_yaw);
+        return;
+    }
 
     const float dt = ahrs->dt;
 
