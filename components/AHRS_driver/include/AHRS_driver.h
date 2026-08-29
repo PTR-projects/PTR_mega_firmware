@@ -60,9 +60,9 @@ typedef struct{
 	vectorf_t vel_rf;				/*!< Velocity in the rocket frame. */
 	vectorf_t pos_rf;				/*!< Positon in the rocket frame. */
 
-	vectorf_t acc_enu;				/*!< Acceleration in the rocket frame. */
-	vectorf_t vel_enu;				/*!< Velocity in the rocket frame. */
-	vectorf_t pos_enu;				/*!< Positon in the ECEF frame. */
+	vectorf_t acc_enu;				/*!< Acceleration in the earth ENU frame. */
+	vectorf_t vel_enu;				/*!< Velocity in the earth ENU frame [m/s] (populated in flight). */
+	vectorf_t pos_enu;				/*!< Position in the earth ENU frame [m], integrated from vel_enu (origin = launch/reset point). */
 
 	orientation_t orientation;		/*!< Orientation of the rocket. */
 
@@ -113,6 +113,13 @@ void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag);
  * @brief TODO
  */
 void AHRS_setInFlight();
+
+/**
+ * @brief Zeroes the integrated earth-frame velocity (vel_enu) and position (pos_enu).
+ *        Called automatically at launch (AHRS_setInFlight); call it manually to clear
+ *        accumulated drift before a bench test.
+ */
+void AHRS_resetVelocityPosition();
 
 /**
  * @brief TODO

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 /**
  * @brief Enum representing the different flight states.
  * 
@@ -67,3 +69,9 @@ flightstate_t FSD_getState();
 armingstatus_t FSD_checkArmed();
 void FSD_disarming();
 void FSD_arming();
+
+/**
+ * @brief True while active steering should run: set at motor burnout (BOOST exit),
+ *        cleared at apogee (FREEFALL), on disarm and at startup.
+ */
+bool FSD_isSteeringEnabled();

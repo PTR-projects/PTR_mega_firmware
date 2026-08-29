@@ -34,6 +34,7 @@
 #include "SBUS_driver.h"
 #include "Cansat_driver.h"
 #include "Effector_driver.h"
+#include "Guidance.h"
 #include "BOARD_cfg.h"
 
 //----------- Our defines --------------
@@ -84,6 +85,8 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	SysMgr_checkout(checkout_main, check_ready);
 	ESP_LOGI(TAG, "Task Main - ready!");
 
+	//Guidance_init(1.0f, 0.0f, 0.2f);	// pitch/yaw steering PIDs - TUNE gains
+
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( 1000 / CONFIG_MAIN_LOOP_FREQUENCY ));	
@@ -100,6 +103,8 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		flightstate_t  fsd_state = FSD_getState();
 		servo_t		  *servos    = Servo_get   ();
 		IGN_t		  igniters   = IGN_getState();
+
+		//Guidance_step(ahrs, sensors);	// active fin steering (actuates only while FSD_isSteeringEnabled())
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
@@ -346,7 +351,7 @@ void task_kpptr_effector(void *pvParameter){
 	// 0 -> centre, -100 -> min_us. ignore_arm=false -> gated by Effector_armServos()/
 	// FSD arming (set true for bench testing without arming). INFINITE -> holds position.
 	Effector_register(EFFECTOR_PITCH, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 1}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
-	Effector_register(EFFECTOR_YAW, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 2}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
+    Effector_register(EFFECTOR_YAW, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 2}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
 
 	Servo_enable();   // assert SERVO_EN_PIN - powers the servo rail (required to move)
 	Effector_armServos();       
@@ -361,15 +366,6 @@ void task_kpptr_effector(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		Effector_srv();
 
-		          // REQUIRED — ignore_arm=false gates the servos
-		Effector_set(EFFECTOR_PITCH, 0);       // servo 1 → +60%
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));
-		Effector_set(EFFECTOR_PITCH, 100); 
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));
-		Effector_set(EFFECTOR_PITCH, 0); 
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));
-		Effector_set(EFFECTOR_PITCH, -100); 
-		vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	}
 
 	vTaskDelete(NULL);

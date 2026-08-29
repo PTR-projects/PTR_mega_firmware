@@ -39,6 +39,7 @@ static const char *TAG = "FSD";
 
 static uint64_t stateChangeTime = 0;
 static armingstatus_t armstatus_d = DISARMED;
+static bool flag_steering_enabled = false;	// active steering allowed (burnout..apogee)
 
 void FSD_arming(){
 	armstatus_d = ARMED;
@@ -55,6 +56,10 @@ void FSD_disarming(){
 
 armingstatus_t IRAM_ATTR FSD_checkArmed(){
 	return armstatus_d;
+}
+
+bool IRAM_ATTR FSD_isSteeringEnabled(){
+	return flag_steering_enabled;
 }
 
 flightstate_t IRAM_ATTR FSD_getState(){
@@ -86,8 +91,9 @@ esp_err_t FSD_init(AHRS_t * ahrs){
 	AHRS_ptr = ahrs;
 
 	flightState_d.state = FLIGHTSTATE_STARTUP;
+	flag_steering_enabled = false;
 	FSD_disarming();
-	
+
 
 	return ESP_OK;
 }
@@ -95,6 +101,7 @@ esp_err_t FSD_init(AHRS_t * ahrs){
 esp_err_t IRAM_ATTR FSD_detect(uint64_t time_ms){
 	if(FSD_checkArmed() == DISARMED){
 		flightState_d.state = FLIGHTSTATE_STARTUP;
+		flag_steering_enabled = false;
 		Sensors_UpdateReferencePressure();
 		AHRS_resetMaxAltitude();
 		Sensors_calibrateGyro(0.1f);
@@ -222,6 +229,7 @@ static void IRAM_ATTR FlightState_BOOST(uint64_t time_ms, FlightState_t * curren
 
 	//State change conditions
 	if((TIME_ELAPSED(stateChangeTime, time_ms, 500))  && (ahrs->acc_axis_lowpass < 0.0f) ) {
+		flag_steering_enabled = true;	// motor burnout -> enable active steering
 		currentState->state = FLIGHTSTATE_SECOND_STAGE_DELAY;
 		currentState->state_ready = false;
 	}
@@ -328,6 +336,7 @@ static void IRAM_ATTR FlightState_FREEFALL(uint64_t time_ms, FlightState_t * cur
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
 		stateChangeTime = time_ms;
+		flag_steering_enabled = false;	// apogee -> stop steering
 	}
 
 	//Executed every loop

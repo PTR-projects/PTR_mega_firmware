@@ -81,7 +81,31 @@ esp_err_t IRAM_ATTR AHRS_compute(int64_t time_us, Sensors_t * sensors, gps_t gps
 		AHRS_CalcVelocityPosition();
 		AHRS_CalcApogeeEstimation();
 	}
-	
+
+	// Zero-Velocity Update (ZUPT) - PRE-LAUNCH ONLY. While the board sits on the pad,
+	// force horizontal ENU velocity to 0: kills inertial drift and the start-up transient.
+	// Gated to !flag_in_flight so that once launched the velocity integrates freely (needed for
+	// guidance, and so a stationary board on the bench after launch is NOT zeroed). In real flight
+	// this gate is moot (boost has high |a|, coast has |a|~0, so the rest test never fires anyway).
+	float zupt_gyro = sqrtf(POW2(sensors->LSM6DSO32.gyroX) + POW2(sensors->LSM6DSO32.gyroY) + POW2(sensors->LSM6DSO32.gyroZ)); // deg/s
+	float zupt_acc  = sqrtf(POW2(sensors->LSM6DSO32.accX)  + POW2(sensors->LSM6DSO32.accY)  + POW2(sensors->LSM6DSO32.accZ));  // g
+	if((flag_in_flight == false) && (zupt_gyro < 5.0f) && (fabsf(zupt_acc - 1.0f) < 0.05f)){
+		AHRS_d.vel_enu.x = 0.0f;
+		AHRS_d.vel_enu.y = 0.0f;
+	}
+
+
+	/*static uint32_t pos_log_cnt = 0;
+	if(++pos_log_cnt >= 20){
+		pos_log_cnt = 0;
+		ESP_LOGI(TAG, "eul[deg] r=%.1f p=%.1f y=%.1f | acc_enu[m/s2] x=%.2f y=%.2f z=%.2f | vel[m/s] x=%.2f y=%.2f z=%.2f | pos[m] x=%.1f y=%.1f z=%.1f | acc_norm %.2f",
+				 AHRS_d.orientation.euler.roll, AHRS_d.orientation.euler.pitch, AHRS_d.orientation.euler.yaw,
+				 AHRS_d.acc_enu.x, AHRS_d.acc_enu.y, AHRS_d.acc_enu.z,
+				 AHRS_d.vel_enu.x, AHRS_d.vel_enu.y, AHRS_d.vel_enu.z,
+				 AHRS_d.pos_enu.x, AHRS_d.pos_enu.y, AHRS_d.pos_enu.z,
+				sqrtf(AHRS_d.acc_enu.x*AHRS_d.acc_enu.x + AHRS_d.acc_enu.y*AHRS_d.acc_enu.y + AHRS_d.acc_enu.z*AHRS_d.acc_enu.z));
+	}*/
+
 	return ESP_OK;
 }
 
@@ -90,9 +114,21 @@ void AHRS_orientationSettings(uint8_t enableAcc, uint8_t enableMag){
 	orientation_useMag = enableMag;
 }
 
+void AHRS_resetVelocityPosition(){
+	AHRS_d.vel_enu.x = 0.0f;
+	AHRS_d.vel_enu.y = 0.0f;
+	AHRS_d.vel_enu.z = 0.0f;
+	AHRS_d.pos_enu.x = 0.0f;
+	AHRS_d.pos_enu.y = 0.0f;
+	AHRS_d.pos_enu.z = 0.0f;
+}
+
 void AHRS_setInFlight(){
 	flag_in_flight = true;
 	orientation_useAcc = 0;
+
+	// Start earth-frame velocity/position integration from zero at launch (rocket ~stationary on rail).
+	AHRS_resetVelocityPosition();
 }
 
 //------------------ AHRS private functions -------------------
@@ -157,7 +193,11 @@ static void IRAM_ATTR AHRS_CalcAltitudeP(float press, float ref_press){
 
 static void IRAM_ATTR AHRS_CalcVelocityPosition(){
 	AHRS_kalmanAltitudeAscent_step(AHRS_d.dt, AHRS_d.altitudeP, AHRS_d.acc_up, &(AHRS_d.altitude), &AHRS_d.ascent_rate);
-	
+
+	// Vertical velocity/position from the baro-fused altitude Kalman (less drift than integration).
+	// Horizontal velocity/position are integrated in AHRS_TransformAccToENU() so they run pre-launch too.
+	AHRS_d.vel_enu.z = AHRS_d.ascent_rate;
+	AHRS_d.pos_enu.z = AHRS_d.altitude;
 }
 
 static void IRAM_ATTR AHRS_CalcApogeeEstimation(){
@@ -379,7 +419,17 @@ static void IRAM_ATTR AHRS_TransformAccToENU(){
 
 	AHRS_d.acc_up = acc_enu.z - GRAVITY;
 	AHRS_d.acc_enu = acc_enu;
-	
+
+	// Integrate horizontal ENU acceleration -> velocity -> position.
+	// Runs every cycle (including pre-launch) so the guidance can be exercised on the bench.
+	// Zeroed at launch in AHRS_setInFlight() and on demand via AHRS_resetVelocityPosition().
+	// Pure integration drifts with accel bias/tilt error - fine for a short bench move-test,
+	// bounded in flight by the launch reset + short flight time.
+	AHRS_d.vel_enu.x += acc_enu.x * AHRS_d.dt;
+	AHRS_d.vel_enu.y += acc_enu.y * AHRS_d.dt;
+	AHRS_d.pos_enu.x += AHRS_d.vel_enu.x * AHRS_d.dt;
+	AHRS_d.pos_enu.y += AHRS_d.vel_enu.y * AHRS_d.dt;
+
 	//ESP_LOGI(TAG, "%f", AHRS_d.acc_up);
 	//ESP_LOGI(TAG, "%f, %f, %f", acc_enu.x, acc_enu.y,acc_enu.z);
 }
