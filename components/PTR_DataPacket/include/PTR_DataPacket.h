@@ -43,6 +43,14 @@ typedef struct __attribute__((__packed__)){
     uint16_t redu;
 } kppacket_header_t;
 
+// Legacy header structure
+typedef struct __attribute__((__packed__)){
+    packet_id_t packet_id;
+    uint16_t sender_id;
+    uint16_t packet_no;
+    uint32_t timestamp_ms;
+} kppacket_legacyheader_t;
+
 // Sensors measurements
 typedef struct __attribute__((__packed__)){
     int16_t vbat_100;    // Vbat*100 (min. -327V, max. 327V)
@@ -133,14 +141,6 @@ typedef struct __attribute__((__packed__)){
 	int16_t servo3;
 } kppacket_recu_tm_t;
 
-// Legacy header structure
-typedef struct __attribute__((__packed__)){
-    packet_id_t packet_id;
-    uint16_t sender_id;
-    uint16_t packet_no;
-    uint32_t timestamp_ms;
-} kppacket_legacyheader_t;
-
 typedef struct __attribute__((__packed__)){
 	uint8_t state;
 	uint8_t flags;
@@ -164,7 +164,7 @@ typedef struct __attribute__((__packed__)){
 	int32_t lon;		//[1e-7 deg]
 	int32_t alti_gps;	//Height above ellipsoid [- mm]
 	uint8_t sats_fix;	//6b - sats + 2b fix
-} kppacket_payload_legacyfull_t;
+} kppacket_payload_rocket_t;
 
 typedef struct __attribute__((__packed__)){
     uint8_t packet_len;
