@@ -167,27 +167,6 @@ esp_err_t LORA_startRX(void) {
 	return ESP_OK;
 }
 
-esp_err_t LORA_performCAD(void) {
-	sx126x_irq_mask_t irq_status;
-	sx126x_cad_params_t par;
-	par.cad_detect_min  = 10;
-	par.cad_detect_peak = 23;
-	par.cad_exit_mode   = SX126X_CAD_LBT;
-	par.cad_symb_nb     = SX126X_CAD_04_SYMB;
-	par.cad_timeout     = 0;
-
-	sx126x_set_cad_params(0, &par);
-	sx126x_set_cad(0);
-	vTaskDelay(pdMS_TO_TICKS(10));
-	sx126x_get_irq_status(0, &irq_status);
-	sx126x_clear_irq_status(0, SX126X_IRQ_CAD_DONE | SX126X_IRQ_CAD_DETECTED);
-
-	if(irq_status & SX126X_IRQ_CAD_DETECTED)
-		return ESP_FAIL;  // channel busy
-
-	return ESP_OK;  // channel clear
-}
-
 esp_err_t LORA_receive(uint8_t *rxbuffer, uint8_t *size) {
 	esp_err_t ret = LORA_receivePacketLoRa(rxbuffer, size);
 	if(ret == ESP_OK)
