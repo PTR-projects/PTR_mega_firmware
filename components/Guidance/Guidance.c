@@ -20,7 +20,7 @@
 #define GUID_Q_FLOOR_PA     50.0f    /* dynamic-pressure floor for the guarded divide [Pa] */
 #define GUID_PID_OUT_LIMIT  5000.0f  /* PID clamp BEFORE /q (real limit is the deg saturation) */
 #define GUID_DERIV_TAU      0.02f    /* derivative low-pass time constant [s] */
-#define GUID_VEL_LIMIT_MS   50.0f    /* lateral velocity gate: stop steering if |vel_enu.x| or
+#define GUID_VEL_LIMIT_MS   40.0f    /* lateral velocity gate: stop steering if |vel_enu.x| or
                                         |vel_enu.y| exceeds this (either sign) [m/s]. Set to your
                                         airframe's max plausible lateral velocity. */
 

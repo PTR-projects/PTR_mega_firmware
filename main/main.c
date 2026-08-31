@@ -321,6 +321,7 @@ void task_kpptr_effector(void *pvParameter){
 	}
 
 #ifdef BOARD_SERVO_PWM_NUM
+	Servo_init(250, 1250, 100);
 	Servo_enable();   // power the servo rail at effector init (cut again after apogee, see loop below)
 #endif
 
