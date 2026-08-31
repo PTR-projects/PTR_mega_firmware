@@ -28,17 +28,16 @@ static const char* TAG = "Analog";
 // ── Channel layout ────────────────────────────────────────────────────────────
 // Channel 0  (index 0) = VBAT   — same order as original ADC_CHANNELS_LIST
 // Channels 1..IGN_NUM  (index 1+) = IGN inputs
-// All must be on ADC1 (GPIO 32–39); ADC2 cannot use continuous mode.
+// All must be on ADC1; ADC2 DMA is not supported on ESP32-S3.
 
 #define ADC_SAMPLES_PER_CH      128
 #define ADC_TOTAL_SAMPLES       (ADC_CHANNELS_NUM * ADC_SAMPLES_PER_CH)
 
-// Total ADC clock rate (across all channels). The ESP32-S3 continuous ADC only
-// accepts SOC_ADC_SAMPLE_FREQ_THRES_LOW..SOC_ADC_SAMPLE_FREQ_THRES_HIGH
-// (611 Hz..83.333 kHz), so run at the hardware maximum. A full burst of
-// ADC_TOTAL_SAMPLES then completes in ADC_TOTAL_SAMPLES / ADC_SAMPLE_FREQ_HZ
-// seconds (e.g. ~6 ms for 4 channels × 128 samples).
-#define ADC_SAMPLE_FREQ_HZ      SOC_ADC_SAMPLE_FREQ_THRES_HIGH
+// Total ADC clock rate (across all channels). Stay well inside the ESP32-S3
+// continuous-ADC range (611 Hz..83.333 kHz). The converter is left running, so
+// this only sets how fast a frame fills after a restart — not a start/stop burst.
+#define ADC_SAMPLE_FREQ_HZ      40000
+#define ADC_READ_TIMEOUT_MS     50
 
 // ── Calibration scheme selection ──────────────────────────────────────────────
 // ESP32 supports curve-fitting calibration; earlier chips only have line-fitting.
@@ -78,6 +77,7 @@ static uint32_t Analog_getIGN(uint32_t ign_num, uint32_t vbat);
 static uint32_t Analog_getVBAT(void);
 static esp_err_t init_analog(void);
 static esp_err_t make_adc_read(void);
+static void adc_try_restart(void);
 
 // ── Calibration helpers ───────────────────────────────────────────────────────
 
@@ -179,7 +179,7 @@ float Analog_getTempMCU(void)
 
 void Analog_update(Analog_meas_t *meas)
 {
-    // Trigger DMA burst: 128 samples × ADC_CHANNELS_NUM channels
+    // Read one DMA frame: 128 samples × ADC_CHANNELS_NUM channels
     if (make_adc_read() != ESP_OK) {
         ESP_LOGE(TAG, "ADC burst read failed");
         return;
@@ -216,8 +216,9 @@ static esp_err_t init_analog(void)
     const uint32_t frame_bytes = ADC_TOTAL_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES;
 
     adc_continuous_handle_cfg_t handle_cfg = {
-        .max_store_buf_size = frame_bytes * 2,  // 2× so DMA never stalls
-        .conv_frame_size    = frame_bytes,       // one burst = exactly our samples
+        .max_store_buf_size = frame_bytes * 4,
+        .conv_frame_size    = frame_bytes,
+        .flags.flush_pool   = 1,  // keep latest samples when the analog task is slow
     };
     ESP_ERROR_CHECK(adc_continuous_new_handle(&handle_cfg, &s_adc_handle));
 
@@ -254,63 +255,80 @@ static esp_err_t init_analog(void)
         s_temp_handle = NULL;
     }
 
+    ESP_ERROR_CHECK(adc_continuous_start(s_adc_handle));
+
     ESP_LOGI(TAG, "ADC continuous init OK — %d ch × %d samples @ %lu Hz",
              ADC_CHANNELS_NUM, ADC_SAMPLES_PER_CH, (uint32_t)ADC_SAMPLE_FREQ_HZ);
     return ESP_OK;
 }
 
-// ── Private: DMA burst read ───────────────────────────────────────────────────
-//
-// Pattern:
-//   1. Start continuous conversion
-//   2. vTaskDelay(1 ms) — hardware fills DMA, CPU yields
-//   3. Poll adc_continuous_read() with zero timeout
-//   4. If not ready yet, delay 1 ms more and retry
-//   5. Stop conversion, accumulate averages into VBAT_RAW / IGN_RAW[]
+// Restart DMA after a timeout. Flash operations on this core disable the cache
+// and can stall the ADC ISR unless CONFIG_ADC_CONTINUOUS_ISR_IRAM_SAFE is set.
+static void adc_try_restart(void)
+{
+    adc_continuous_stop(s_adc_handle);
+    adc_continuous_flush_pool(s_adc_handle);
+    esp_err_t err = adc_continuous_start(s_adc_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "ADC restart failed: %s", esp_err_to_name(err));
+    }
+}
+
+// ── Private: DMA frame read ───────────────────────────────────────────────────
+// The converter is started once in init_analog() and left running. Start/stop
+// every Analog_update() races GDMA and routinely returns 0 bytes. A blocking
+// read also assembles a frame across ring-buffer wrap-around (ReceiveUpTo
+// may return less than conv_frame_size).
 
 static esp_err_t make_adc_read(void)
 {
-    // Static buffer — avoids putting ~1.5 KB on the task stack every call
+    // Static buffer — avoids putting ~2.5 KB on the task stack every call
     static uint8_t s_raw_buf[ADC_TOTAL_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES];
 
     const uint32_t frame_bytes = ADC_TOTAL_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES;
-    const uint32_t timeout_ms  = 50;
-    const TickType_t deadline  = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
+    uint32_t filled = 0;
+    const TickType_t start_tick = xTaskGetTickCount();
+    const TickType_t timeout_ticks = pdMS_TO_TICKS(ADC_READ_TIMEOUT_MS);
 
-    // ── 1. Start ──────────────────────────────────────────────────────────────
-    esp_err_t err = adc_continuous_start(s_adc_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "adc_continuous_start failed: %s", esp_err_to_name(err));
-        return err;
+    // Drop samples already sitting in the pool so we average a fresh frame.
+    {
+        uint32_t n = 0;
+        while (adc_continuous_read(s_adc_handle, s_raw_buf, frame_bytes, &n, 0) == ESP_OK && n > 0) {
+            n = 0;
+        }
     }
 
-    // ── 2 & 3. Delay → poll loop ──────────────────────────────────────────────
-    uint32_t bytes_read = 0;
-    bool     got_frame  = false;
-
-    while (xTaskGetTickCount() < deadline) {
-        vTaskDelay(pdMS_TO_TICKS(1));   // yield; DMA keeps filling in background
-
-        bytes_read = 0;
-        err = adc_continuous_read(s_adc_handle, s_raw_buf, frame_bytes,
-                                  &bytes_read, 0 /* non-blocking */);
-
-        if (err == ESP_OK && bytes_read == frame_bytes) {
-            got_frame = true;
+    while (filled < frame_bytes) {
+        TickType_t elapsed = xTaskGetTickCount() - start_tick;
+        if (elapsed >= timeout_ticks) {
             break;
         }
-        // ESP_ERR_TIMEOUT = buffer not full yet — loop again
+
+        uint32_t wait_ms = (timeout_ticks - elapsed) * portTICK_PERIOD_MS;
+        if (wait_ms == 0) {
+            wait_ms = 1;
+        }
+
+        uint32_t n = 0;
+        esp_err_t err = adc_continuous_read(s_adc_handle, s_raw_buf + filled,
+                                            frame_bytes - filled, &n, wait_ms);
+        if (err != ESP_OK || n == 0) {
+            break;
+        }
+        filled += n;
     }
 
-    // ── 4. Stop — always, even on timeout ────────────────────────────────────
-    adc_continuous_stop(s_adc_handle);
-
-    if (!got_frame) {
-        ESP_LOGE(TAG, "ADC burst timed out (got %lu / %lu bytes)", bytes_read, frame_bytes);
+    if (filled == 0) {
+        ESP_LOGE(TAG, "ADC burst timed out (got 0 / %lu bytes)", frame_bytes);
+        adc_try_restart();
         return ESP_ERR_TIMEOUT;
     }
 
-    // ── 5. Accumulate per-channel sums ───────────────────────────────────────
+    if (filled < frame_bytes) {
+        ESP_LOGW(TAG, "ADC frame short (got %lu / %lu bytes)", filled, frame_bytes);
+    }
+
+    // ── Accumulate per-channel sums ───────────────────────────────────────────
     uint64_t acc[ADC_CHANNELS_NUM]   = {0};
     uint32_t cnt[ADC_CHANNELS_NUM]   = {0};
     uint32_t ch_list[ADC_CHANNELS_NUM] = {ADC_CHANNELS_LIST};
@@ -324,7 +342,7 @@ static esp_err_t make_adc_read(void)
         }
     }
 
-    const uint32_t num_results = bytes_read / SOC_ADC_DIGI_RESULT_BYTES;
+    const uint32_t num_results = filled / SOC_ADC_DIGI_RESULT_BYTES;
     for (uint32_t i = 0; i < num_results; i++) {
         adc_digi_output_data_t *p =
             (adc_digi_output_data_t *)&s_raw_buf[i * SOC_ADC_DIGI_RESULT_BYTES];
@@ -339,12 +357,16 @@ static esp_err_t make_adc_read(void)
         }
     }
 
-    // ── 6. Write averaged results → module-level raw variables ───────────────
-    VBAT_RAW = (cnt[0] > 0) ? (uint32_t)(acc[0] / cnt[0]) : 0;
+    // ── Write averaged results → module-level raw variables ───────────────────
+    if (cnt[0] > 0) {
+        VBAT_RAW = (uint32_t)(acc[0] / cnt[0]);
+    }
 
     for (uint8_t i = 0; i < IGN_NUM; i++) {
         uint8_t idx = i + 1;    // IGN channels start at index 1
-        IGN_RAW[i] = (cnt[idx] > 0) ? (uint32_t)(acc[idx] / cnt[idx]) : 0;
+        if (cnt[idx] > 0) {
+            IGN_RAW[i] = (uint32_t)(acc[idx] / cnt[idx]);
+        }
     }
 
     ESP_LOGD(TAG, "burst done — VBAT_RAW=%lu  (n=%lu)", VBAT_RAW, cnt[0]);
