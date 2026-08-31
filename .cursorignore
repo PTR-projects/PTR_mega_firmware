@@ -1,0 +1,7 @@
+.git
+.github
+.pio
+.settings
+.vscode
+.esp_idf_components
+build
