@@ -14,6 +14,7 @@
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "esp_http_server.h"
+#include "mdns.h"
 #include "cJSON.h"
 
 
@@ -35,6 +36,7 @@ static const char *TAG = "Web_driver";
 
 #define WIFI_CHANNEL   1
 #define MAX_STA_CONN   1
+#define MDNS_HOSTNAME  "kpptr"
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 
@@ -51,6 +53,7 @@ Web_driver_live_t live_web;
 
 
 esp_err_t Web_wifi_init 				(void);
+esp_err_t Web_mdns_init					(void);
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop						(httpd_handle_t server);
 esp_err_t Web_wifi_stop					(void);
@@ -81,6 +84,7 @@ esp_err_t Web_init(void){
 
 	ret = Web_wifi_init();
 	if(ret == ESP_OK){
+		Web_mdns_init();
 		ret = Web_http_init(base_path);
 	}
 
@@ -174,6 +178,41 @@ esp_err_t Web_wifi_init(void){
     // ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
 
     return ESP_OK;
+}
+
+
+/*!
+ * @brief Start mDNS responder so the board is reachable at kpptr.local.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` otherwise.
+ */
+esp_err_t Web_mdns_init(void){
+	esp_err_t ret = mdns_init();
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "mDNS init failed: %s", esp_err_to_name(ret));
+		return ret;
+	}
+
+	ret = mdns_hostname_set(MDNS_HOSTNAME);
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "mDNS hostname set failed: %s", esp_err_to_name(ret));
+		return ret;
+	}
+
+	ret = mdns_instance_name_set("KPPTR");
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "mDNS instance name set failed: %s", esp_err_to_name(ret));
+		return ret;
+	}
+
+	ret = mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "mDNS HTTP service add failed: %s", esp_err_to_name(ret));
+		return ret;
+	}
+
+	ESP_LOGI(TAG, "mDNS started: http://%s.local/", MDNS_HOSTNAME);
+	return ESP_OK;
 }
 
 
@@ -900,6 +939,7 @@ void Web_http_stop(httpd_handle_t server){
 esp_err_t Web_wifi_stop(void){
 	esp_err_t ret = ESP_FAIL;
 
+	mdns_free();
 	ret = esp_wifi_stop();
 
 	return ret;
