@@ -22,10 +22,12 @@ static uint8_t getRandomByte();
 
 void DataPacket_init(){
     #if TARGET_ESP
-
+    
     #else
     srand(134);
     #endif
+
+    Encryption_init(12345);
 }
 
 int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint8_t sender_id, uint8_t dest_id, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len){
