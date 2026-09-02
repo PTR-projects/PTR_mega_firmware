@@ -6,7 +6,7 @@
 #include "SPI_driver.h"
 #include "esp_log.h"
 #include "MS5607_driver.h"
-#include "BOARD.h"
+#include "BOARD_cfg.h"
 #include <string.h>
 
 static const char *TAG = "MS5607";
@@ -240,33 +240,6 @@ static esp_err_t MS5607_calcTemp() {
 
 		int32_t dT   = D2 - (C5 << 8);
 		int32_t TEMP = 2000 + ((dT * C6) >> 23);
-
-		//	---------------------- Do dopracowania ----------------------------------
-		//	/*
-		//	 * Second order temperature compensation (as per datasheet)
-		//	 */
-		//	int32_t T2;
-		//	int32_t OFF2;
-		//	int64_t SENS2;
-		//	if(TEMP < 2000) {
-		//		T2 = dT / ((uint32_t)1<<31);
-		//		OFF2 = (61 * ((TEMP-2000) * (TEMP-2000))) / ((uint32_t)1<<4);
-		//		SENS2 = 2 * ((((uint64_t)TEMP)-2000) * (((uint64_t)TEMP)-2000));
-		//
-		//		if(TEMP < -1500) {
-		//			OFF2 = OFF2 + (15 * ((TEMP + 1500) * (TEMP + 1500)));
-		//			SENS2 = SENS2 + (8 * ((TEMP + 1500) * (TEMP + 1500)));
-		//		}
-		//	}
-		//	else {
-		//		T2 = 0;
-		//		OFF2 = 0;
-		//		SENS2 = 0;
-		//	}
-		//
-		//	TEMP = TEMP - T2;
-		//	data->OFF2 = OFF2;
-		//	data->SENS2 = SENS2;
 
 		MS5607_d[sensor].dT   = dT;
 		MS5607_d[sensor].meas.temp = ((float)TEMP) / 100.0f;

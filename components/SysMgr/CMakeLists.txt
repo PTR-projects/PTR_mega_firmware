@@ -1,4 +1,4 @@
 idf_component_register(SRCS "SysMgr.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES LED_driver)
+                    REQUIRES LED_driver BOARD_cfg)
 

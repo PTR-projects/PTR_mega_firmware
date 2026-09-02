@@ -1,7 +1,7 @@
 #include "LED_driver.h"
 #include "esp_log.h"
 #include "freertos/semphr.h"
-#include "BOARD.h"
+#include "BOARD_cfg.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_err.h"
@@ -78,6 +78,7 @@ esp_err_t BUZZER_init(){
 
 esp_err_t LED_srv() {
 	ESP_LOGV(TAG, "LED UPDATE");
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
 		for (uint8_t i = 0; i < (LED_ARRAY_SIZE); i++) {
 
@@ -136,6 +137,7 @@ esp_err_t LED_srv() {
 
 esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number){
 #if (BUZZER_COUNT > 0)
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
 		if (beeps_number == 0) {
 			led_mode		(BUZZER_ARRAY_POS, LED_MODE_BLINK);
@@ -155,6 +157,7 @@ esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number
 
 esp_err_t LED_blinkSTD(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
 #if (LED_STD_COUNT > 0)
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(1000)) == pdTRUE){
 		if (blinks_number == 0) {
 			led_mode(LED_WS_RGB_COUNT + led_no, LED_MODE_BLINK);
@@ -177,6 +180,7 @@ esp_err_t LED_blinkWS(int16_t led_no, led_colour_t colour, uint8_t brightness_pe
 	if(led_no == -1)
 		return ESP_FAIL;
 
+	if(mutex_LED == NULL) return ESP_ERR_INVALID_STATE;	// LED_init() not run yet
 	if(xSemaphoreTake(mutex_LED, pdMS_TO_TICKS(100)) == pdTRUE){
 		if (blinks_number == 0) {
 			strip_led_colour(led_no, colour, brightness_percent);
@@ -250,7 +254,7 @@ esp_err_t LED_setIGN(uint8_t ign_no, uint8_t brightness_percent, int8_t state){
 
 	if(LED_CHECK_IF_WS(LED_POS_IGN[ign_no])){
 		led_colour_t colour = (state==-1)?COLOUR_RED:(state?COLOUR_GREEN:COLOUR_ORANGE);
-		return LED_blinkWS(LED_POS_IGN[ign_no], colour, brightness_percent, 100, 0, 0);
+		return LED_blinkWS(LED_POS_IGN[ign_no], colour, brightness_percent, 400, 0, 1);
 	}
 	else if(LED_CHECK_IF_STD(LED_POS_IGN[ign_no])){
 		//return LED_blinkSTD(LED_POS_IGN1, t_on_ms, t_off_ms, blinks_number);
@@ -318,10 +322,14 @@ static esp_err_t ws2812_control_deinit(void) {
 }
 
 static esp_err_t  ws2812_update(void) {
-	ESP_ERROR_CHECK(
-			rmt_write_items(STRIP_LED_CHANNEL, led_data_buffer,
-					LED_WS_BUFFER_ITEMS, false));
-	ESP_ERROR_CHECK (rmt_wait_tx_done( STRIP_LED_CHANNEL, portMAX_DELAY));
+	if(rmt_write_items(STRIP_LED_CHANNEL, led_data_buffer, LED_WS_BUFFER_ITEMS, false) != ESP_OK){
+		ESP_LOGE(TAG, "rmt_write_items failed");
+		return ESP_FAIL;
+	}
+	if(rmt_wait_tx_done(STRIP_LED_CHANNEL, portMAX_DELAY) != ESP_OK){
+		ESP_LOGE(TAG, "rmt_wait_tx_done failed");
+		return ESP_FAIL;
+	}
 	return ESP_OK;
 }
 

@@ -24,7 +24,8 @@
 #include "DataManager.h"
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
-#include "Wifi_driver.h"
+#include "AHRS_driver.h"
+#include "FlightStateDetector.h"
 
 #include "Web_driver.h"
 #include "Web_driver_json.h"
@@ -45,8 +46,6 @@ static const char *TAG = "Web_driver";
 Web_driver_status_t status_web;
 Web_driver_live_t live_web;
 
-
-esp_err_t Web_init 				        (void);
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop						(httpd_handle_t server);
 esp_err_t Web_wifi_stop					(void);
@@ -87,16 +86,21 @@ esp_err_t Web_init(void){
 	return ret;
 }
 
+/*!
+ * @brief Initialize web storage for future use.
+ * @return `ESP_OK` if initialized
+ * @return `ESP_FAIL` if failed.
+ */
 esp_err_t Web_storageInit(){
 	esp_err_t ret = ESP_FAIL;
 
 	ret = esp_vfs_spiffs_register(&conf);
 
-	 if(ret != ESP_OK){
-		ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
-	 }
+	if(ret != ESP_OK){
+	    ESP_LOGE(TAG, "Failed to mount or format WWW filesystem: %s", esp_err_to_name(ret));
+	}
 
-	 return ret;
+	return ret;
 }
 
 /*!
@@ -678,6 +682,7 @@ esp_err_t config_post_handler(httpd_req_t *req){
 
 	buf[total_len] = '\0';
 	Prefences_update_web(buf);
+    ESP_LOGI(TAG, "%s", buf);
 	httpd_resp_sendstr(req, "Post control value successfully");
 
     return ESP_OK;
@@ -886,6 +891,7 @@ esp_err_t Web_status_updateIgniters(uint8_t ign1_fired, uint8_t ign2_fired, uint
 esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, uint8_t state_analog,
 								  uint8_t state_lora, uint8_t state_adcs, uint8_t state_storage,
 								  uint8_t state_sysmgr, uint8_t state_utils, uint8_t state_web,
+                                  uint8_t state_effector,
 								  uint8_t arm){
     status_web.timestamp_ms 			= timestamp_ms;
     status_web.sysmgr_system_status     = state_system;    //zmiana nazwy z "system"
@@ -896,6 +902,7 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
     status_web.sysmgr_sysmgr_status     = state_sysmgr;
     status_web.sysmgr_utils_status      = state_utils;
     status_web.sysmgr_web_status        = state_web;
+    status_web.sysmgr_effector_status   = state_effector;
     status_web.sysmgr_arm_state			= arm;
 
     return ESP_OK;
@@ -933,7 +940,9 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 }
 
 
-esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
+esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr){
+    if(DataPackage_ptr == NULL || ahrs_ptr == NULL)
+        return ESP_FAIL;
     Web_driver_live_t     live_web;
 
     live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
@@ -947,7 +956,7 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
     live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
     live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
-    live_web.LSM6DS32_1.ax = 10.0f;
+    live_web.LSM6DS32_1.ax = 0.0f;
     live_web.LSM6DS32_1.ay = 0.0f;
     live_web.LSM6DS32_1.az = 0.0f;
     live_web.LSM6DS32_1.gx = 0.0f;
@@ -957,19 +966,19 @@ esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr){
     live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
     live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
     live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
-    live_web.MS5607.altitude = 0.0f;
+    live_web.MS5607.altitude = ahrs_ptr->altitudeP;
     live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
     live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
-    live_web.anglex = 0.0f;
-    live_web.angley = 0.0f;
-    live_web.anglez = 0.0f;
+    live_web.anglex = ahrs_ptr->orientation.euler.roll;
+    live_web.angley = ahrs_ptr->orientation.euler.pitch;
+    live_web.anglez = ahrs_ptr->orientation.euler.yaw;
     live_web.gps.fix 		= DataPackage_ptr->sensors.gnss_fix >> 6;
     live_web.gps.latitude 	= DataPackage_ptr->sensors.latitude;
     live_web.gps.longitude 	= DataPackage_ptr->sensors.longitude;
     live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
 
     status_web.flight_state = DataPackage_ptr->flightstate;
-	status_web.rocket_tilt  = DataPackage_ptr->ahrs.tilt;
+	status_web.rocket_tilt  = AHRS_calcTilt(&(ahrs_ptr->orientation.euler));
 
     Web_live_exchange(live_web);
     return ESP_OK;

@@ -8,10 +8,12 @@
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
 #include "Servo_driver.h"
+#include "PTR_DataPacket.h"
 
 /**
  * @brief Data structure representing a data package.
  * A data package contains sensor readings, AHRS data, flight state information, and other data.
+ *  !!! Any change to this structure force a change in data parser in Web_driver !!!
  */
 typedef struct __attribute__((__packed__)){
 	uint32_t sys_time;
@@ -77,38 +79,6 @@ typedef struct __attribute__((__packed__)){
 	uint8_t blank[4];
 } DataPackage_t;
 
-/**
- * @brief Data structure representing a data package for radio frequency (RF) transmission.
- * This data structure is packed to reduce the size of the transmitted data.
- */
-typedef struct __attribute__((__packed__)){
-	uint16_t packet_id;				/*!< Packet identifier. */
-	uint16_t id;					/*!< Device identifier. */
-	uint16_t packet_no;				/*!< Packet number. */
-	uint32_t timestamp_ms;			/*!< Timestamp (in milliseconds). */
-	uint8_t state;					/*!< Device state. */
-	uint8_t flags;					/*!< Flags. */
-
-	uint8_t vbat_10;				/*!< Battery voltage (in decivolts [V*10]). *///
-
-	int16_t accX_100;				/*!< Acceleration on the X axis (in hundredths of g [G*100]). */
-	int16_t accY_100;				/*!< Acceleration on the Y axis (in hundredths of g [G*100]). */
-	int16_t accZ_100;				/*!< Acceleration on the Z axis (in hundredths of g [G*100]). */
-
-	int16_t gyroX_10;				/*!< Angular velocity on the X axis (in tenths of degrees per second [deg/s * 10]). */ //Check unit
-	int16_t gyroY_10;				/*!< Angular velocity on the Y axis (in tenths of degrees per second [deg/s  * 10]). */
-	int16_t gyroZ_10;				/*!< Angular velocity on the Z axis (in tenths of degrees per second [deg/s  * 10]). */
-
-	int16_t tilt_100;				/*!< Tilt angle (in hundredths of degrees [deg*100]). */
-	float pressure;					/*!< Pressure (in Pascals). */
-	int16_t velocity_10;			/*!< Velocity (in tenths of meters per second [m/s*10]). */
-	uint16_t altitude;				/*!< Altitude in emters [m]. */
-
-	int32_t lat;		/*!< Latitude (in 1e-7 degrees). */
-	int32_t lon;		/*!< Longitude (in 1e-7 degrees). */
-	int32_t alti_gps;	/*!< Altitude above the ellipsoid (in millimeters). */
-	uint8_t sats_fix;	/*!< Number of satellites and fix status (6b sats + 2b fix). */
-} DataPackageRF_t;
 
 /**
  * @brief Initialize the data manager (DM) module.
@@ -178,4 +148,4 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
  * @param[in] ign Pointer to an ::IGN_t structure containing IGN data.
  */
 
-void DM_collectRF(DataPackageRF_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign);
+void DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog);

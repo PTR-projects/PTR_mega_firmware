@@ -10,7 +10,7 @@
 #include "freertos/timers.h"
 #include <driver/spi_master.h>
 #include <string.h>
-#include "BOARD.h"
+#include "BOARD_cfg.h"
 #include "esp_err.h"
 #include "driver/gpio.h"
 #include "esp_log.h"

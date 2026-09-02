@@ -4,8 +4,8 @@
  * @brief Data structure representing analog measurements.
  */
 typedef struct{
-	int8_t IGN_det[IGN_NUM];
 	uint32_t vbat_mV;
+	int8_t IGN_det[IGN_NUM];
 	float temp;
 } Analog_meas_t;
 
@@ -28,4 +28,13 @@ float Analog_getTempMCU();
  * @param[out] analog Pointer to a ::Analog_meas_t structure where the measurements will be stored.
  */
 void Analog_update(Analog_meas_t *);
+
+/**
+ * @brief Read the ignition detection state for a single channel.
+ * @brief Convenience wrapper around meas->IGN_det[].
+ *
+ * @param meas    Measurement struct previously filled by Analog_update().
+ * @param ign_no  Channel index (0-based, must be < IGN_NUM).
+ * @return  1 = ignition detected, 0 = not detected, -1 = invalid/error.
+ */
 int8_t Analog_getIGNstate(Analog_meas_t * meas, uint8_t ign_no);

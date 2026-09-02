@@ -22,6 +22,10 @@ static const char *TAG = "Web_driver_json";
 char* Web_driver_json_statusCreate(Web_driver_status_t status){
 	char *string = NULL;
 	cJSON *json = cJSON_CreateObject();
+	if(json == NULL){
+		ESP_LOGE(TAG, "Cannot create JSON object");
+		return NULL;
+	}
 
 	cJSON *configuration = cJSON_CreateObject();
 	cJSON_AddNumberToObject(configuration, "serial_number", status.serial_number);
@@ -84,6 +88,10 @@ char* Web_driver_json_statusCreate(Web_driver_status_t status){
 char* Web_driver_json_liveCreate(Web_driver_live_t live){
 	char *string = NULL;
 	cJSON *json = cJSON_CreateObject();
+	if(json == NULL){
+		ESP_LOGE(TAG, "Cannot create JSON object");
+		return NULL;
+	}
 
 	cJSON *Global = cJSON_CreateObject();
 	cJSON_AddNumberToObject(Global, "timestamp", live.timestamp);
@@ -167,6 +175,10 @@ char* Web_driver_json_prefCreate(){
 
 	char *string = NULL;
 	cJSON *json = cJSON_CreateObject();
+	if(json == NULL){
+		ESP_LOGE(TAG, "Cannot create JSON object");
+		return NULL;
+	}
 
 	cJSON_AddNumberToObject(json, "pref_launchpad_height", 	pref.rail_height_mm);
 	cJSON_AddNumberToObject(json, "pref_main_alt", 			pref.main_alt_m);
@@ -186,6 +198,7 @@ char* Web_driver_json_prefCreate(){
 	}
 
 	cJSON_Delete(json);
-	ESP_LOGI(TAG, "%s", string);
+	if(string != NULL)
+		ESP_LOGI(TAG, "%s", string);
 	return string;
 }

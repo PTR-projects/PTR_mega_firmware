@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "LSM6DSO32_driver.h"
 #include "LSM6DSO32_private.h"
 #include "LSM6DSO32_fifo.h"
@@ -393,9 +395,12 @@ esp_err_t LSM6DSO32_calibrateGyro(uint8_t sensor, float gain){
 		return ESP_OK;
 	}
 
-	LSM6DSO32_d[sensor].gyroXoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroX_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroXoffset;
-	LSM6DSO32_d[sensor].gyroYoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroY_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroYoffset;
-	LSM6DSO32_d[sensor].gyroZoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroZoffset;
+	if(sqrtf((float)LSM6DSO32_d[sensor].rawData.gyroX_raw * (float)LSM6DSO32_d[sensor].rawData.gyroX_raw + (float)LSM6DSO32_d[sensor].rawData.gyroY_raw * (float)LSM6DSO32_d[sensor].rawData.gyroY_raw + (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw * (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw) < 20.0f){
+		LSM6DSO32_d[sensor].gyroXoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroX_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroXoffset;
+		LSM6DSO32_d[sensor].gyroYoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroY_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroYoffset;
+		LSM6DSO32_d[sensor].gyroZoffset = gain * (float)LSM6DSO32_d[sensor].rawData.gyroZ_raw + (1.0f - gain) * LSM6DSO32_d[sensor].gyroZoffset;
+	}
+	
 
 	return ESP_OK;
 }

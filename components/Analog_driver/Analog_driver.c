@@ -1,223 +1,374 @@
 #include <stdio.h>
-#include "BOARD.h"
+#include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
 #include "esp_err.h"
 #include "esp_log.h"
+
 #include "driver/gpio.h"
-#include "driver/adc.h"
-#include "driver/temp_sensor.h"
-#include "esp_adc_cal.h"
+#include "esp_adc/adc_continuous.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+#include "driver/temperature_sensor.h"
+
+#include "BOARD_cfg.h"
+
 #include "Analog_driver.h"
-
-//--------- ULP -----------
-#include "driver/rtc_io.h"
-#include "esp32s3/ulp.h"
-#include "esp32s3/ulp_riscv.h"
-#include "esp32s3/ulp_riscv_adc.h"
-#include "hal/adc_ll.h"
-#include "hal/adc_hal.h"
-#include "main_ulp_adc.h"
-extern const uint8_t ulp_main_bin_start[] asm("_binary_main_ulp_adc_bin_start");
-extern const uint8_t ulp_main_bin_end[]   asm("_binary_main_ulp_adc_bin_end");
-static esp_err_t ulp_init_analog();
-static esp_err_t ulp_run_analog();
-static esp_err_t ulp_execute_and_wait();
-static void ulp_riscv_reset();
-
-#define GET_UNIT(x)        ((x>>3) & 0x1)
 
 static const char* TAG = "Analog";
 
-uint32_t ADC_CHANNELS[ADC_CHANNELS_NUM] = {ADC_CHANNELS_LIST};
-static esp_adc_cal_characteristics_t  adc_chars;
+// Size of the channel->index lookup table. Must cover every channel id used in
+// ADC_CHANNELS_LIST: the ESP32-S3 ADC1 exposes channels 0..9, and boards do use
+// the upper ones (e.g. VBAT on ADC_CHANNEL_9), so size this from the SoC caps
+// rather than hardcoding - a too-small value silently discards those samples.
+#define ADC_CHANNEL_MAX  SOC_ADC_MAX_CHANNEL_NUM
+
+// ── Channel layout ────────────────────────────────────────────────────────────
+// Channel 0  (index 0) = VBAT   — same order as original ADC_CHANNELS_LIST
+// Channels 1..IGN_NUM  (index 1+) = IGN inputs
+// All must be on ADC1; ADC2 DMA is not supported on ESP32-S3.
+
+#define ADC_SAMPLES_PER_CH      128
+#define ADC_TOTAL_SAMPLES       (ADC_CHANNELS_NUM * ADC_SAMPLES_PER_CH)
+
+// Total ADC clock rate (across all channels). Stay well inside the ESP32-S3
+// continuous-ADC range (611 Hz..83.333 kHz). The converter is left running, so
+// this only sets how fast a frame fills after a restart — not a start/stop burst.
+#define ADC_SAMPLE_FREQ_HZ      40000
+#define ADC_READ_TIMEOUT_MS     50
+
+// ── Calibration scheme selection ──────────────────────────────────────────────
+// ESP32 supports curve-fitting calibration; earlier chips only have line-fitting.
+// The preprocessor selects whichever is available in your IDF version.
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+    #define USE_CALI_CURVE_FIT  1
+#else
+    #define USE_CALI_CURVE_FIT  0
+#endif
+
+// ── Static state ──────────────────────────────────────────────────────────────
+
+static adc_continuous_handle_t  s_adc_handle  = NULL;
+static adc_cali_handle_t        s_cali_handle = NULL;
+static bool                     s_cali_ok     = false;
+
 static uint32_t ign_det_thr = 50;
 
-static float    filter_coeff	 = 0.6f;
+// Averaged raw 12-bit results, filled by make_adc_read()
+static uint32_t VBAT_RAW       = 0;
+static uint32_t IGN_RAW[IGN_NUM] = {0};
+
+// IIR filter state — same coefficients and logic as original
+static float    filter_coeff     = 0.6f;
 static float    filter_coeff_ign = 0.5f;
 static uint32_t voltage_ign[IGN_NUM] = {0};
 static uint32_t voltage_vbat = 0;
-static float	mcu_temp	 = 0.0f;
-static uint32_t vbat_mV_raw = 0;
+static float    mcu_temp     = 0.0f;
+static uint32_t vbat_mV_raw  = 0;
 
+// Temperature sensor handle (new driver API)
+static temperature_sensor_handle_t s_temp_handle = NULL;
 
-uint32_t Analog_getIGN(uint32_t ign_num, uint32_t vbat);
-uint32_t Analog_getVBAT();
+// ── Forward declarations ──────────────────────────────────────────────────────
+
+static uint32_t Analog_getIGN(uint32_t ign_num, uint32_t vbat);
+static uint32_t Analog_getVBAT(void);
+static esp_err_t init_analog(void);
+static esp_err_t make_adc_read(void);
+static void adc_try_restart(void);
+
+// ── Calibration helpers ───────────────────────────────────────────────────────
+
+static esp_err_t cali_init(void)
+{
+    esp_err_t err = ESP_FAIL;
+
+#if USE_CALI_CURVE_FIT
+    adc_cali_curve_fitting_config_t cali_cfg = {
+        .unit_id  = ADC_UNIT_1,
+        .atten    = ADC_ATTEN_DB_2_5,
+        .bitwidth = ADC_BITWIDTH_12,
+    };
+    err = adc_cali_create_scheme_curve_fitting(&cali_cfg, &s_cali_handle);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Calibration: curve-fitting scheme");
+    }
+#else
+    adc_cali_line_fitting_config_t cali_cfg = {
+        .unit_id       = ADC_UNIT_1,
+        .atten         = ADC_ATTEN_DB_2_5,
+        .bitwidth      = ADC_BITWIDTH_12,
+        .default_vref  = 1100,
+    };
+    err = adc_cali_create_scheme_line_fitting(&cali_cfg, &s_cali_handle);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Calibration: line-fitting scheme");
+    }
+#endif
+
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Calibration not available (%s) — using raw values", esp_err_to_name(err));
+        s_cali_handle = NULL;
+    }
+    return err;
+}
+
+// Convert a 12-bit raw value to millivolts, using calibration if available.
+static uint32_t raw_to_mv(uint32_t raw)
+{
+    if (s_cali_ok && s_cali_handle != NULL) {
+        int mv = 0;
+        esp_err_t err = adc_cali_raw_to_voltage(s_cali_handle, (int)raw, &mv);
+        if (err == ESP_OK) return (uint32_t)mv;
+    }
+    // Fallback: linear approximation for ADC_ATTEN_DB_2_5 (0–1250 mV range)
+    return (raw * 1250) / 4095;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
 
 esp_err_t Analog_init(uint32_t ign_det_thr_val, float filter)
 {
-	ign_det_thr = ign_det_thr_val;
-	filter_coeff = filter;
+    ign_det_thr  = ign_det_thr_val;
+    filter_coeff = filter;
 
-	//Check if TP is burned into eFuse
-	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
-		ESP_LOGI(TAG, "eFuse Two Point: Supported");
-	} else {
-		ESP_LOGI(TAG, "eFuse Two Point: NOT supported");
-	}
-	//Check Vref is burned into eFuse
-	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_VREF) == ESP_OK) {
-		ESP_LOGI(TAG, "eFuse Vref: Supported");
-	} else {
-		ESP_LOGI(TAG, "eFuse Vref: NOT supported");
-	}
+    // Calibration
+    s_cali_ok = (cali_init() == ESP_OK);
 
-	//Check TP+Vref is burned into eFuse
-	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP_FIT) == ESP_OK) {
-		ESP_LOGI(TAG, "eFuse Two Point+Vref: Supported");
-	} else {
-		ESP_LOGI(TAG, "eFuse Point+Vref: NOT supported");
-	}
+    // ADC continuous + temperature sensor
+    esp_err_t err = init_analog();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "ADC init failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
+    }
 
-	//Characterize ADC
-	esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_2_5, ADC_WIDTH_BIT_12, 1100, &adc_chars);
-	ESP_LOGI(TAG, "ADC calibration type: %i, Vref: %u", (int)val_type, adc_chars.vref);
-
-	// Init ADC for ULP
-	if(ulp_init_analog() != ESP_OK){
-		ESP_LOGE(TAG, "ULP ADC init failed!");
-		return ESP_FAIL;
-	}
-
-	//temp_sensor_read_celsius(&mcu_temp);	// Not implemented for ULP yet
-
-	return ESP_OK;
+    return ESP_OK;
 }
 
-uint32_t Analog_getIGN(uint32_t ign_num, uint32_t vbat){
-	uint32_t voltage = esp_adc_cal_raw_to_voltage((&ulp_IGN_RAW)[ign_num], &adc_chars);
-	ESP_LOGV(TAG, "IGN1 voltage: %dmV", voltage);
+static uint32_t Analog_getIGN(uint32_t ign_num, uint32_t vbat)
+{
+    uint32_t voltage = raw_to_mv(IGN_RAW[ign_num]);
+    ESP_LOGV(TAG, "IGN%lu voltage: %lumV", ign_num, voltage);
 
-    voltage_ign[ign_num] = filter_coeff_ign * voltage + (1-filter_coeff_ign) * voltage_ign[ign_num];
-
+    voltage_ign[ign_num] = (uint32_t)(filter_coeff_ign * voltage
+                           + (1.0f - filter_coeff_ign) * voltage_ign[ign_num]);
     return voltage_ign[ign_num];
 }
 
-uint32_t Analog_getVBAT(){
-	uint32_t voltage = esp_adc_cal_raw_to_voltage(ulp_VBAT_RAW, &adc_chars);
-	vbat_mV_raw = voltage * 11.0f * 1.024f;
+static uint32_t Analog_getVBAT(void)
+{
+    uint32_t voltage = raw_to_mv(VBAT_RAW);
+    vbat_mV_raw = (uint32_t)(voltage * 11.0f * 1.024f);   // resistor divider correction
 
-    voltage_vbat = filter_coeff * vbat_mV_raw + (1-filter_coeff) * voltage_vbat;
-
-    ESP_LOGV(TAG, "Raw: %i,   voltage: %i	Vbat: %imV", ulp_VBAT_RAW, voltage, voltage_vbat);
+    voltage_vbat = (uint32_t)(filter_coeff * vbat_mV_raw
+                   + (1.0f - filter_coeff) * voltage_vbat);
     return voltage_vbat;
 }
 
-float Analog_getTempMCU(){
-	float result = 0.0f;
-//	temp_sensor_read_celsius(&result);
-	mcu_temp = filter_coeff * result + (1-filter_coeff) * mcu_temp;
-//	ESP_LOGV(TAG, "MCU temp: %.2f", mcu_temp);
-
-	return mcu_temp;
-}
-
-void Analog_update(Analog_meas_t * meas){
-	// Execute ULP program and wait for results
-	ulp_execute_and_wait();
-
-	meas->vbat_mV = Analog_getVBAT();
-
-	//TODO support variable threshold and fuse check
-	if(vbat_mV_raw > 3200){
-		ign_det_thr = (meas->vbat_mV*12 - 12619)/1000;
-		for(uint8_t i=0; i<IGN_NUM; i++){
-			meas->IGN_det[i] = (Analog_getIGN(i, vbat_mV_raw) < ign_det_thr);
-		}
-	} else if(meas->vbat_mV < 3200){
-		for(uint8_t i=0; i<IGN_NUM; i++){
-			meas->IGN_det[i] = -1;
-		}
-	}
-
-	meas->temp = Analog_getTempMCU();
-}
-
-int8_t Analog_getIGNstate(Analog_meas_t * meas, uint8_t ign_no){
-	if(ign_no > IGN_NUM)
-		return -1;
-
-	if(meas == NULL)
-		return -1;
-
-	return meas->IGN_det[ign_no];
-}
-
-//---------------------------------- ULP ---------------------------------
-static esp_err_t ulp_init_analog()
+float Analog_getTempMCU(void)
 {
-
-//	ulp_riscv_adc_cfg_t cfg = {
-//		.channel = ADC1_CHANNEL_7,
-//		.width   = ADC_WIDTH_BIT_12,
-//		.atten   = ADC_ATTEN_DB_2_5,
-//	};
-//	ESP_ERROR_CHECK(ulp_riscv_adc_init(&cfg));
-//	ESP_LOGI(TAG, "ADC ULP init done");
-
-
-	esp_err_t err = ESP_OK;
-	// Init ADC (modified version of ulp_riscv_adc_init() with multi-channel support)
-	adc1_config_width(ADC_WIDTH_BIT_12);
-
-	for(uint8_t i=0; i<ADC_CHANNELS_NUM; i++){
-		adc1_config_channel_atten(ADC_CHANNELS[i], ADC_ATTEN_DB_2_5);
-	}
-
-	//Calibrate the ADC
-	extern uint32_t get_calibration_offset(adc_unit_t adc_n, adc_channel_t chan);
-	uint32_t cal_val = get_calibration_offset(ADC_NUM_1, ADC_CHANNELS[0]);
-	adc_hal_set_calibration_param(ADC_NUM_1, cal_val);
-
-	//Temp sensor init
-//	temp_sensor_config_t temp_sensor = TSENS_CONFIG_DEFAULT();
-//	temp_sensor.dac_offset = TSENS_DAC_L2;  //TSENS_DAC_L2 is default   L4(-40℃ ~ 20℃), L2(-10℃ ~ 80℃) L1(20℃ ~ 100℃) L0(50℃ ~ 125℃)
-//	temp_sensor_set_config(temp_sensor);
-//	temp_sensor_start();
-
-	// Handle ADC access to RTC controller
-	extern esp_err_t adc1_rtc_mode_acquire(void);
-	err = adc1_rtc_mode_acquire();
-
-	return err;
+    float result = 0.0f;
+    if (s_temp_handle != NULL) {
+        temperature_sensor_get_celsius(s_temp_handle, &result);
+    }
+    mcu_temp = filter_coeff * result + (1.0f - filter_coeff) * mcu_temp;
+    return mcu_temp;
 }
 
-static esp_err_t ulp_run_analog(){
-	// Load ULP RISCV program
-	ESP_LOGV(TAG, "Load ULP code. Program size: %i B", (ulp_main_bin_end - ulp_main_bin_start));
-	esp_err_t err = ulp_riscv_load_binary(ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start));
-	ESP_ERROR_CHECK(err);
-
-	/* Start the program */
-	ulp_set_wakeup_period(0, 20000);
-	err = ulp_riscv_run();
-	ESP_ERROR_CHECK(err);
-
-	return err;
-}
-
-static esp_err_t ulp_execute_and_wait(){
-	//Run ADC ULP program
-	ulp_riscv_reset();
-	ulp_run_analog();
-
-	// Wait max 1000 ticks for ADC results
-	for(uint8_t i=0; i<5; i++){
-		if(ulp_READY == 1){
-			return ESP_OK;
-		}
-		vTaskDelay(10);
-	}
-
-	ESP_LOGW(TAG, "ULP to slow...");
-	return ESP_FAIL;
-}
-
-static void ulp_riscv_reset()
+void Analog_update(Analog_meas_t *meas)
 {
-    CLEAR_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SHUT | RTC_CNTL_COCPU_DONE);
-    CLEAR_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SHUT_RESET_EN);
-    esp_rom_delay_us(20);
-    SET_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SHUT | RTC_CNTL_COCPU_DONE);
-    SET_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SHUT_RESET_EN);
+    // Read one DMA frame: 128 samples × ADC_CHANNELS_NUM channels
+    if (make_adc_read() != ESP_OK) {
+        ESP_LOGE(TAG, "ADC burst read failed");
+        return;
+    }
+
+    meas->vbat_mV = Analog_getVBAT();
+
+    if (vbat_mV_raw > 3200) {
+        ign_det_thr = (meas->vbat_mV * 12 - 12619) / 1000;
+        for (uint8_t i = 0; i < IGN_NUM; i++) {
+            meas->IGN_det[i] = (Analog_getIGN(i, vbat_mV_raw) < ign_det_thr);
+        }
+    } else if (meas->vbat_mV < 3200) {
+        for (uint8_t i = 0; i < IGN_NUM; i++) {
+            meas->IGN_det[i] = -1;
+        }
+    }
+
+    meas->temp = Analog_getTempMCU();
+}
+
+int8_t Analog_getIGNstate(Analog_meas_t *meas, uint8_t ign_no)
+{
+    if (ign_no >= IGN_NUM) return -1;
+    if (meas == NULL)      return -1;
+    return meas->IGN_det[ign_no];
+}
+
+// ── Private: init ─────────────────────────────────────────────────────────────
+
+static esp_err_t init_analog(void)
+{
+    // ── Continuous ADC handle ─────────────────────────────────────────────────
+    const uint32_t frame_bytes = ADC_TOTAL_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES;
+
+    adc_continuous_handle_cfg_t handle_cfg = {
+        .max_store_buf_size = frame_bytes * 4,
+        .conv_frame_size    = frame_bytes,
+        .flags.flush_pool   = 1,  // keep latest samples when the analog task is slow
+    };
+    ESP_ERROR_CHECK(adc_continuous_new_handle(&handle_cfg, &s_adc_handle));
+
+    // ── Channel pattern — must match ADC_CHANNELS_LIST order ─────────────────
+    // Index 0 = VBAT channel, indices 1..IGN_NUM = ignition channels.
+    // Edit channel numbers here to match your board's ADC_CHANNELS_LIST macro.
+    adc_digi_pattern_config_t pattern[ADC_CHANNELS_NUM];
+    uint32_t ch_list[ADC_CHANNELS_NUM] = {ADC_CHANNELS_LIST};
+
+    for (uint8_t i = 0; i < ADC_CHANNELS_NUM; i++) {
+        pattern[i].atten     = ADC_ATTEN_DB_2_5;
+        pattern[i].channel   = (adc_channel_t)ch_list[i];
+        pattern[i].unit      = ADC_UNIT_1;
+        pattern[i].bit_width = SOC_ADC_DIGI_MAX_BITWIDTH;
+    }
+
+    adc_continuous_config_t dig_cfg = {
+        .sample_freq_hz = ADC_SAMPLE_FREQ_HZ,
+        .conv_mode      = ADC_CONV_SINGLE_UNIT_1,
+        .format         = ADC_DIGI_OUTPUT_FORMAT_TYPE2,  // embeds channel_id per result
+        .pattern_num    = ADC_CHANNELS_NUM,
+        .adc_pattern    = pattern,
+    };
+    ESP_ERROR_CHECK(adc_continuous_config(s_adc_handle, &dig_cfg));
+
+    // ── Temperature sensor ────────────────────────────────────────────────────
+    temperature_sensor_config_t temp_cfg = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
+    esp_err_t err = temperature_sensor_install(&temp_cfg, &s_temp_handle);
+    if (err == ESP_OK) {
+        temperature_sensor_enable(s_temp_handle);
+        ESP_LOGI(TAG, "Temperature sensor OK");
+    } else {
+        ESP_LOGW(TAG, "Temperature sensor init failed: %s", esp_err_to_name(err));
+        s_temp_handle = NULL;
+    }
+
+    ESP_ERROR_CHECK(adc_continuous_start(s_adc_handle));
+
+    ESP_LOGI(TAG, "ADC continuous init OK — %d ch × %d samples @ %lu Hz",
+             ADC_CHANNELS_NUM, ADC_SAMPLES_PER_CH, (uint32_t)ADC_SAMPLE_FREQ_HZ);
+    return ESP_OK;
+}
+
+// Restart DMA after a timeout. Flash operations on this core disable the cache
+// and can stall the ADC ISR unless CONFIG_ADC_CONTINUOUS_ISR_IRAM_SAFE is set.
+static void adc_try_restart(void)
+{
+    adc_continuous_stop(s_adc_handle);
+    adc_continuous_flush_pool(s_adc_handle);
+    esp_err_t err = adc_continuous_start(s_adc_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "ADC restart failed: %s", esp_err_to_name(err));
+    }
+}
+
+// ── Private: DMA frame read ───────────────────────────────────────────────────
+// The converter is started once in init_analog() and left running. Start/stop
+// every Analog_update() races GDMA and routinely returns 0 bytes. A blocking
+// read also assembles a frame across ring-buffer wrap-around (ReceiveUpTo
+// may return less than conv_frame_size).
+
+static esp_err_t make_adc_read(void)
+{
+    // Static buffer — avoids putting ~2.5 KB on the task stack every call
+    static uint8_t s_raw_buf[ADC_TOTAL_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES];
+
+    const uint32_t frame_bytes = ADC_TOTAL_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES;
+    uint32_t filled = 0;
+    const TickType_t start_tick = xTaskGetTickCount();
+    const TickType_t timeout_ticks = pdMS_TO_TICKS(ADC_READ_TIMEOUT_MS);
+
+    // Drop samples already sitting in the pool so we average a fresh frame.
+    {
+        uint32_t n = 0;
+        while (adc_continuous_read(s_adc_handle, s_raw_buf, frame_bytes, &n, 0) == ESP_OK && n > 0) {
+            n = 0;
+        }
+    }
+
+    while (filled < frame_bytes) {
+        TickType_t elapsed = xTaskGetTickCount() - start_tick;
+        if (elapsed >= timeout_ticks) {
+            break;
+        }
+
+        uint32_t wait_ms = (timeout_ticks - elapsed) * portTICK_PERIOD_MS;
+        if (wait_ms == 0) {
+            wait_ms = 1;
+        }
+
+        uint32_t n = 0;
+        esp_err_t err = adc_continuous_read(s_adc_handle, s_raw_buf + filled,
+                                            frame_bytes - filled, &n, wait_ms);
+        if (err != ESP_OK || n == 0) {
+            break;
+        }
+        filled += n;
+    }
+
+    if (filled == 0) {
+        ESP_LOGE(TAG, "ADC burst timed out (got 0 / %lu bytes)", frame_bytes);
+        adc_try_restart();
+        return ESP_ERR_TIMEOUT;
+    }
+
+    if (filled < frame_bytes) {
+        ESP_LOGW(TAG, "ADC frame short (got %lu / %lu bytes)", filled, frame_bytes);
+    }
+
+    // ── Accumulate per-channel sums ───────────────────────────────────────────
+    uint64_t acc[ADC_CHANNELS_NUM]   = {0};
+    uint32_t cnt[ADC_CHANNELS_NUM]   = {0};
+    uint32_t ch_list[ADC_CHANNELS_NUM] = {ADC_CHANNELS_LIST};
+
+    // Build a fast channel→index lookup (sparse array indexed by adc_channel_t)
+    uint8_t ch_to_idx[ADC_CHANNEL_MAX];
+    memset(ch_to_idx, 0xFF, sizeof(ch_to_idx));
+    for (uint8_t i = 0; i < ADC_CHANNELS_NUM; i++) {
+        if (ch_list[i] < ADC_CHANNEL_MAX) {
+            ch_to_idx[ch_list[i]] = i;
+        }
+    }
+
+    const uint32_t num_results = filled / SOC_ADC_DIGI_RESULT_BYTES;
+    for (uint32_t i = 0; i < num_results; i++) {
+        adc_digi_output_data_t *p =
+            (adc_digi_output_data_t *)&s_raw_buf[i * SOC_ADC_DIGI_RESULT_BYTES];
+
+        uint8_t  chan = p->type2.channel;
+        uint16_t val  = p->type2.data;
+
+        if (chan < ADC_CHANNEL_MAX && ch_to_idx[chan] != 0xFF) {
+            uint8_t idx = ch_to_idx[chan];
+            acc[idx] += val;
+            cnt[idx]++;
+        }
+    }
+
+    // ── Write averaged results → module-level raw variables ───────────────────
+    if (cnt[0] > 0) {
+        VBAT_RAW = (uint32_t)(acc[0] / cnt[0]);
+    }
+
+    for (uint8_t i = 0; i < IGN_NUM; i++) {
+        uint8_t idx = i + 1;    // IGN channels start at index 1
+        if (cnt[idx] > 0) {
+            IGN_RAW[i] = (uint32_t)(acc[idx] / cnt[idx]);
+        }
+    }
+
+    ESP_LOGD(TAG, "burst done — VBAT_RAW=%lu  (n=%lu)", VBAT_RAW, cnt[0]);
+    return ESP_OK;
 }
