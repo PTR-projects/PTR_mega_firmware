@@ -25,6 +25,7 @@
 #include "Sensors.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
+#include "Wifi_driver.h"
 #include "Web_driver.h"
 #include "Preferences.h"
 #include "DataManager.h"
@@ -508,8 +509,7 @@ void task_kpptr_sysmgr(void *pvParameter){
  */
 void app_main(void)
 {
-	vTaskDelay(pdMS_TO_TICKS(5000)); //Delay used to monitor via serial, debug feature
-    nvs_flash_init();
+    wifi_enable();
     Web_storageInit();
     Preferences_init();
     SysMgr_init();
