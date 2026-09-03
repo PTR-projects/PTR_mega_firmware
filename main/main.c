@@ -163,6 +163,7 @@ void task_kpptr_telemetry(void *pvParameter){
 
 	while(1){
 		TMTC_process();
+		vTaskDelay(pdMS_TO_TICKS( 100 ));
 	}
 #else
 	SysMgr_checkout(checkout_lora, check_ready);
@@ -238,7 +239,7 @@ void task_kpptr_storage(void *pvParameter){
  */
 void task_kpptr_utils(void *pvParameter){
 	TickType_t 	  xLastWakeTime = 0;
-	uint32_t 	  interval_ms = 20;
+	uint32_t 	  interval_ms = 10;
 	DataPackage_t DataPackage_d;
 	esp_err_t 	  status = ESP_FAIL;
 
@@ -474,7 +475,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 		if(FSD_checkArmed() == ARMED && SysMgr_getArm() != system_armed){
 			SysMgr_setArm(system_armed);
 			ready_to_arm_time_passed = 1;	// backstop has done its job; hands off after any arm (manual or auto)
-			BUZZER_beep(70, 70, 5);
+			BUZZER_beep(60, 60, 5);
 		}
 
 		if(FSD_checkArmed() == DISARMED && SysMgr_getArm() == system_armed){
@@ -539,8 +540,8 @@ void app_main(void)
 	if(queue_MainToWeb == 0)    	ESP_LOGE(TAG, "Failed to create queue -> queue_MainToWeb");
 
     xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 14, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 20, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
 	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);

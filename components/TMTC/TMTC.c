@@ -29,6 +29,11 @@ esp_err_t TMTC_init(void) {
 }
 
 void TMTC_send(const kppacket_t *pkt) {
+    if(s_tx_queue == NULL) {
+        ESP_LOGE(TAG, "TMTC queue not initialized!");
+        return;
+    }
+
     xQueueOverwrite(s_tx_queue, pkt);
 }
 
@@ -36,12 +41,18 @@ void TMTC_process(void) {
     uint8_t rx_buf[256];
     uint8_t rx_size = 0;
 
-    if(LORA_receive(rx_buf, &rx_size) == ESP_OK)
-        tmtc_dispatch_rx(rx_buf, rx_size);
+    if(s_tx_queue == NULL) {
+        ESP_LOGE(TAG, "TMTC queue not initialized!");
+        return;
+    }
+
+    // TODO - needs some logic rework
+    // if(LORA_receive(rx_buf, &rx_size) == ESP_OK)
+    //     tmtc_dispatch_rx(rx_buf, rx_size);
 
     kppacket_t tx_pkt;
     if(xQueueReceive(s_tx_queue, &tx_pkt, 0) == pdTRUE)
-        LORA_sendWithLBT((uint8_t *)&tx_pkt.legacyheader, tx_pkt.packet_len);
+        LORA_sendWithLBT((uint8_t *)&tx_pkt.header, tx_pkt.packet_len);
 }
 
 static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size) {
