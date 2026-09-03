@@ -308,7 +308,7 @@ void task_kpptr_effector(void *pvParameter){
 		status  = ESP_OK;
 		status |= IGN_init();
 #ifdef BOARD_SERVO_PWM_NUM
-		status |= Servo_init(1500, 2500, 50);
+		status |= Servo_init(1000, 2500, 50);
 #endif
 		status |= SBUS_init();
 		status |= Effector_init();
@@ -321,7 +321,6 @@ void task_kpptr_effector(void *pvParameter){
 	}
 
 #ifdef BOARD_SERVO_PWM_NUM
-	Servo_init(250, 1250, 100);
 	Servo_enable();   // power the servo rail at effector init (cut again after apogee, see loop below)
 #endif
 
@@ -349,25 +348,35 @@ void task_kpptr_effector(void *pvParameter){
 	Effector_register(EFFECTOR_PITCH, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 1}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
     Effector_register(EFFECTOR_YAW, EFFECTOR_TYPE_SERVO_PWM, (effector_hw_t){.servo_pwm.servo_num = 2}, 100, 0, true, EFFECTOR_ACTIVATION_INFINITE);
 
+	Servo_configSingle(1, 250, 1250, 100);   // Servo 1 min/max us  <-- set to your BLS505x #1
+	Servo_configSingle(2, 250, 1250, 100);
+
 	Effector_armServos();
 
-	Effector_set(EFFECTOR_PITCH, -10);   
-	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_PITCH, 20-10); 
-	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_PITCH, -10); 
-	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_PITCH, -20-10); 
 	
-	vTaskDelay(pdMS_TO_TICKS( 5000 ));
+	
+	Effector_set(EFFECTOR_PITCH, 0-18);   
+	vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	Effector_set(EFFECTOR_PITCH, 20-18); 
+	vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	Effector_set(EFFECTOR_PITCH, 0-18); 
+	vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	Effector_set(EFFECTOR_PITCH, -20-18); 
+	vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	Effector_set(EFFECTOR_PITCH, 0-18); 
 
-	Effector_set(EFFECTOR_YAW, -10);   
+	vTaskDelay(pdMS_TO_TICKS( 3000 ));
+
+	Effector_set(EFFECTOR_YAW, -19);   
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_YAW, 20-10); 
+	Effector_set(EFFECTOR_YAW, 20-19); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_YAW, -10); 
+	Effector_set(EFFECTOR_YAW, -19); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_YAW, -20-10); 
+	Effector_set(EFFECTOR_YAW, -20-19); 
+	vTaskDelay(pdMS_TO_TICKS( 1000 ));
+	Effector_set(EFFECTOR_YAW, 0-19);
+	
 
 #endif
 
