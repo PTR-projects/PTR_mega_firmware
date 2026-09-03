@@ -85,7 +85,7 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	SysMgr_checkout(checkout_main, check_ready);
 	ESP_LOGI(TAG, "Task Main - ready!");
 
-	//Guidance_init(1.0f, 0.0f, 0.2f);	// pitch/yaw steering PIDs - TUNE gains
+	Guidance_init(5000.0f, 0.0f, 2500.0f);	// pitch/yaw steering PIDs - TUNE gains
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -104,7 +104,7 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		servo_t		  *servos    = Servo_get   ();
 		IGN_t		  igniters   = IGN_getState();
 
-		//Guidance_step(ahrs, sensors);	// active fin steering (actuates only while FSD_isSteeringEnabled())
+		Guidance_step(ahrs, sensors);	// active fin steering (actuates only while FSD_isSteeringEnabled())
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
@@ -357,11 +357,11 @@ void task_kpptr_effector(void *pvParameter){
 	
 	Effector_set(EFFECTOR_PITCH, 0-18);   
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_PITCH, 20-18); 
+	Effector_set(EFFECTOR_PITCH, 16-18); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	Effector_set(EFFECTOR_PITCH, 0-18); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_PITCH, -20-18); 
+	Effector_set(EFFECTOR_PITCH, -16-18); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	Effector_set(EFFECTOR_PITCH, 0-18); 
 
@@ -369,11 +369,11 @@ void task_kpptr_effector(void *pvParameter){
 
 	Effector_set(EFFECTOR_YAW, -19);   
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_YAW, 20-19); 
+	Effector_set(EFFECTOR_YAW, 16-19); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	Effector_set(EFFECTOR_YAW, -19); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
-	Effector_set(EFFECTOR_YAW, -20-19); 
+	Effector_set(EFFECTOR_YAW, -16-19); 
 	vTaskDelay(pdMS_TO_TICKS( 1000 ));
 	Effector_set(EFFECTOR_YAW, 0-19);
 	

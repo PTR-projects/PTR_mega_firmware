@@ -430,6 +430,12 @@ static void IRAM_ATTR AHRS_TransformAccToENU(){
 	AHRS_d.pos_enu.x += AHRS_d.vel_enu.x * AHRS_d.dt;
 	AHRS_d.pos_enu.y += AHRS_d.vel_enu.y * AHRS_d.dt;
 
-	//ESP_LOGI(TAG, "%f", AHRS_d.acc_up);
-	//ESP_LOGI(TAG, "%f, %f, %f", acc_enu.x, acc_enu.y,acc_enu.z);
+
+	/*static uint32_t pos_log_cnt = 0;
+	if(++pos_log_cnt >= 5){
+		pos_log_cnt = 0;
+		//ESP_LOGI(TAG, "%f", AHRS_d.acc_up);
+		//ESP_LOGI(TAG, "%f, %f, %f", acc_enu.x, acc_enu.y,acc_enu.z);
+		//ESP_LOGI(TAG, "%f, %f, %f", acc_rf.x, acc_rf.y,acc_rf.z);
+	}*/
 }
