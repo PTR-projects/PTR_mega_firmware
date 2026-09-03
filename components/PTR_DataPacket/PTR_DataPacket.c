@@ -61,8 +61,8 @@ int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypte
             expected_header_len  = sizeof(kppacket_header_t);
             break;
         case PACKET_LEGACY_FULL:
-            expected_payload_len = sizeof(kppacket_payload_legacyfull_t);
-            expected_header_len  = sizeof(kppacket_legacyheader_t);
+            expected_payload_len = sizeof(kppacket_payload_rocket_t);
+            expected_header_len  = sizeof(kppacket_header_t);
             break;
         case PACKET_SENSORS:
             expected_payload_len = sizeof(kppacket_payload_rocket_meas_t);

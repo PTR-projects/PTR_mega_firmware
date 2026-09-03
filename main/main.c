@@ -436,7 +436,7 @@ void task_kpptr_analog(void *pvParameter){
 			SysMgr_checkout(checkout_analog, check_ready);
 		}
 
-		if((ign_led_cnt % 5) == 0){
+		if((ign_led_cnt % 40) == 0){
 			ign_led_cnt = 0;
 
 			for(uint8_t i=0; i<IGN_NUM; i++){

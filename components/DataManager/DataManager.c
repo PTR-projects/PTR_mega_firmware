@@ -194,7 +194,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 }
 
 void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog){
-	kppacket_payload_legacyfull_t payload = {0};
+	kppacket_payload_rocket_t payload = {0};
 
 	assert(package != NULL);
 
