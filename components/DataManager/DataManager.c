@@ -179,16 +179,16 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 
 	package->vbat_mV 			= (uint16_t)analog->vbat_mV;
 
-	package->servo.servo_1 = (int8_t)servo->S1_pos;
-	package->servo.servo_2 = (int8_t)servo->S2_pos;
-	package->servo.servo_3 = (int8_t)servo->S3_pos;
-	package->servo.servo_4 = (int8_t)servo->S4_pos;
+	package->servo.servo_1 = (int8_t)servo->pos[0];
+	package->servo.servo_2 = (int8_t)servo->pos[1];
+	package->servo.servo_3 = (int8_t)servo->pos[2];
+	package->servo.servo_4 = (int8_t)servo->pos[3];
 	package->servo.servo_en = servo->servo_en;
 
-	package->blank[0]			= 0;
-	package->blank[1]			= 0;
-	package->blank[2]			= 0;
-	package->blank[3]			= 0;
+	package->blank[0] = 0;
+	package->blank[1] = 0;
+	package->blank[2] = 0;
+	package->blank[3] = 0;
 
 	package->flightstate = (uint8_t)flightstate;
 }

@@ -213,6 +213,7 @@ esp_err_t Servo_driveSinglePWM(uint8_t servo_num, int8_t position)
     }
 
     uint8_t idx = servo_num - 1;   // convert to 0-based
+    Servo_d.pos[idx] = position;
     return mcpwm_comparator_set_compare_value(
         s_hw[idx].cmpr, angle_to_PWM(position, Servo_config_d[idx]));
 #endif
@@ -230,11 +231,6 @@ esp_err_t Servo_drive(int8_t S1_position, int8_t S2_position,
     Servo_driveSinglePWM(2, S2_position);
     Servo_driveSinglePWM(3, S3_position);
     Servo_driveSinglePWM(4, S4_position);
-
-    Servo_d.S1_pos = S1_position;
-    Servo_d.S2_pos = S2_position;
-    Servo_d.S3_pos = S3_position;
-    Servo_d.S4_pos = S4_position;
 
     return ESP_OK;
 }

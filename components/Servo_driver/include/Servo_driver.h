@@ -7,11 +7,7 @@ typedef struct{
 } Servo_config_t;
 
 typedef struct{
-    int8_t S1_pos;
-    int8_t S2_pos;
-    int8_t S3_pos;
-    int8_t S4_pos;
-
+    int8_t  pos[4];
     uint8_t servo_en;
 } servo_t;
 
