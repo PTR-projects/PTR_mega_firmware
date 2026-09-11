@@ -133,6 +133,24 @@ int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypte
     return 0;
 }
 
+bool DataPacket_unpack_msg(kppacket_t * pMsg, uint8_t *buf, uint8_t size){
+    if(buf == NULL)
+        return;
+        
+    if(size < sizeof(kppacket_header_t))
+        return false;
+
+    memcpy(&(pMsg->header), buf, size);
+    pMsg->packet_len = size;
+
+    if(pMsg->header.packet_id.encoded == true){
+        if(decrypt_msg(pMsg, size - sizeof(kppacket_header_t)) == false)
+            return false;
+    }
+
+    return true;
+}
+
 static void encrypt_msg(kppacket_t * msg, uint8_t length){
     uint8_t * pPayload = msg->payload;
     struct {

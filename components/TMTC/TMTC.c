@@ -41,22 +41,29 @@ void TMTC_process(void) {
 
     kppacket_t tx_pkt;
     if(xQueueReceive(s_tx_queue, &tx_pkt, 0) == pdTRUE)
-        LORA_sendWithLBT((uint8_t *)&tx_pkt.legacyheader, tx_pkt.packet_len);
+        LORA_sendWithLBT((uint8_t *)&tx_pkt.header, tx_pkt.packet_len);
 }
 
 static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size) {
-    kppacket_header_t *hdr = (kppacket_header_t *)buf;
+    if(size < sizeof(kppacket_header_t))
+        return;
+    if(buf == NULL)
+        return;
 
-    switch(hdr->packet_id.msg_type){
+    kppacket_t msg = {0};
+    if(false == DataPacket_unpack_msg(&msg, buf, size))
+        return;
+
+    switch(msg.header.packet_id.msg_type){
         case PACKET_HEARTBEAT:
-            ESP_LOGI(TAG, "HB from 0x%04X", hdr->sender_id);
+            ESP_LOGI(TAG, "HB from 0x%08X", msg.header.sender_id);
             break;
         case PACKET_CUSTOM_16B:
-            Cansat_parsePacket(
-                (kppacket_payload_cansat_t *)(buf + sizeof(kppacket_header_t)));
+            if(msg.packet_len - sizeof(kppacket_header_t) == 16)
+                Cansat_parsePacket((kppacket_payload_cansat_t *)(msg.payload));
             break;
         default:
-            ESP_LOGW(TAG, "Unhandled packet type 0x%02X", hdr->packet_id.msg_type);
+            ESP_LOGW(TAG, "Unhandled packet type 0x%02X", msg.header.packet_id.msg_type);
             break;
     }
 }
