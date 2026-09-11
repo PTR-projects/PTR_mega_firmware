@@ -11,8 +11,5 @@
  */
 int Encryption_init(uint64_t key);
 
-int Encryption_encode(uint32_t *v, int n);
-int Encryption_decode(uint32_t *v, int n);
-
-int Encryption_encode_bytes(uint8_t *data, int size);
-int Encryption_decode_bytes(uint8_t *data, int size);
+void Encryption_encode(uint8_t *v, int size);
+void Encryption_decode(uint8_t *v, int size);

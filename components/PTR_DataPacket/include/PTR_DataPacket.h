@@ -9,6 +9,7 @@ typedef enum{
 	PACKET_SENSORS		= 0x01, // kppacket_payload_rocket_meas_t
 	PACKET_ADCS		    = 0x02,	// kppacket_payload_rocket_ADCS_t
 	PACKET_TRACKER		= 0x03,	// kppacket_payload_rocket_tracker_t
+	PACKET_ROCKET_FULL  = 0x04, // kppacket_payload_rocket_meas_t
 	PACKET_RECU_TC		= 0x80,	// kppacket_recu_tc_t
 	PACKET_RECU_TM		= 0x81,	// kppacket_recu_tm_t
 
@@ -36,8 +37,7 @@ typedef union{
 // Header structure
 typedef struct __attribute__((__packed__)){
     packet_id_t packet_id;
-    uint16_t sender_id;
-    uint16_t dest_id;
+    uint32_t sender_id;
     uint16_t packet_no;
     uint32_t timestamp_ms;
     uint16_t redu;
@@ -181,4 +181,4 @@ typedef struct __attribute__((__packed__)){
 } kppacket_t;
 
 void   DataPacket_init();
-int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint8_t sender_id, uint8_t dest_id, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len);
+int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint32_t sender_id, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len);
