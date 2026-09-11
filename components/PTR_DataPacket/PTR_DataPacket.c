@@ -135,7 +135,7 @@ int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypte
 
 bool DataPacket_unpack_msg(kppacket_t * pMsg, uint8_t *buf, uint8_t size){
     if(buf == NULL)
-        return;
+        return false;
         
     if(size < sizeof(kppacket_header_t))
         return false;
