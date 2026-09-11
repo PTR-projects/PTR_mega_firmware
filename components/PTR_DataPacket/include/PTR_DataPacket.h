@@ -19,7 +19,7 @@ typedef enum{
 	PACKET_CUSTOM_32B	= 0xFC,	// payload = 32B
 	PACKET_CUSTOM_64B	= 0xFD,	// payload = 64B
 	PACKET_CUSTOM_128B	= 0xFE,	// payload = 128B
-	PACKET_CUSTOM_240B	= 0xFF,	// payload = 240B
+	PACKET_CUSTOM_235B	= 0xFF,	// payload = 235B
 } msg_type_e;
 
 // Packet ID definition

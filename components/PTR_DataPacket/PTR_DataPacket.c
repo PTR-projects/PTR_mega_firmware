@@ -18,8 +18,9 @@
 static const char *TAG = "PTR_DataPacket";
 
 static void     encrypt_msg  (kppacket_t * msg, uint8_t length);
+static bool     decrypt_msg  (kppacket_t * msg, uint8_t length);
 static uint8_t  getRandomByte();
-static uint16_t crc16(uint8_t *buf, uint32_t len);
+static uint16_t crc16        (uint8_t *buf, uint32_t len);
 
 void DataPacket_init(){
     #if TARGET_ESP
@@ -109,8 +110,8 @@ int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypte
             expected_payload_len = 128;
             expected_header_len  = sizeof(kppacket_header_t);
             break;
-        case PACKET_CUSTOM_240B:
-            expected_payload_len = 240;
+        case PACKET_CUSTOM_235B:
+            expected_payload_len = 235;
             expected_header_len  = sizeof(kppacket_header_t);
             break;
         default:
@@ -147,10 +148,37 @@ static void encrypt_msg(kppacket_t * msg, uint8_t length){
     memcpy(pPayload + length, &encryption_header, sizeof(encryption_header));
 
     // Encryption Magic
-    Encryption_encode_bytes(pPayload, length + sizeof(encryption_header));
+    Encryption_encode(pPayload, length + sizeof(encryption_header));
 
     // Increase payload size by adding encryption header size
     msg->packet_len += sizeof(encryption_header);
+}
+
+static bool decrypt_msg(kppacket_t * msg, uint8_t length){
+    if(length <= 4)
+        return false;
+
+    uint8_t * pPayload = msg->payload;
+    struct {
+        uint16_t random_2byte;
+        uint16_t payload_crc16;
+    } encryption_header;
+
+    // Subtract encryption header length
+    msg->packet_len -= 4;
+
+    // Decryption magic
+    Encryption_decode(pPayload, length);
+
+    // Extract encryption header
+    memcpy(&encryption_header, pPayload + length - sizeof(encryption_header), sizeof(encryption_header));
+
+    // Check CRC16
+    uint16_t calc_crc16 = crc16(pPayload, length - sizeof(encryption_header));
+    if(calc_crc16 != encryption_header.payload_crc16)
+        return false;
+
+    return true;
 }
 
 static uint8_t getRandomByte(){
