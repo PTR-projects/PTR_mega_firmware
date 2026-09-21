@@ -43,6 +43,10 @@ int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypte
     if(payload_len > 0 && payload == NULL)
         return -1;
 
+    // Heartbeat has no payload — nothing to encrypt.
+    if(encrypted && (msg_type == PACKET_HEARTBEAT || payload_len == 0))
+        return -1;
+
     // Old frame - must not be used!
     if(msg_type == PACKET_LEGACY_FULL)
         return -1;
