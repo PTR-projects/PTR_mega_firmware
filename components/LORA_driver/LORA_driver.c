@@ -169,7 +169,7 @@ esp_err_t LORA_startRX(void) {
 
 esp_err_t LORA_receive(uint8_t *rxbuffer, uint8_t *size) {
 	esp_err_t ret = LORA_receivePacketLoRa(rxbuffer, size);
-	if(ret == ESP_OK)
+	if(ret == ESP_OK || ret == ESP_FAIL)
 		LORA_startRX();
 	return ret;
 }
@@ -203,11 +203,24 @@ esp_err_t LORA_receivePacketLoRa(uint8_t *rxbuffer, uint8_t *size) {
 
 	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
 
-	if(irq & SX126X_IRQ_CRC_ERROR)
+	if(irq & (SX126X_IRQ_CRC_ERROR | SX126X_IRQ_HEADER_ERROR))
 		return ESP_FAIL;
+
+	/* Too-early SPI after RX_DONE can return STATUS as LEN (e.g. len=3, ptr=14). */
+	SX126X_checkBusy();
+	vTaskDelay(1);
 
 	sx126x_rx_buffer_status_t buf_status;
 	sx126x_get_rx_buffer_status(0, &buf_status);
+
+	if(buf_status.pld_len_in_bytes < 14 || buf_status.buffer_start_pointer != 0) {
+		SX126X_checkBusy();
+		vTaskDelay(1);
+		sx126x_get_rx_buffer_status(0, &buf_status);
+	}
+
+	if(buf_status.pld_len_in_bytes < 14 || buf_status.pld_len_in_bytes > 255)
+		return ESP_FAIL;
 
 	*size = buf_status.pld_len_in_bytes;
 	sx126x_read_buffer(0, buf_status.buffer_start_pointer, rxbuffer, *size);

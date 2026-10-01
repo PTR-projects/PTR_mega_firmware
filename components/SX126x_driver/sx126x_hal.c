@@ -46,18 +46,14 @@ uint32_t SX126X_getBUSY() {
 }
 
 void SX126X_checkBusy() {
-	uint8_t busy_timeout_cnt;
-	busy_timeout_cnt = 0;
+	uint32_t busy_timeout_cnt = 0;
 
 	while (SX126X_getBUSY()) {
 		vTaskDelay(1);
 		busy_timeout_cnt++;
-		if (busy_timeout_cnt > 5){ //wait 5mS for busy to complete
-			busy_timeout_cnt = 0;
-			//printf(F("ERROR - Busy Timeout!"));
-			//resetDevice();          //reset device
-			//setStandby(MODE_STDBY_RC);
-			//config();               //re-run saved config
+		/* BUSY can stay high for tens of ms; SPI while busy corrupts status reads. */
+		if (busy_timeout_cnt > 100) {
+			ESP_LOGW(TAG, "SX126x BUSY timeout after %lums", (unsigned long)busy_timeout_cnt);
 			break;
 		}
 	}
