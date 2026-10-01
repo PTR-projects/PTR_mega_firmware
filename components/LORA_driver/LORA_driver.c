@@ -154,6 +154,8 @@ esp_err_t LORA_waitTXDone(uint32_t timeout_ms) {
 esp_err_t LORA_startRX(void) {
 	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
 	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
+	/* Continuous RX advances the write pointer; reset so each packet starts at 0. */
+	sx126x_set_buffer_base_address(0, 0, 0);
 
 	sx126x_pkt_params_lora_t sx126x_pkt_params_lora_d;
 	sx126x_pkt_params_lora_d.crc_is_on            = true;
@@ -163,7 +165,9 @@ esp_err_t LORA_startRX(void) {
 	sx126x_pkt_params_lora_d.preamble_len_in_symb = 8;
 	sx126x_set_lora_pkt_params(0, &sx126x_pkt_params_lora_d);
 
-	sx126x_set_rx_with_timeout_in_rtc_step(0, 0xFFFFFF);  // 0xFFFFFF = continuous RX mode
+	/* Single RX (timeout=0): receive one packet then STDBY — avoids continuous-mode
+	 * RxBaseAddr advancement that produced ptr=14 with bogus len=255. */
+	sx126x_set_rx_with_timeout_in_rtc_step(0, 0);
 	return ESP_OK;
 }
 
@@ -201,29 +205,24 @@ esp_err_t LORA_receivePacketLoRa(uint8_t *rxbuffer, uint8_t *size) {
 	if(!(irq & SX126X_IRQ_RX_DONE))
 		return ESP_ERR_NOT_FOUND;
 
-	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
-
-	if(irq & (SX126X_IRQ_CRC_ERROR | SX126X_IRQ_HEADER_ERROR))
+	if(irq & (SX126X_IRQ_CRC_ERROR | SX126X_IRQ_HEADER_ERROR)) {
+		sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
 		return ESP_FAIL;
+	}
 
-	/* Too-early SPI after RX_DONE can return STATUS as LEN (e.g. len=3, ptr=14). */
-	SX126X_checkBusy();
-	vTaskDelay(1);
-
+	/* RadioLib order: status → payload → clear IRQ. */
 	sx126x_rx_buffer_status_t buf_status;
 	sx126x_get_rx_buffer_status(0, &buf_status);
 
-	if(buf_status.pld_len_in_bytes < 14 || buf_status.buffer_start_pointer != 0) {
-		SX126X_checkBusy();
-		vTaskDelay(1);
-		sx126x_get_rx_buffer_status(0, &buf_status);
-	}
-
-	if(buf_status.pld_len_in_bytes < 14 || buf_status.pld_len_in_bytes > 255)
+	if(buf_status.pld_len_in_bytes < 14 || buf_status.pld_len_in_bytes > 128) {
+		sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
 		return ESP_FAIL;
+	}
 
 	*size = buf_status.pld_len_in_bytes;
 	sx126x_read_buffer(0, buf_status.buffer_start_pointer, rxbuffer, *size);
+
+	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
 
 	return ESP_OK;
 }
@@ -278,7 +277,7 @@ esp_err_t LORA_CW(){
 }
 
 esp_err_t LORA_setRx() {
-	sx126x_set_rx_with_timeout_in_rtc_step(0, 0xFFFFFF);
+	sx126x_set_rx_with_timeout_in_rtc_step(0, 0);
 	return ESP_OK;
 }
 

@@ -901,8 +901,7 @@ sx126x_status_t sx126x_get_status( const void* context, sx126x_chip_status_t* ra
 
 sx126x_status_t sx126x_get_rx_buffer_status( const void* context, sx126x_rx_buffer_status_t* rx_buffer_status )
 {
-    /* This HAL clocks CMD+NOP as address (MISO discarded), then reads LEN+PTR.
-     * Semtech's CMD-only + STATUS+LEN+PTR layout is wrong for sx126x_hal_read(). */
+    /* HAL full-duplex: CMD+NOP then LEN+PTR (STATUS lands on the NOP clock). */
     uint8_t         buf[SX126X_SIZE_GET_RX_BUFFER_STATUS]             = { 0 };
     uint8_t         status_local[sizeof( sx126x_rx_buffer_status_t )] = { 0x00 };
     sx126x_status_t status                                            = SX126X_STATUS_ERROR;

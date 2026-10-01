@@ -28,6 +28,12 @@ void SX126X_checkBusy() {}
 static spi_device_handle_t spi_dev_handle_SX126X;
 esp_err_t SX126X_spi_init(void);
 uint32_t SX126X_getBUSY();
+static bool SX126X_waitBusyClear(void);
+
+/* Full-duplex scratch (SPI bus held; not re-entrant). */
+#define SX126X_HAL_XFER_MAX 260
+static uint8_t sx126x_hal_tx[SX126X_HAL_XFER_MAX];
+static uint8_t sx126x_hal_rx[SX126X_HAL_XFER_MAX];
 
 esp_err_t SX126X_initIO(){
 	ESP_RETURN_ON_ERROR(gpio_reset_pin(RF_BUSY_PIN), TAG, "Error settin RF_BUSY_PIN");
@@ -45,7 +51,7 @@ uint32_t SX126X_getBUSY() {
 	return gpio_get_level(RF_BUSY_PIN);
 }
 
-void SX126X_checkBusy() {
+static bool SX126X_waitBusyClear(void) {
 	uint32_t busy_timeout_cnt = 0;
 
 	while (SX126X_getBUSY()) {
@@ -54,9 +60,14 @@ void SX126X_checkBusy() {
 		/* BUSY can stay high for tens of ms; SPI while busy corrupts status reads. */
 		if (busy_timeout_cnt > 100) {
 			ESP_LOGW(TAG, "SX126x BUSY timeout after %lums", (unsigned long)busy_timeout_cnt);
-			break;
+			return false;
 		}
 	}
+	return true;
+}
+
+void SX126X_checkBusy() {
+	(void)SX126X_waitBusyClear();
 }
 
 esp_err_t SX126X_spi_init(void)
@@ -66,108 +77,105 @@ esp_err_t SX126X_spi_init(void)
 		return ESP_ERR_INVALID_STATE;
 	}
 
-	/* CONFIGURE SPI DEVICE */
-	/* Max SCK frequency - 16MHz */
+	/* Pure buffer transfers: cmd/addr bits must be 0 so frames are not shifted.
+	 * 16 MHz intermittently inserted 0xFF before LEN (seen as len=255,ptr=14). */
 	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev_handle_SX126X, SPI_SLAVE_SX1262_PIN,
-										SPI_SCK_16MHZ, 1, 0, 8), TAG, "SPI register failed");
+										SPI_SCK_8MHZ, 1, 0, 0), TAG, "SPI register failed");
 
 	return ESP_OK;
 }
 
 sx126x_hal_status_t sx126x_hal_read(const void* context, const uint8_t *command, const uint16_t command_length,
                                      uint8_t *data, const uint16_t data_length) {
-	spi_transaction_ext_t trans;
+	(void)context;
+	const uint16_t total = (uint16_t)(command_length + data_length);
+	if(total == 0 || total > SX126X_HAL_XFER_MAX || command == NULL || (data_length && data == NULL)) {
+		ESP_LOGE(TAG, "SX126x HAL read bad len cmd=%u data=%u", command_length, data_length);
+		return SX126X_HAL_STATUS_ERROR;
+	}
+
+	if(!SX126X_waitBusyClear()) {
+		return SX126X_HAL_STATUS_ERROR;
+	}
+
+	/* RadioLib/Semtech full-duplex: MOSI = CMD[+NOPs] + NOP padding; MISO aligned. */
+	memcpy(sx126x_hal_tx, command, command_length);
+	memset(sx126x_hal_tx + command_length, 0x00, data_length);
+	memset(sx126x_hal_rx, 0x00, total);
+
+	spi_transaction_t trans;
 	memset(&trans, 0x00, sizeof(trans));
-	trans.base.flags  	 = SPI_TRANS_VARIABLE_ADDR;
+	trans.length    = 8 * total;
+	trans.rxlength  = 8 * total;
+	trans.tx_buffer = sx126x_hal_tx;
+	trans.rx_buffer = sx126x_hal_rx;
 
-	if(command_length <= 4){
-		uint64_t cmd = 0;
-		for(uint8_t i = 0;i<command_length;i++){
-			cmd = cmd | ((uint64_t)(*(command+i)) << (8*((command_length-1)-i)));
-		}
-		//Transaction configuration//
-		trans.base.length 	 = 8 * data_length;
-		trans.base.rxlength  = 8 * data_length;
-		trans.address_bits 	 = 8 * command_length;
-		trans.base.addr 	 = cmd;
-		trans.base.rx_buffer = data;
-	}
-	else {
-		ESP_LOGE(TAG, "Unsuported SPI message  to SX1262, Cmd len = %i, Data len = %i", command_length, data_length);
-	}
-
-	SX126X_checkBusy();
-
-	//Transaction execution//
 	spi_device_acquire_bus(spi_dev_handle_SX126X, portMAX_DELAY);
-	if (spi_device_polling_transmit(spi_dev_handle_SX126X, (spi_transaction_t*) &trans) != ESP_OK)
-	{
+	esp_err_t err = spi_device_polling_transmit(spi_dev_handle_SX126X, &trans);
+	spi_device_release_bus(spi_dev_handle_SX126X);
+	if(err != ESP_OK) {
 		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		return SX126X_HAL_STATUS_ERROR;
 	}
 
-	spi_device_release_bus(spi_dev_handle_SX126X);
+	memcpy(data, sx126x_hal_rx + command_length, data_length);
 
-	return 0;
+	return SX126X_HAL_STATUS_OK;
 }
 
 sx126x_hal_status_t sx126x_hal_write(const void* context, const uint8_t *command, const uint16_t command_length,
 									  const uint8_t *data, const uint16_t data_length) {
-	spi_transaction_ext_t trans;
+	(void)context;
+	const uint16_t total = (uint16_t)(command_length + data_length);
+	if(total == 0 || total > SX126X_HAL_XFER_MAX || command == NULL || (data_length && data == NULL)) {
+		ESP_LOGE(TAG, "SX126x HAL write bad len cmd=%u data=%u", command_length, data_length);
+		return SX126X_HAL_STATUS_ERROR;
+	}
+
+	if(!SX126X_waitBusyClear()) {
+		return SX126X_HAL_STATUS_ERROR;
+	}
+
+	memcpy(sx126x_hal_tx, command, command_length);
+	if(data_length) {
+		memcpy(sx126x_hal_tx + command_length, data, data_length);
+	}
+
+	spi_transaction_t trans;
 	memset(&trans, 0x00, sizeof(trans));
-	trans.base.flags  	 = SPI_TRANS_VARIABLE_ADDR;
+	trans.length    = 8 * total;
+	trans.tx_buffer = sx126x_hal_tx;
+	trans.rx_buffer = NULL;
 
-	if(data_length == 0){	// No data, only CMD -> send cmd as data
-		//Transaction configuration//
-		trans.base.length 	 = 8 * command_length;
-		trans.address_bits 	 = 0;
-		trans.base.tx_buffer = command;
-	}
-	else if(command_length <= 4){
-		uint64_t cmd = 0;
-		for(uint8_t i = 0;i<command_length;i++){
-			cmd = cmd | ((uint64_t)(*(command+i)) << (8*((command_length-1)-i)));
-		}
-		//Transaction configuration//
-		trans.base.length 	 = 8 * data_length;
-		trans.address_bits 	 = 8 * command_length;
-		trans.base.addr 	 = cmd;
-		trans.base.tx_buffer = data;
-	}
-	else {
-		ESP_LOGE(TAG, "Unsuported SPI message  to SX1262, Cmd len = %i, Data len = %i", command_length, data_length);
-	}
-
-	SX126X_checkBusy();
-
-	//Transaction execution//
 	spi_device_acquire_bus(spi_dev_handle_SX126X, portMAX_DELAY);
-
-	if (spi_device_polling_transmit(spi_dev_handle_SX126X, (spi_transaction_t*) &trans) != ESP_OK)
-	{
+	esp_err_t err = spi_device_polling_transmit(spi_dev_handle_SX126X, &trans);
+	spi_device_release_bus(spi_dev_handle_SX126X);
+	if(err != ESP_OK) {
 		ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		return SX126X_HAL_STATUS_ERROR;
 	}
 
-	spi_device_release_bus(spi_dev_handle_SX126X);
-
-	return 0;
+	return SX126X_HAL_STATUS_OK;
 }
 
 sx126x_hal_status_t sx126x_hal_reset( const void* context ){
+	(void)context;
 	vTaskDelay(pdMS_TO_TICKS(20));
 	gpio_set_level(RF_RST_PIN, 0);
 	vTaskDelay(pdMS_TO_TICKS(40));
 	gpio_set_level(RF_RST_PIN, 1);
 	vTaskDelay(20);
 
-	return 0;
+	return SX126X_HAL_STATUS_OK;
 }
 
 sx126x_hal_status_t sx126x_hal_wakeup( const void* context ){
+	(void)context;
 	gpio_set_level(SPI_SLAVE_SX1262_PIN, 0);
 	vTaskDelay(pdMS_TO_TICKS(2));
 	gpio_set_level(SPI_SLAVE_SX1262_PIN, 1);
 	vTaskDelay(pdMS_TO_TICKS(2));
 
-	return 0;
+	return SX126X_HAL_STATUS_OK;
 }
 #endif
