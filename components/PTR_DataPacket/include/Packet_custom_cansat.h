@@ -32,7 +32,10 @@ typedef struct __attribute__((__packed__)){
     uint64_t target_id;        // protocol required target id
     uint8_t  cmd;              // command code (cansat_cmd_t)
     uint8_t  cmd_inv;          // ~cmd — receiver checks cmd ^ cmd_inv == 0xFF
-    uint64_t effector_states;  // 2b per effector [0..31], used by CANSAT_CMD_SET_EFFECTORS
+    union{
+        uint64_t effector_states;  // 2b per effector [0..31], used by CANSAT_CMD_SET_EFFECTORS
+        uint8_t  forced_fsm;       // force FSM to set this state
+    };
     uint8_t  reserved[12];     // reserved for future commands, must be 0x00
     uint16_t checksum;         // CRC16 over bytes [0..29]
 } kppacket_payload_cansat_t;   // sizeof == 32

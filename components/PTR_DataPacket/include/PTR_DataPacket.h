@@ -186,6 +186,7 @@ typedef struct __attribute__((__packed__)){
 #define DATAPACKET_TARGET_ID_BROADCAST  UINT64_C(0xFFFFFFFFFFFFFFFF)
 
 void     DataPacket_init(void);
+void     DataPacket_set_sender_id(uint16_t sender_id_ext, uint32_t sender_id);
 uint32_t DataPacket_get_sender_id(void);
 uint16_t DataPacket_get_sender_id_ext(void);
 uint64_t DataPacket_get_target_id(void);

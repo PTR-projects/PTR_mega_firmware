@@ -71,6 +71,15 @@ uint16_t DataPacket_get_sender_id_ext(void) {
     return s_sender_id_ext;
 }
 
+void DataPacket_set_sender_id(uint16_t sender_id_ext, uint32_t sender_id) {
+    s_sender_id_ext = sender_id_ext;
+    s_sender_id     = sender_id;
+    s_target_id     = datapacket_pack_target_id(s_sender_id_ext, s_sender_id);
+    ESP_LOGI(TAG, "LoRa sender ID overridden to 0x%04X%08lX target 0x%016llX",
+             s_sender_id_ext, (unsigned long)s_sender_id,
+             (unsigned long long)s_target_id);
+}
+
 uint64_t DataPacket_get_target_id(void) {
     return s_target_id;
 }
