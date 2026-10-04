@@ -286,8 +286,8 @@ static uint16_t crc16(const uint8_t *data, uint16_t len) {
 }
 
 esp_err_t Cansat_parsePacket(const kppacket_payload_cansat_t *pkt) {
-    // 1. CRC16 over bytes [0..13]
-    if(crc16((const uint8_t *)pkt, 14) != pkt->checksum) {
+    // 1. CRC16 over bytes [0..29]
+    if(crc16((const uint8_t *)pkt, 30) != pkt->checksum) {
         ESP_LOGE(TAG, "Packet CRC mismatch");
         return ESP_ERR_INVALID_CRC;
     }

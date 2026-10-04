@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-// Command codes for cansat remote control packets (PACKET_CUSTOM_16B).
+// Command codes for cansat remote control packets (PACKET_CUSTOM_32B).
 // High nibble = category, low nibble = subcommand.
 // Non-sequential values reduce the risk of noise producing an accidentally valid command.
 typedef enum {
@@ -19,19 +19,20 @@ typedef enum {
     CANSAT_CMD_MEM_ERASE     = 0xB5, // Erase flash memory
 } cansat_cmd_t;
 
-// Cansat command payload carried in PACKET_CUSTOM_16B.
+// Cansat command payload carried in PACKET_CUSTOM_32B.
 //
 // Receiver validation:
-//   1. Verify checksum (CRC16 over bytes [0..13])
+//   1. Verify checksum (CRC16 over bytes [0..29])
 //   2. Verify cmd ^ cmd_inv == 0xFF
 //   3. If cmd == CANSAT_CMD_SET_EFFECTORS: verify no effector has bit pattern 11 (illegal)
 //
 // effector_states encoding (2 bits per effector, LSB = effector 0):
 //   00 = do nothing   01 = ON   10 = OFF   11 = illegal (reject packet)
 typedef struct __attribute__((__packed__)){
+    uint64_t target_id;        // protocol required target id
     uint8_t  cmd;              // command code (cansat_cmd_t)
     uint8_t  cmd_inv;          // ~cmd — receiver checks cmd ^ cmd_inv == 0xFF
     uint64_t effector_states;  // 2b per effector [0..31], used by CANSAT_CMD_SET_EFFECTORS
-    uint8_t  reserved[4];      // reserved for future commands, must be 0x00
-    uint16_t checksum;         // CRC16 over bytes [0..13]
-} kppacket_payload_cansat_t;  // sizeof == 16
+    uint8_t  reserved[12];     // reserved for future commands, must be 0x00
+    uint16_t checksum;         // CRC16 over bytes [0..29]
+} kppacket_payload_cansat_t;   // sizeof == 32

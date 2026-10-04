@@ -9,6 +9,7 @@
 
 #if TARGET_ESP
 #include "esp_random.h"
+#include "esp_mac.h"
 // Hardware AES API
 
 #else
@@ -17,22 +18,84 @@
 
 static const char *TAG = "PTR_DataPacket";
 
+static uint32_t s_sender_id     = 0;
+static uint16_t s_sender_id_ext = 0;
+static uint64_t s_target_id     = 0;
+static bool     s_broadcast_unlocked = false;
+
 static void     encrypt_msg  (kppacket_t * msg, uint8_t length);
 static bool     decrypt_msg  (kppacket_t * msg, uint8_t length);
 static uint8_t  getRandomByte();
 static uint16_t crc16        (uint8_t *buf, uint32_t len);
 
+static uint64_t datapacket_pack_target_id(uint16_t id_ext, uint32_t id) {
+    uint64_t board_id_48 = ((uint64_t)id_ext << 32) | (uint64_t)id;
+    uint16_t hash16 = (uint16_t)(board_id_48 >> 32)
+                    ^ (uint16_t)(board_id_48 >> 16)
+                    ^ (uint16_t)board_id_48;
+    return (board_id_48 << 16) | (uint64_t)hash16;
+}
+
 void DataPacket_init(){
+    s_broadcast_unlocked = false;
+
     #if TARGET_ESP
-    
+    uint8_t mac[6] = {0};
+    if(esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK){
+        /* MAC AA:BB:CC:DD:EE:FF → ext=AABB, id=CCDDEEFF */
+        s_sender_id_ext = ((uint16_t)mac[0] << 8) | (uint16_t)mac[1];
+        s_sender_id     = ((uint32_t)mac[2] << 24) | ((uint32_t)mac[3] << 16)
+                        | ((uint32_t)mac[4] << 8)  | (uint32_t)mac[5];
+        s_target_id     = datapacket_pack_target_id(s_sender_id_ext, s_sender_id);
+        ESP_LOGI(TAG, "LoRa sender ID 0x%04X%08lX target 0x%016llX (MAC %02X:%02X:%02X:%02X:%02X:%02X)",
+                 s_sender_id_ext, (unsigned long)s_sender_id,
+                 (unsigned long long)s_target_id,
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    } else {
+        ESP_LOGW(TAG, "esp_read_mac failed; LoRa sender ID remains 0");
+        s_target_id = datapacket_pack_target_id(0, 0);
+    }
     #else
     srand(134);
+    s_target_id = datapacket_pack_target_id(s_sender_id_ext, s_sender_id);
     #endif
 
     Encryption_init(12345);
 }
 
-int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint32_t sender_id, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len){
+uint32_t DataPacket_get_sender_id(void) {
+    return s_sender_id;
+}
+
+uint16_t DataPacket_get_sender_id_ext(void) {
+    return s_sender_id_ext;
+}
+
+uint64_t DataPacket_get_target_id(void) {
+    return s_target_id;
+}
+
+bool DataPacket_target_id_matches(uint64_t target_id) {
+    if(target_id == s_target_id)
+        return true;
+    if(target_id == DATAPACKET_TARGET_ID_BROADCAST && s_broadcast_unlocked)
+        return true;
+    return false;
+}
+
+void DataPacket_broadcast_unlock(void) {
+    s_broadcast_unlocked = true;
+}
+
+void DataPacket_broadcast_lock(void) {
+    s_broadcast_unlocked = false;
+}
+
+bool DataPacket_broadcast_is_unlocked(void) {
+    return s_broadcast_unlocked;
+}
+
+int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len){
     // Checks
     if(msg == NULL)
         return -1;
@@ -56,11 +119,14 @@ int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypte
     packet_id.retransmit = 0;
     packet_id.encoded    = encrypted;
     packet_id.msg_type   = msg_type;
+    packet_id.redu       = 0;
+    packet_id.command    = (msg_type == PACKET_RECU_TC || msg_type == PACKET_CUSTOM_32B) ? 1 : 0;
 
-    msg->header.packet_id    = packet_id;
-    msg->header.sender_id    = sender_id;
-    msg->header.packet_no    = packet_no;
-    msg->header.timestamp_ms = timestamp_ms;
+    msg->header.packet_id     = packet_id;
+    msg->header.sender_id     = s_sender_id;
+    msg->header.sender_id_ext = s_sender_id_ext;
+    msg->header.packet_no     = packet_no;
+    msg->header.timestamp_ms  = timestamp_ms;
 
     // Set header and payload length
     uint8_t expected_payload_len = 0;

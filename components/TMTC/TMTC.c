@@ -3,9 +3,11 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include <string.h>
 
 #include "LORA_driver.h"
 #include "PTR_DataPacket.h"
+#include "Packet_custom_cansat.h"
 #include "Cansat_driver.h"
 #include "TMTC.h"
 
@@ -24,6 +26,7 @@ esp_err_t TMTC_init(void) {
         ESP_LOGE(TAG, "Failed to create TX queue");
         return ESP_FAIL;
     }
+    DataPacket_init();
     LORA_startRX();
     return ESP_OK;
 }
@@ -54,12 +57,29 @@ static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size) {
     if(false == DataPacket_unpack_msg(&msg, buf, size))
         return;
 
+    const uint8_t payload_len = (uint8_t)(msg.packet_len - sizeof(kppacket_header_t));
+
+    if(msg.header.packet_id.command) {
+        uint64_t target_id = 0;
+        if(payload_len < sizeof(uint64_t)) {
+            ESP_LOGW(TAG, "Command frame too short for target_id (%u)", payload_len);
+            return;
+        }
+        memcpy(&target_id, msg.payload, sizeof(target_id));
+        if(!DataPacket_target_id_matches(target_id)) {
+            ESP_LOGW(TAG, "Command target_id mismatch 0x%016llX",
+                     (uint64_t)target_id);
+            return;
+        }
+    }
+
     switch(msg.header.packet_id.msg_type){
         case PACKET_HEARTBEAT:
-            ESP_LOGI(TAG, "HB from 0x%08X", msg.header.sender_id);
+            ESP_LOGI(TAG, "HB from 0x%04X%08lX",
+                     msg.header.sender_id_ext, (uint32_t)msg.header.sender_id);
             break;
-        case PACKET_CUSTOM_16B:
-            if(msg.packet_len - sizeof(kppacket_header_t) == 16)
+        case PACKET_CUSTOM_32B:
+            if(payload_len == sizeof(kppacket_payload_cansat_t))
                 Cansat_parsePacket((kppacket_payload_cansat_t *)(msg.payload));
             break;
         default:
