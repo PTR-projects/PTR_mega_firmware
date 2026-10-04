@@ -279,6 +279,11 @@ uint32_t SimpleFS_getFileSize(){
 	return write_ptr;
 }
 
+uint32_t SimpleFS_getMemorySize(void)
+{
+	return partition_info.partition_size_B;
+}
+
 static esp_err_t SimpleFS_findDataEnd(){
 	if(access_locked_w == true){
 		ESP_LOGE(ESP_SIMPLEFS_TAG, "Find Data End - access locked!");
