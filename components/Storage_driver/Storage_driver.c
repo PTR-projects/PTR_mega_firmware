@@ -209,6 +209,15 @@ esp_err_t Storage_initFile(){
  */
 esp_err_t Storage_erase(uint32_t key){
 
+#if defined(CONFIG_FS_SIMPLEFS)
+	/* Allow erase before ReadyFlag — storage stays not-ready until flash is empty. */
+	if(key != Storage_data_d.MasterKey){
+		ESP_LOGE(TAG, "Erase - wrong key");
+		return ESP_FAIL;
+	}
+	return SimpleFS_formatMemory(SFS_MAGIC_KEY, SFS_FORMAT_ALL);
+
+#else
 	if(!Storage_data_d.ReadyFlag){
 		return ESP_FAIL;
 	}
@@ -218,12 +227,10 @@ esp_err_t Storage_erase(uint32_t key){
 
 #elif defined(CONFIG_FS_LITTLEFS)
         return Storage_erase_Littlefs(key);
-
-#elif defined(CONFIG_FS_SPIFFS)
-    	return SimpleFS_formatMemory(SFS_MAGIC_KEY);
 #endif
 
     return ESP_FAIL;
+#endif
 }
 
 

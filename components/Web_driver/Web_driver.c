@@ -24,6 +24,7 @@
 #include "DataManager.h"
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
+#include "BOARD_cfg.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
 
@@ -464,10 +465,18 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
 	ESP_LOGI(TAG, "Deleting file : %s", filename);
 
 	/* Delete file */
+#if defined(SFS_USE_SPI_FLASH)
+	if(SimpleFS_formatMemory(SFS_MAGIC_KEY, SFS_FORMAT_ALL) != ESP_OK){
+		ESP_LOGE(TAG, "Deleting file failed!");
+		return ESP_FAIL;
+	}
+	ESP_LOGI(TAG, "SPI flash erase started (nonblocking)");
+#else
 	if(SimpleFS_formatMemory(SFS_MAGIC_KEY, SFS_FORMAT_RANGE) != ESP_OK){
 		ESP_LOGE(TAG, "Deleting file failed!");
 		return ESP_FAIL;
 	}
+#endif
 #endif
 
     /* Redirect onto root to see the updated file list */

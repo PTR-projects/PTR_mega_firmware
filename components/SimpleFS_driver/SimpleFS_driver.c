@@ -4,6 +4,7 @@
 #include "sfs_api.h"
 #include <string.h>
 #include "esp_crc.h"
+#include "BOARD_cfg.h"
 #include "SimpleFS_driver.h"
 
 static sfs_info_t partition_info;
@@ -20,6 +21,14 @@ const char ESP_SIMPLEFS_TAG[] = "SimpleFS";
 
 static esp_err_t SimpleFS_findDataEnd();
 
+static void SimpleFS_eraseDone(void)
+{
+	write_ptr = 0;
+	access_locked_r = false;
+	access_locked_w = false;
+	ESP_LOGI(ESP_SIMPLEFS_TAG, "Memory erase completed");
+}
+
 esp_err_t SimpleFS_init(const char * label){
 	esp_err_t err = ESP_OK;
 
@@ -28,7 +37,11 @@ esp_err_t SimpleFS_init(const char * label){
 	}
 
 	if(component_init_done == false){
+		simplefs_api_register_erase_done_cb(SimpleFS_eraseDone);
 		err = simplefs_api_init(&partition_info, label);
+		if(err != ESP_OK){
+			return err;
+		}
 		component_init_done = true;
 
 		// Reset Read and Write Pointers
@@ -78,19 +91,35 @@ esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key, sfs_format_type_e type){
 		err = simplefs_api_erase(0);
 	}
 	else if(type == SFS_FORMAT_RANGE) {
+#if defined(SFS_USE_SPI_FLASH)
+		/* External NOR chip erase is full-chip only */
+		err = simplefs_api_erase(0);
+#else
 		err = simplefs_api_erase(write_ptr);
+#endif
 	}
 	else {
 		err = ESP_FAIL;
 	}
 
-	access_locked_r = false;
-	access_locked_w = false;
-
-	if(err == ESP_OK){
-		write_ptr = 0;
+	if(err != ESP_OK){
+		access_locked_r = false;
+		access_locked_w = false;
+		return err;
 	}
-	return err;
+
+#if defined(SFS_USE_SPI_FLASH)
+	/* Async erase: locks released in SimpleFS_eraseDone when WIP clears */
+	ESP_LOGI(ESP_SIMPLEFS_TAG, "Memory erase started (nonblocking)");
+#else
+	/* Sync erase path invokes SimpleFS_eraseDone from sfs_api */
+#endif
+	return ESP_OK;
+}
+
+bool SimpleFS_isErasing(void)
+{
+	return (access_locked_r && access_locked_w);
 }
 
 esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
