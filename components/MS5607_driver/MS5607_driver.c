@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "MS5607_driver.h"
 #include "BOARD_cfg.h"
+#include "CONFIG.h"
 #include <string.h>
 
 static const char *TAG = "MS5607";
@@ -18,6 +19,33 @@ float MS5607_getPress(uint8_t sensor) {return 0.0f;}
 float MS5607_getTemp(uint8_t sensor) {return -100.0f;}
 esp_err_t MS5607_getMeas(uint8_t sensor, MS5607_meas_t * meas) {return ESP_OK;}
 #else
+
+/*
+ * Select OSR so ADC conversion finishes within one main-loop period:
+ *  >800 Hz -> 256,  400-800 -> 512,  200-400 -> 1024,  100-200 -> 2048,  <=100 -> 4096
+ */
+#if (CONFIG_MAIN_LOOP_FREQUENCY > 800)
+#define MS5607_CMD_D1		MS5607_CONVERT_D1_256
+#define MS5607_CMD_D2		MS5607_CONVERT_D2_256
+#define MS5607_CONV_DELAY_MS	1
+#elif (CONFIG_MAIN_LOOP_FREQUENCY >= 400)
+#define MS5607_CMD_D1		MS5607_CONVERT_D1_512
+#define MS5607_CMD_D2		MS5607_CONVERT_D2_512
+#define MS5607_CONV_DELAY_MS	2
+#elif (CONFIG_MAIN_LOOP_FREQUENCY >= 200)
+#define MS5607_CMD_D1		MS5607_CONVERT_D1_1024
+#define MS5607_CMD_D2		MS5607_CONVERT_D2_1024
+#define MS5607_CONV_DELAY_MS	3
+#elif (CONFIG_MAIN_LOOP_FREQUENCY > 100)
+#define MS5607_CMD_D1		MS5607_CONVERT_D1_2048
+#define MS5607_CMD_D2		MS5607_CONVERT_D2_2048
+#define MS5607_CONV_DELAY_MS	6
+#else
+#define MS5607_CMD_D1		MS5607_CONVERT_D1_4096
+#define MS5607_CMD_D2		MS5607_CONVERT_D2_4096
+#define MS5607_CONV_DELAY_MS	12
+#endif
+
 static const int SPI_SLAVE_MS5607_PIN_ARRAY[MS5607_COUNT] = SPI_SLAVE_MS5607_PINS;
 static esp_err_t MS5607_read(uint8_t sensor, uint8_t addr, uint8_t * data_in, uint16_t length);
 static esp_err_t MS5607_write(uint8_t sensor, uint8_t addr);
@@ -54,11 +82,14 @@ esp_err_t MS5607_init() {
 		MS5607_readCalibration(sensor);
 	}
 
+	ESP_LOGI(TAG, "OSR selected for %d Hz loop (conv wait %d ms)",
+			CONFIG_MAIN_LOOP_FREQUENCY, MS5607_CONV_DELAY_MS);
+
 	MS5607_reqPress();
-	vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
+	vTaskDelay(pdMS_TO_TICKS(MS5607_CONV_DELAY_MS));
 	MS5607_readPress();
 	MS5607_reqTemp();
-	vTaskDelay(12/portTICK_PERIOD_MS);  //12ms/1ms = 12 ticks
+	vTaskDelay(pdMS_TO_TICKS(MS5607_CONV_DELAY_MS));
 	MS5607_readTemp();
 	MS5607_reqPress();
 
@@ -119,7 +150,7 @@ static esp_err_t MS5607_write(uint8_t sensor, uint8_t addr) {
 
 static esp_err_t MS5607_resetDevice(uint8_t sensor) {
 	MS5607_write(sensor, MS5607_RESET);
-	vTaskDelay(10/portTICK_PERIOD_MS);  //10ms
+	vTaskDelay(pdMS_TO_TICKS(10));
 
 	return ESP_OK;
 }
@@ -167,14 +198,14 @@ static esp_err_t MS5607_readCalibration(uint8_t sensor) {
 
 static esp_err_t MS5607_reqPress() {
 	for(uint8_t sensor = 0; MS5607_COUNT > sensor ; sensor++){
-		MS5607_write(sensor, MS5607_CONVERT_D1_2048);
+		MS5607_write(sensor, MS5607_CMD_D1);
 	}
 	return ESP_OK;
 }
 
 static esp_err_t MS5607_reqTemp() {
 	for(uint8_t sensor = 0; MS5607_COUNT > sensor ; sensor++){
-		MS5607_write(sensor, MS5607_CONVERT_D2_2048);
+		MS5607_write(sensor, MS5607_CMD_D2);
 	}
 
 	return ESP_OK;

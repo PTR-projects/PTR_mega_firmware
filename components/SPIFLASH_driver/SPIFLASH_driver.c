@@ -49,7 +49,7 @@ esp_err_t SPIFLASH_init(void)
 	ESP_RETURN_ON_ERROR(SPI_checkInit(), TAG, "SPI bus not initialized");
 
 	/* Single device: address bytes are sent in the payload (supports 3/4-byte). */
-	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev, SPI_SLAVE_FLASH_PIN, SPI_SCK_10MHZ, 1, 8, 0),
+	ESP_RETURN_ON_ERROR(SPI_registerDevice(&spi_dev, SPI_SLAVE_FLASH_PIN, SPI_SCK_20MHZ, 1, 8, 0),
 			TAG, "Failed to register flash SPI device");
 
 	uint8_t jedec[3] = {0};
@@ -197,7 +197,7 @@ esp_err_t SPIFLASH_eraseAll(SPIFLASH_done_cb_t done_cb)
 		return err;
 	}
 
-	BaseType_t ok = xTaskCreate(spiflash_erase_task, "spiflash_erase", 2048, NULL, tskIDLE_PRIORITY + 1, NULL);
+	BaseType_t ok = xTaskCreate(spiflash_erase_task, "spiflash_erase", 4096, NULL, tskIDLE_PRIORITY + 1, NULL);
 	if(ok != pdPASS){
 		busy = false;
 		erase_done_cb = NULL;
