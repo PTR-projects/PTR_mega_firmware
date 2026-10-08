@@ -11,6 +11,9 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "esp_http_server.h"
@@ -163,6 +166,8 @@ esp_err_t Web_wifi_init(void){
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+    /* Large meas.bin transfers are unreliable if modem sleep kicks in */
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
     ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", wifi_config.ap.ssid, wifi_config.ap.password, wifi_config.ap.channel);
 
@@ -285,25 +290,40 @@ static esp_err_t download_get_handler(httpd_req_t *req){
 
         ESP_LOGI(TAG, "Sending file: %s (%i bytes)...", filename, (int)Storage_getFileSize());
     	set_content_type_from_file(req, filename);
+    	httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"meas.bin\"");
+    	httpd_resp_set_hdr(req, "Connection", "close");
 
     	char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
-    	size_t chunksize;
+    	int32_t nread = 0;
+    	uint32_t sent_chunks = 0;
 
     	Storage_resetReadPointer();
 
     	do{
-    		chunksize = Storage_readMemory(SCRATCH_BUFSIZE, chunk);
+    		nread = Storage_readMemory(SCRATCH_BUFSIZE, chunk);
+    		if(nread < 0){
+    			ESP_LOGE(TAG, "Storage read failed during download");
+    			httpd_resp_sendstr_chunk(req, NULL);
+    			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read storage");
+    			Storage_writeMode();
+    			return ESP_FAIL;
+    		}
 
-    		if (chunksize > 0) {
-    			if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
+    		if (nread > 0) {
+    			if (httpd_resp_send_chunk(req, chunk, (size_t)nread) != ESP_OK) {
     				ESP_LOGE(TAG, "File sending failed!");
     				httpd_resp_sendstr_chunk(req, NULL);
     				httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
     				Storage_writeMode();
     				return ESP_FAIL;
     		   }
+    			sent_chunks++;
+    			/* Let higher-priority SPI users run; avoid starving wifi/tcp. */
+    			if((sent_chunks & 0x3FU) == 0U){
+    				vTaskDelay(1);
+    			}
     		}
-    	}while (chunksize != 0);
+    	}while (nread > 0);
 
     	ESP_LOGI(TAG, "File sending complete");
     	Storage_writeMode();
@@ -700,6 +720,12 @@ esp_err_t Web_http_init(const char *base_path){
 	httpd_handle_t server = NULL;
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 	config.max_uri_handlers = 16;
+	/* meas.bin download + SPI flash path needs more than default 4KB stack */
+	config.stack_size = 8192;
+	/* SoftAP + ~2.5MB chunked download needs longer socket wait than default 5s */
+	config.send_wait_timeout = 30;
+	config.recv_wait_timeout = 30;
+	config.lru_purge_enable = true;
 	static struct file_server_data *server_data = NULL;
 
 	if(base_path == NULL){

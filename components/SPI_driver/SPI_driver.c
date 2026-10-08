@@ -2,6 +2,8 @@
 #include <string.h>
 #include <driver/spi_master.h>
 #include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
@@ -10,6 +12,9 @@
 
 static const char *TAG = "SPI_driver";
 static esp_err_t SPI_init_done = ESP_ERR_NOT_FINISHED;
+/* Serialize all SPI2 devices: same-device concurrent acquire+poll races
+ * return INVALID_STATE ("polling transaction in progress") and can wedge the bus. */
+static SemaphoreHandle_t spi_bus_mutex = NULL;
 
 esp_err_t SPI_init(){
 	// -------------- SPI init --------------------------------------------
@@ -24,6 +29,11 @@ esp_err_t SPI_init(){
 
 	 //Initialize the SPI bus
 	ESP_RETURN_ON_ERROR(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO), TAG, "spi_bus_init failed");
+
+	if(spi_bus_mutex == NULL){
+		spi_bus_mutex = xSemaphoreCreateMutex();
+		ESP_RETURN_ON_FALSE(spi_bus_mutex != NULL, ESP_ERR_NO_MEM, TAG, "SPI mutex create failed");
+	}
 
 	SPI_init_done = ESP_OK;
 	return ESP_OK;
@@ -59,6 +69,7 @@ esp_err_t SPI_registerDevice(spi_dev_handle_t *handle, int CS_pin, int clock_mhz
 
 esp_err_t IRAM_ATTR SPI_transfer(spi_dev_handle_t handle, uint8_t cmd, uint32_t addr, uint8_t * tx_buf, uint8_t * rx_buf, int payload_len){
 	ESP_RETURN_ON_FALSE(handle != NULL, ESP_ERR_INVALID_ARG, TAG, "SPI_transfer - handle is NULL");
+	ESP_RETURN_ON_FALSE(spi_bus_mutex != NULL, ESP_ERR_INVALID_STATE, TAG, "SPI_transfer - mutex not ready");
 
 	esp_err_t ret = ESP_OK;
 	spi_transaction_t trans;
@@ -70,13 +81,22 @@ esp_err_t IRAM_ATTR SPI_transfer(spi_dev_handle_t handle, uint8_t cmd, uint32_t 
 	trans.rx_buffer = rx_buf;
 	trans.tx_buffer = tx_buf;
 
-	if(spi_device_acquire_bus(handle, portMAX_DELAY) == ESP_OK){  //TODO <<--------------------------------------------- dać jakiś limit na timeout???
-		if (spi_device_polling_transmit(handle, &trans) != ESP_OK) {
-			ESP_LOGE("SPI DRIVER", "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
-			ret = ESP_FAIL;
-		}
-		spi_device_release_bus(handle);
+	if(xSemaphoreTake(spi_bus_mutex, portMAX_DELAY) != pdTRUE){
+		return ESP_ERR_TIMEOUT;
 	}
+
+	ret = spi_device_acquire_bus(handle, portMAX_DELAY);
+	if(ret != ESP_OK){
+		xSemaphoreGive(spi_bus_mutex);
+		return ret;
+	}
+
+	if (spi_device_polling_transmit(handle, &trans) != ESP_OK) {
+		ESP_LOGE(TAG, "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+		ret = ESP_FAIL;
+	}
+	spi_device_release_bus(handle);
+	xSemaphoreGive(spi_bus_mutex);
 
 	return ret;
 }
