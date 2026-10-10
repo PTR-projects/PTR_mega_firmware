@@ -1,33 +1,288 @@
-name: Build PlatformIO project
+name: Firmware CI
+
 on:
-  push
+  push:
+    tags-ignore:
+      - "firmware_v*"
+    paths-ignore:
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-ci-${{ github.ref }}
+  cancel-in-progress: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-        matrix:
-            targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v1_0]
+  toolchain:
+    name: Toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
-      # Checkout repository
       - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Cache
-        uses: actions/cache@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Cache PlatformIO packages
+        id: pio-cache
+        uses: actions/cache@v6
         with:
           path: |
-            ~/.cache/pip
             ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
-          
-      - name: Pythine setup
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-          
-      - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-py3.12-${{ hashFiles('platformio.ini', 'requirements-ci.txt') }}
+          restore-keys: |
+            pio-${{ runner.os }}-py3.12-
 
-      - name: Build PlatformIO Project for ${{ matrix.targets }}
-        run: pio run --environment ${{ matrix.targets }}
+      - name: Install CI tools
+        run: pip install -r requirements-ci.txt
+
+      - name: Install PlatformIO packages
+        if: steps.pio-cache.outputs.cache-hit != 'true'
+        run: |
+          pio pkg install -e native -e PTR_mega_v0_1 -e PTR_mega_v1_0 -e PTR_mini_v1_0
+          pio pkg install -g -t "platformio/tool-cppcheck"
+
+  build:
+    name: Build ${{ matrix.targets }}
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v1_0]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Restore PlatformIO packages
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-py3.12-${{ hashFiles('platformio.ini', 'requirements-ci.txt') }}
+          restore-keys: |
+            pio-${{ runner.os }}-py3.12-
+
+      - name: Install CI tools
+        run: pip install -r requirements-ci.txt
+
+      - name: Resolve version
+        run: |
+          set -euo pipefail
+          desc=$(git describe --tags --always)
+          echo "VERSION_TAG=$desc" >> "$GITHUB_ENV"
+          echo "ARTIFACT_VERSION=${desc//\//-}" >> "$GITHUB_ENV"
+
+      - name: Build ${{ matrix.targets }}
+        env:
+          TARGET: ${{ matrix.targets }}
+        run: |
+          set -euo pipefail
+          pio run --environment "$TARGET" 2>&1 | tee build.log
+          {
+            echo "### ${TARGET}"
+            echo
+            echo '```'
+            grep -E '^(RAM|Flash):' build.log || echo "No size summary in the build log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-${{ matrix.targets }}-${{ env.ARTIFACT_VERSION }}
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            .pio/build/${{ matrix.targets }}/firmware.bin
+            .pio/build/${{ matrix.targets }}/bootloader.bin
+            .pio/build/${{ matrix.targets }}/partitions.bin
+            .pio/build/${{ matrix.targets }}/firmware.elf
+
+  test:
+    name: Unit tests
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Restore PlatformIO packages
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-py3.12-${{ hashFiles('platformio.ini', 'requirements-ci.txt') }}
+          restore-keys: |
+            pio-${{ runner.os }}-py3.12-
+
+      - name: Install CI tools
+        run: pip install -r requirements-ci.txt
+
+      - name: Run host tests
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          suites=(test/test_*)
+          if [ ${#suites[@]} -eq 0 ]; then
+            echo "No PlatformIO test suites yet"
+            exit 0
+          fi
+          pio test --environment native
+
+  format:
+    name: clang-format
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install CI tools
+        run: pip install -r requirements-ci.txt
+
+      - name: Check formatting of changes from main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          header=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)
+          git config --local "http.https://github.com/.extraheader" "AUTHORIZATION: basic ${header}"
+          trap 'git config --local --unset-all "http.https://github.com/.extraheader" || true' EXIT
+          git fetch --no-tags origin main
+          base=$(git merge-base HEAD origin/main)
+          git diff -z --name-only --diff-filter=ACMR "$base" -- '*.c' '*.h' \
+            | xargs -0 -r clang-format --dry-run --Werror
+
+  analyze:
+    name: cppcheck ${{ matrix.targets }}
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v1_0]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Restore PlatformIO packages
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-py3.12-${{ hashFiles('platformio.ini', 'requirements-ci.txt') }}
+          restore-keys: |
+            pio-${{ runner.os }}-py3.12-
+
+      - name: Install CI tools
+        run: pip install -r requirements-ci.txt
+
+      - name: Run cppcheck
+        env:
+          TARGET: ${{ matrix.targets }}
+        run: |
+          set -euo pipefail
+          pio check --environment "$TARGET"
+
+  ci-success:
+    name: CI
+    needs: [build, test, format, analyze]
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every check to pass
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          FORMAT_RESULT: ${{ needs.format.result }}
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+        run: |
+          set -euo pipefail
+          fail=0
+          for name in BUILD TEST FORMAT ANALYZE; do
+            var="${name}_RESULT"
+            result="${!var}"
+            echo "$name=$result"
+            if [ "$result" != "success" ]; then
+              fail=1
+            fi
+          done
+          exit "$fail"
