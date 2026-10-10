@@ -1,0 +1,54 @@
+name: Release firmware
+
+on:
+  push:
+    tags:
+      - "firmware_v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: firmware-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/main.yml
+
+  release:
+    name: Publish GitHub Release
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: firmware-*
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          mkdir -p release
+          while IFS= read -r -d '' file; do
+            artifact=$(basename "$(dirname "$file")")
+            base=$(basename "$file")
+            cp "$file" "release/${artifact}__${base}"
+          done < <(find dist -type f -print0)
+          mapfile -d '' -t files < <(find release -type f -print0)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No firmware artifacts to publish"
+            exit 1
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            gh release create "$tag" "${files[@]}" --generate-notes --title "$tag"
+          fi
