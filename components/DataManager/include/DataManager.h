@@ -79,6 +79,16 @@ typedef struct __attribute__((__packed__)){
 	uint8_t blank[4];
 } DataPackage_t;
 
+typedef struct {
+	uint32_t timestamp_ms;
+	Sensors_t sensors;
+	gps_t gps;
+	AHRS_t ahrs;
+	flightstate_t flightstate;
+	IGN_t ign;
+	Analog_meas_t analog;
+	servo_t servo;
+} DataPackageWebLive_t;
 
 /**
  * @brief Initialize the data manager (DM) module.

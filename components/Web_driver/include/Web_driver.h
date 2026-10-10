@@ -34,6 +34,6 @@ esp_err_t Web_status_updateSysMgr(uint32_t timestamp_ms, uint8_t state_system, u
 								  uint8_t state_web, uint8_t state_effector, uint8_t arm);
 esp_err_t Web_status_updateconfig(uint64_t SWversion, uint64_t serialNumber, float drougeAlt, float mainAlt); //zakładam wykonywanie tego przy okazji odczyty konfiguracji konfiguracji, czyli na starcie i po zmienie konfiguracji
 esp_err_t Web_status_updateGNSS(float lat, float lon, uint8_t fix, uint8_t sats);
-esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr);
+esp_err_t Web_live_from_DataPackage(DataPackageWebLive_t * data);
 esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt); //ADCS = Attitude Determination and Control System
 
