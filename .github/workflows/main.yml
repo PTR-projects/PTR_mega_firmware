@@ -208,8 +208,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          auth=$(printf "AUTHORIZATION: bearer %s" "$GITHUB_TOKEN")
-          git -c "http.extraheader=$auth" fetch --no-tags origin main
+          header=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)
+          git config --local "http.https://github.com/.extraheader" "AUTHORIZATION: basic ${header}"
+          trap 'git config --local --unset-all "http.https://github.com/.extraheader" || true' EXIT
+          git fetch --no-tags origin main
           base=$(git merge-base HEAD origin/main)
           git diff -z --name-only --diff-filter=ACMR "$base" -- '*.c' '*.h' \
             | xargs -0 -r clang-format --dry-run --Werror
