@@ -205,7 +205,7 @@ adjustments needs to be done. Run in `PTR_mega_firmware` directory command `idf.
 On address http://192.168.4.1/ listens onboard web server. Congrats, you started and verified running firmware \o/
 ## Continuous integration
 
-GitHub Actions workflow **Firmware CI** (`.github/workflows/main.yml`) builds the three PlatformIO environments `PTR_mega_v0_1`, `PTR_mega_v1_0`, and `PTR_mini_v1_0`. It also runs host tests, clang-format, and cppcheck. The single check to require on `main` is the job named **CI**.
+GitHub Actions workflow **Firmware CI** (`.github/workflows/main.yml`) builds the three PlatformIO environments `PTR_mega_v0_1`, `PTR_mega_v1_0`, and `PTR_mini_v1_0`. It also runs host tests and cppcheck. The single check to require on `main` is the job named **CI**.
 
 A push to a branch starts the run. Open **Actions → Firmware CI** and select the run whose event is **push**. A pull request from this repository shows **Skipped**: the same commit was already built by that push. Pull requests from forks still run. Markdown-only commits do not start the workflow. **Re-run all jobs** repeats a run on the same commit.
 
@@ -213,7 +213,6 @@ A push to a branch starts the run. Open **Actions → Firmware CI** and select t
 | --- | --- |
 | Build | `pio run` for each board. Firmware, bootloader, partition table, and ELF are kept for 30 days. The artifact name includes `git describe --tags --always`. |
 | Unit tests | `pio test -e native` when `test/test_*` exists. With no suite, the job passes. |
-| clang-format | C and H files that differ from `main` must match `.clang-format`. |
 | cppcheck | Project sources for each board. ESP-IDF and packages are not scanned. |
 
 Pushing a tag `firmware_v*` (for example `firmware_v1.0_alpha2`) runs **Release firmware** and, if every check passes, publishes those images as a GitHub Release. That tag does not also start a separate Firmware CI run.
