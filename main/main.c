@@ -25,6 +25,7 @@
 #include "Sensors.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
+#include "Wifi_driver.h"
 #include "Web_driver.h"
 #include "Preferences.h"
 #include "DataManager.h"
@@ -519,6 +520,7 @@ void app_main(void)
     nvs_flash_init();
     Web_storageInit();
     Preferences_init();
+    wifi_enable();
     SysMgr_init();
 
     // Init Web component and make checkout
