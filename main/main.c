@@ -54,20 +54,18 @@ QueueHandle_t queue_MainToWeb;
  * @param pvParameter
  */
 void IRAM_ATTR task_kpptr_main(void *pvParameter){
-	TickType_t 		 xLastWakeTime = 0;
-	TickType_t 		 prevTickCountRF = 0;
-	TickType_t 		 prevTickCountWeb = 0;
-	DataPackage_t *  DataPackage_ptr = NULL;
-	DataPackage_t    DataPackage_d;
-	kppacket_t 		 DataPackageRF_d;
-	gps_t 			 gps_d;
-	Analog_meas_t 	 Analog_meas;
-	
-	
+	TickType_t 		     xLastWakeTime = 0;
+	TickType_t 		     prevTickCountRF = 0;
+	TickType_t 		     prevTickCountWeb = 0;
+	DataPackage_t *      DataPackage_ptr = NULL;
+	DataPackage_t        DataPackage_d;
+	kppacket_t 		     DataPackageRF_d;
+	DataPackageWebLive_t DataPackageWebLive_d;
+	gps_t 			     gps_d;
+	Analog_meas_t 	     Analog_meas;
+	int64_t              time_us = esp_timer_get_time();
+	esp_err_t            status = ESP_FAIL;
 
-	int64_t time_us = esp_timer_get_time();
-
-	esp_err_t status = ESP_FAIL;
 	while(status != ESP_OK){
 		status  = ESP_OK;
 		status |= Sensors_init();
@@ -139,7 +137,15 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		//Send data to Web every 1000ms
 		if(((prevTickCountWeb + pdMS_TO_TICKS( 1000 )) <= xLastWakeTime)){
 			prevTickCountWeb = xLastWakeTime;
-			xQueueOverwrite(queue_MainToWeb, (void *)DataPackage_ptr); // Add to Web queue
+			DataPackageWebLive_d.ahrs        = *ahrs;
+			DataPackageWebLive_d.analog      =  Analog_meas;
+			DataPackageWebLive_d.flightstate =  fsd_state;
+			DataPackageWebLive_d.gps         =  gps_d;
+			DataPackageWebLive_d.ign         =  igniters;
+			DataPackageWebLive_d.sensors     = *sensors;
+			DataPackageWebLive_d.servo       = *servos;
+
+			xQueueOverwrite(queue_MainToWeb, (void *)&DataPackageWebLive_d); // Add to Web queue
 		}
 
 	}
@@ -164,6 +170,7 @@ void task_kpptr_telemetry(void *pvParameter){
 
 	while(1){
 		TMTC_process();
+		vTaskDelay(pdMS_TO_TICKS( 100 ));
 	}
 #else
 	SysMgr_checkout(checkout_lora, check_ready);
@@ -238,10 +245,10 @@ void task_kpptr_storage(void *pvParameter){
  * @param pvParameter
  */
 void task_kpptr_utils(void *pvParameter){
-	TickType_t 	  xLastWakeTime = 0;
-	uint32_t 	  interval_ms = 20;
-	DataPackage_t DataPackage_d;
-	esp_err_t 	  status = ESP_FAIL;
+	TickType_t 	         xLastWakeTime = 0;
+	uint32_t 	           interval_ms = 10;
+	DataPackageWebLive_t DataPackageWebLive_d;
+	esp_err_t 	         status = ESP_FAIL;
 
 	while(status != ESP_OK){
 		status  = ESP_OK;
@@ -268,8 +275,8 @@ void task_kpptr_utils(void *pvParameter){
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS( interval_ms ));
 		LED_srv();
 
-		if(xQueueReceive(queue_MainToWeb, &DataPackage_d, 0)){
-			Web_live_from_DataPackage(&DataPackage_d, AHRS_getData());
+		if(xQueueReceive(queue_MainToWeb, &DataPackageWebLive_d, 0)){
+			Web_live_from_DataPackage(&DataPackageWebLive_d);
 
 #if defined GNSS_UART
 			// Change GNSS component status if fix is OK
@@ -475,7 +482,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 		if(FSD_checkArmed() == ARMED && SysMgr_getArm() != system_armed){
 			SysMgr_setArm(system_armed);
 			ready_to_arm_time_passed = 1;	// backstop has done its job; hands off after any arm (manual or auto)
-			BUZZER_beep(70, 70, 5);
+			BUZZER_beep(60, 60, 5);
 		}
 
 		if(FSD_checkArmed() == DISARMED && SysMgr_getArm() == system_armed){
@@ -509,9 +516,11 @@ void task_kpptr_sysmgr(void *pvParameter){
  */
 void app_main(void)
 {
-    wifi_enable();
+	vTaskDelay(pdMS_TO_TICKS(5000)); //Delay used to monitor via serial, debug feature
+    nvs_flash_init();
     Web_storageInit();
     Preferences_init();
+    wifi_enable();
     SysMgr_init();
 
     // Init Web component and make checkout
@@ -531,16 +540,16 @@ void app_main(void)
 	}
 
     //----- Create queues ---------
-    queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t   ) );
-    queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackage_t   ) );
+    queue_AnalogToMain    = xQueueCreate( 1, sizeof( Analog_meas_t        ) );
+    queue_MainToWeb 	  = xQueueCreate( 1, sizeof( DataPackageWebLive_t ) );
 
     //----- Check queues ----------
     if(queue_AnalogToMain == 0)   	ESP_LOGE(TAG, "Failed to create queue -> queue_AnalogToMain");
 	if(queue_MainToWeb == 0)    	ESP_LOGE(TAG, "Failed to create queue -> queue_MainToWeb");
 
     xTaskCreatePinnedToCore(&task_kpptr_sysmgr, 	"task_kpptr_sysmgr", 	1024*4, NULL, configMAX_PRIORITIES - 10, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 14, NULL, ESP_CORE_0);
-    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_utils, 		"task_kpptr_utils", 	1024*4, NULL, configMAX_PRIORITIES - 13, NULL, ESP_CORE_0);
+    xTaskCreatePinnedToCore(&task_kpptr_analog, 	"task_kpptr_analog", 	1024*4, NULL, configMAX_PRIORITIES - 20, NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_storage,	"task_kpptr_storage",   1024*4, NULL, configMAX_PRIORITIES - 3,  NULL, ESP_CORE_0);
     xTaskCreatePinnedToCore(&task_kpptr_telemetry,	"task_kpptr_telemetry", 1024*4, NULL, configMAX_PRIORITIES - 4,  NULL, ESP_CORE_0);
 	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);

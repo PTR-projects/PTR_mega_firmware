@@ -20,7 +20,8 @@ typedef enum wifi_status_t{
  * 1. Initializes NVS (Non-Volatile Storage).
  * 2. Initializes the TCP/IP stack and the default event loop.
  * 3. Creates the default Wi-Fi AP network interface.
- * 4. Configures the AP with SSID and password from Kconfig or preferences.
+ * 4. Configures the AP. The SSID is the Kconfig name plus the last two MAC bytes,
+ *    and the password comes from preferences when they are available.
  * 5. Starts Wi-Fi in AP mode.
  *
  * @return

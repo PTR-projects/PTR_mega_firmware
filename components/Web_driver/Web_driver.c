@@ -7,9 +7,8 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
-#include "esp_wifi.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
+
+#include "Wifi_driver.h"
 
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
@@ -46,6 +45,7 @@ static const char *TAG = "Web_driver";
 Web_driver_status_t status_web;
 Web_driver_live_t live_web;
 
+
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop						(httpd_handle_t server);
 esp_err_t Web_wifi_stop					(void);
@@ -74,15 +74,15 @@ esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
 	const char* base_path = "/www";
 
-	while(get_wifi_status() != WIFI_ACTIVE)
-    {
-        ESP_LOGI(TAG, "Waiting for WIFI");
-        vTaskDelay(1000);
-    }
-	
+	if(get_wifi_status() != WIFI_ACTIVE){
+		ESP_LOGE(TAG, "WIFI is not active, HTTP server not started");
+		Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
+		return ESP_FAIL;
+	}
+
 	ret = Web_http_init(base_path);
 	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
-	
+
 	return ret;
 }
 
@@ -824,11 +824,7 @@ void Web_http_stop(httpd_handle_t server){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Web_wifi_stop(void){
-	esp_err_t ret = ESP_FAIL;
-
-	ret = esp_wifi_stop();
-
-	return ret;
+	return wifi_disable();
 }
 
 
@@ -940,45 +936,45 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 }
 
 
-esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr){
-    if(DataPackage_ptr == NULL || ahrs_ptr == NULL)
+esp_err_t Web_live_from_DataPackage(DataPackageWebLive_t * data){
+    if(data == NULL)
         return ESP_FAIL;
     Web_driver_live_t     live_web;
 
-    live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
-    live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
-    live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
-    live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;
-    live_web.LSM6DS32_0.ax = DataPackage_ptr->sensors.accX;
-    live_web.LSM6DS32_0.ay = DataPackage_ptr->sensors.accY;
-    live_web.LSM6DS32_0.az = DataPackage_ptr->sensors.accZ;
-    live_web.LSM6DS32_0.gx = DataPackage_ptr->sensors.gyroX;
-    live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
-    live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
-    live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
-    live_web.LSM6DS32_1.ax = 0.0f;
-    live_web.LSM6DS32_1.ay = 0.0f;
-    live_web.LSM6DS32_1.az = 0.0f;
-    live_web.LSM6DS32_1.gx = 0.0f;
-    live_web.LSM6DS32_1.gy = 0.0f;
-    live_web.LSM6DS32_1.gz = 0.0f;
-    live_web.LSM6DS32_1.temperature = 0.0f;
-    live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
-    live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
-    live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
-    live_web.MS5607.altitude = ahrs_ptr->altitudeP;
-    live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
-    live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
-    live_web.anglex = ahrs_ptr->orientation.euler.roll;
-    live_web.angley = ahrs_ptr->orientation.euler.pitch;
-    live_web.anglez = ahrs_ptr->orientation.euler.yaw;
-    live_web.gps.fix 		= DataPackage_ptr->sensors.gnss_fix >> 6;
-    live_web.gps.latitude 	= DataPackage_ptr->sensors.latitude;
-    live_web.gps.longitude 	= DataPackage_ptr->sensors.longitude;
-    live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
+    live_web.timestamp = data->timestamp_ms;	// [ms]
+    live_web.LIS331.ax = data->sensors.LIS331.accX;
+    live_web.LIS331.ay = data->sensors.LIS331.accY;
+    live_web.LIS331.az = data->sensors.LIS331.accZ;
+    live_web.LSM6DS32_0.ax = data->sensors.LSM6DSO32[0].accX;
+    live_web.LSM6DS32_0.ay = data->sensors.LSM6DSO32[0].accY;
+    live_web.LSM6DS32_0.az = data->sensors.LSM6DSO32[0].accZ;
+    live_web.LSM6DS32_0.gx = data->sensors.LSM6DSO32[0].gyroX;
+    live_web.LSM6DS32_0.gy = data->sensors.LSM6DSO32[0].gyroY;
+    live_web.LSM6DS32_0.gz = data->sensors.LSM6DSO32[0].gyroZ;
+    live_web.LSM6DS32_0.temperature = data->sensors.LSM6DSO32[0].temp;
+    live_web.LSM6DS32_1.ax = data->sensors.LSM6DSO32[1].accX;
+    live_web.LSM6DS32_1.ay = data->sensors.LSM6DSO32[1].accY;
+    live_web.LSM6DS32_1.az = data->sensors.LSM6DSO32[1].accZ;
+    live_web.LSM6DS32_1.gx = data->sensors.LSM6DSO32[1].gyroX;
+    live_web.LSM6DS32_1.gy = data->sensors.LSM6DSO32[1].gyroY;
+    live_web.LSM6DS32_1.gz = data->sensors.LSM6DSO32[1].gyroZ;
+    live_web.LSM6DS32_1.temperature = data->sensors.LSM6DSO32[1].temp;
+    live_web.MMC5983MA.mx = data->sensors.MMC5983MA.magX;
+    live_web.MMC5983MA.my = data->sensors.MMC5983MA.magY;
+    live_web.MMC5983MA.mz = data->sensors.MMC5983MA.magZ;
+    live_web.MS5607.altitude = data->ahrs.altitudeP;
+    live_web.MS5607.pressure = data->sensors.MS5607.press;
+    live_web.MS5607.temperature = data->sensors.MS5607.temp;
+    live_web.anglex = data->ahrs.orientation.euler.roll;
+    live_web.angley = data->ahrs.orientation.euler.pitch;
+    live_web.anglez = data->ahrs.orientation.euler.yaw;
+    live_web.gps.fix 		= data->gps.fix;
+    live_web.gps.latitude 	= data->gps.latitude;
+    live_web.gps.longitude 	= data->gps.longitude;
+    live_web.gps.sats 		= data->gps.sats_in_use;
 
-    status_web.flight_state = DataPackage_ptr->flightstate;
-	status_web.rocket_tilt  = AHRS_calcTilt(&(ahrs_ptr->orientation.euler));
+    status_web.flight_state = data->flightstate;
+	status_web.rocket_tilt  = AHRS_calcTilt(&(data->ahrs.orientation.euler));
 
     Web_live_exchange(live_web);
     return ESP_OK;

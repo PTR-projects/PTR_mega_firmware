@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "Wifi_driver.h"
@@ -5,11 +6,10 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "Preferences.h"
+#include "BOARD_cfg.h"
 
 static const char *TAG = "WIFI";
 
-#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
-#define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
 #define CONFIG_ESP_WIFI_CHANEL   1
 #define CONFIG_ESP_WIFI_MAX_CONNECTIONS   1
 
@@ -36,7 +36,7 @@ esp_err_t wifi_enable(void){
     }
 
     ret = esp_netif_init();
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(TAG, "Failed to initialize netif: %s", esp_err_to_name(ret));
         return ret;
     }
@@ -58,20 +58,34 @@ esp_err_t wifi_enable(void){
         ESP_LOGE(TAG, "esp_wifi_init failed: %s", esp_err_to_name(ret));
         return ret;
     }
-    wifi_config_t wifi_config = {
-    	.ap = {
-    		.ssid = CONFIG_ESP_WIFI_SSID,
-    		.ssid_len = strlen(CONFIG_ESP_WIFI_SSID),
-    		.channel = CONFIG_ESP_WIFI_CHANEL,
-    		.password =  CONFIG_ESP_WIFI_PASSWORD,
-    		.max_connection = CONFIG_ESP_WIFI_MAX_CONNECTIONS,
-    		.authmode = WIFI_AUTH_WPA_WPA2_PSK
-    	},
-    };
+    uint8_t mac[6];
+    char mac_suffix[5];
+    char ssid[32];
+
+    if ((ret = esp_wifi_get_mac(WIFI_IF_STA, mac)) != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_get_mac failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    // last two mac address digits should be sufficient to make SSID unique
+    snprintf(mac_suffix, sizeof(mac_suffix), "%02X%02X", mac[4], mac[5]);
+    ESP_LOGI(TAG, "MAC address: %s", mac_suffix);
+
+    snprintf(ssid, sizeof(ssid), "%s-%s", CONFIG_ESP_WIFI_SSID, mac_suffix);
+    ESP_LOGI(TAG, "SSID: %s", ssid);
+
+    wifi_config_t wifi_config = {0};
+    wifi_config.ap.ssid_len       = strlen(ssid);
+    wifi_config.ap.channel        = CONFIG_ESP_WIFI_CHANEL;
+    wifi_config.ap.max_connection = CONFIG_ESP_WIFI_MAX_CONNECTIONS;
+    wifi_config.ap.authmode       = WIFI_AUTH_WPA_WPA2_PSK;
+    strncpy((char *)wifi_config.ap.password, CONFIG_ESP_WIFI_PASSWORD,
+            sizeof(wifi_config.ap.password) - 1);
+    strncpy((char *)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid) - 1);
 
     Preferences_data_t pref;
-    if(Preferences_get(&pref) == ESP_OK){
-    	strlcpy((char *)wifi_config.ap.password, pref.wifi_pass, sizeof(wifi_config.ap.password));
+    if(Preferences_get(&pref) == ESP_OK && pref.wifi_pass != NULL){
+    	memset(wifi_config.ap.password, 0, sizeof(wifi_config.ap.password));
+    	strncpy((char *)wifi_config.ap.password, pref.wifi_pass, sizeof(wifi_config.ap.password) - 1);
     	ESP_LOGV(TAG, "WiFi Pass from pref.: %s", (char *)wifi_config.ap.password);
     } else {
         ESP_LOGW(TAG, "Could not get preferences, using default password from Kconfig.");
@@ -98,14 +112,13 @@ esp_err_t wifi_enable(void){
     ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", wifi_config.ap.ssid, wifi_config.ap.password, wifi_config.ap.channel);
 
     esp_netif_ip_info_t ip_info;
-    if ((ret = esp_netif_get_ip_info(wifi_ap_netif, &ip_info)) != ESP_OK) {
-        ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %s", esp_err_to_name(ret));
-        return ret;
+    if (esp_netif_get_ip_info(wifi_ap_netif, &ip_info) == ESP_OK) {
+        ESP_LOGI(TAG,"IP Address:  " IPSTR, IP2STR(&ip_info.ip));
+        ESP_LOGI(TAG,"Subnet mask: " IPSTR, IP2STR(&ip_info.netmask));
+        ESP_LOGI(TAG,"Gateway:     " IPSTR, IP2STR(&ip_info.gw));
+    } else {
+        ESP_LOGW(TAG, "Soft AP started, but IP info is not available yet");
     }
-
-    ESP_LOGI(TAG,"IP Address:  " IPSTR, IP2STR(&ip_info.ip));
-    ESP_LOGI(TAG,"Subnet mask: " IPSTR, IP2STR(&ip_info.netmask));
-    ESP_LOGI(TAG,"Gateway:     " IPSTR, IP2STR(&ip_info.gw));
 
     wifi_status = WIFI_ACTIVE;
     return ESP_OK;
