@@ -130,13 +130,13 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->sensors.accHY 		= sensors->LIS331.accY;
 	package->sensors.accHZ 		= sensors->LIS331.accZ;
 
-	package->sensors.accX 		= sensors->LSM6DSO32.accX;
-	package->sensors.accY 		= sensors->LSM6DSO32.accY;
-	package->sensors.accZ 		= sensors->LSM6DSO32.accZ;
+	package->sensors.accX 		= sensors->LSM6DSO32[0].accX;
+	package->sensors.accY 		= sensors->LSM6DSO32[0].accY;
+	package->sensors.accZ 		= sensors->LSM6DSO32[0].accZ;
 
-	package->sensors.gyroX 		= sensors->LSM6DSO32.gyroX;
-	package->sensors.gyroY 		= sensors->LSM6DSO32.gyroY;
-	package->sensors.gyroZ 		= sensors->LSM6DSO32.gyroZ;
+	package->sensors.gyroX 		= sensors->LSM6DSO32[0].gyroX;
+	package->sensors.gyroY 		= sensors->LSM6DSO32[0].gyroY;
+	package->sensors.gyroZ 		= sensors->LSM6DSO32[0].gyroZ;
 
 	package->sensors.magX 		= sensors->MMC5983MA.magX;
 	package->sensors.magY 		= sensors->MMC5983MA.magY;
@@ -215,12 +215,12 @@ void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * s
 	payload.state       = (uint8_t)flightstate;
 	payload.flags       = 0;
 	payload.vbat_10     = (uint8_t)(analog->vbat_mV / 100.0f);
-	payload.accX_100    = (int16_t)(sensors->LSM6DSO32.accX * 100.0f);
-	payload.accY_100    = (int16_t)(sensors->LSM6DSO32.accY * 100.0f);
-	payload.accZ_100    = (int16_t)(sensors->LSM6DSO32.accZ * 100.0f);
-	payload.gyroX_10    = (int16_t)(sensors->LSM6DSO32.gyroX * 10.0f);
-	payload.gyroY_10    = (int16_t)(sensors->LSM6DSO32.gyroY * 10.0f);
-	payload.gyroZ_10    = (int16_t)(sensors->LSM6DSO32.gyroZ * 10.0f);
+	payload.accX_100    = (int16_t)(sensors->LSM6DSO32[0].accX * 100.0f);
+	payload.accY_100    = (int16_t)(sensors->LSM6DSO32[0].accY * 100.0f);
+	payload.accZ_100    = (int16_t)(sensors->LSM6DSO32[0].accZ * 100.0f);
+	payload.gyroX_10    = (int16_t)(sensors->LSM6DSO32[0].gyroX * 10.0f);
+	payload.gyroY_10    = (int16_t)(sensors->LSM6DSO32[0].gyroY * 10.0f);
+	payload.gyroZ_10    = (int16_t)(sensors->LSM6DSO32[0].gyroZ * 10.0f);
 	payload.tilt_100    = (int16_t)(AHRS_calcTilt(&(ahrs->orientation.euler)) * 100.0f);
 	payload.pressure    = sensors->MS5607.press;
 	payload.velocity_10 = (int16_t)(ahrs->ascent_rate * 10.0f);
