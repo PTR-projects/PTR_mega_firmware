@@ -1,2 +1,1 @@
 platformio==6.1.19
-clang-format==18.1.8
