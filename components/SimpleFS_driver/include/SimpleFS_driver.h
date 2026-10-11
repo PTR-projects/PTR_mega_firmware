@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -30,6 +31,7 @@ typedef enum{
 
 esp_err_t 	SimpleFS_init(const char * label);
 esp_err_t 	SimpleFS_formatMemory(uint32_t key, sfs_format_type_e type);
+bool 		SimpleFS_isErasing(void);
 esp_err_t 	SimpleFS_appendPacket(void * buffer, uint32_t size);
 uint8_t 	SimpleFS_memoryUsedPercentage();
 esp_err_t 	SimpleFS_readMode();
@@ -39,3 +41,4 @@ int32_t 	SimpleFS_dumpMemory(uint32_t chunk_size, void * buffer);
 int32_t 	SimpleFS_readMemoryLL(uint32_t position, uint32_t chunk_size, void * buffer);
 void 		SimpleFS_resetReadPointer();
 uint32_t 	SimpleFS_getFileSize();
+uint32_t 	SimpleFS_getMemorySize();
