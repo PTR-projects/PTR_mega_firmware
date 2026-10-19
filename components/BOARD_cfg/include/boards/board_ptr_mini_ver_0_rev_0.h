@@ -1,0 +1,67 @@
+#pragma once
+
+#define CONFIG_ESP_WIFI_SSID "PTR-mini"
+
+#define SPI_SLAVE_MS5607_0_PIN	41
+#define SPI_SLAVE_MS5607_PINS {SPI_SLAVE_MS5607_0_PIN}
+#define MS5607_COUNT 1
+
+#define SPI_SLAVE_LIS331_0_PIN	37
+#define SPI_SLAVE_LIS331_PINS {SPI_SLAVE_LIS331_0_PIN}
+#define LIS331_TYPES {100}
+#define LIS331_COUNT 1
+
+#define SPI_SLAVE_LSM6DSO32_0_PIN	36
+#define SPI_SLAVE_LSM6DSO32_PINS {SPI_SLAVE_LSM6DSO32_0_PIN}
+#define LSM6DSO32_COUNT 1
+
+#define SPI_MISO_PIN			38
+#define SPI_MOSI_PIN			39
+#define SPI_SCK_PIN				40
+
+#define LED_WS_PIN				35
+#define BUZZER_PIN				12
+
+#define I2C_SDA_PIN				45
+#define I2C_SCL_PIN				46
+
+#define UART_EXT_OUT			2
+#define UART_EXT_IN				3
+#define UART_EXT_UART 			UART_NUM_1
+
+#define IGN_NUM					3
+#define IGN1_EN_PIN				9
+#define IGN2_EN_PIN				8
+#define IGN3_EN_PIN				7
+#define IGN1_DET_PIN			6
+#define IGN2_DET_PIN			5
+#define IGN3_DET_PIN			4
+#define IGN_EN_PINS_LIST		IGN1_EN_PIN, IGN2_EN_PIN, IGN3_EN_PIN
+#define IGN_DET_PINS_LIST		ADC_CHANNEL_5, ADC_CHANNEL_4, ADC_CHANNEL_3
+
+
+#define VBAT_MEAS_PIN			ADC_CHANNEL_9
+#define ADC_CHANNELS_LIST		VBAT_MEAS_PIN, IGN_DET_PINS_LIST
+#define ADC_CHANNELS_NUM		4
+
+#define LED_WS_COUNT			4
+#define LED_STD_COUNT			0
+#define BUZZER_COUNT			1
+
+#define LED_WS_POS0				0
+#define LED_STD_POS0			(LED_WS_POS0  + LED_WS_COUNT)
+#define BUZZER_POS0				(LED_WS_COUNT + LED_STD_COUNT)
+
+#define LED_POS_READY			-1
+#define LED_POS_ARM				-1
+#define LED_POS_STAT			(LED_WS_POS0+0)
+#define LED_POS_IGN1			(LED_WS_POS0+3)
+#define LED_POS_IGN2			(LED_WS_POS0+2)
+#define LED_POS_IGN3			(LED_WS_POS0+1)
+#define LED_POS_IGN4			-1
+#define LED_POS_RF				-1
+#define LED_IGN_NUM				3
+#define LED_POS_IGN_LIST		LED_POS_IGN1, LED_POS_IGN2, LED_POS_IGN3
+
+#define BUZZER_GENERATOR		1
+#define BUZZER_POS				BUZZER_POS0

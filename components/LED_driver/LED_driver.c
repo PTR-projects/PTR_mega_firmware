@@ -225,7 +225,7 @@ esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t 
 	return ESP_FAIL;
 #elif LED_CHECK_IF_WS(LED_POS_STAT)
 	return LED_blinkWS(LED_POS_STAT, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
-#elif LED_CHECK_IF_STD(LED_POS_READY)
+#elif LED_CHECK_IF_STD(LED_POS_STAT)
 	return LED_blinkSTD(LED_POS_STAT, t_on_ms, t_off_ms, blinks_number);
 #elif (LED_POS_STAT == -1)
 	return ESP_FAIL;

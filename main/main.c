@@ -38,7 +38,11 @@
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
+#if CONFIG_FREERTOS_UNICORE
+#define ESP_CORE_1 0
+#else
 #define ESP_CORE_1 1
+#endif
 
 static const char *TAG = "KP-PTR";
 

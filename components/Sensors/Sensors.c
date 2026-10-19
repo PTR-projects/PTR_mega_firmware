@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "MS5607_driver.h"
+#include "BMP581_driver.h"
 #include "LIS331_driver.h"
 #include "MMC5983MA_driver.h"
 #include "LSM6DSO32_driver.h"
@@ -18,6 +19,7 @@ esp_err_t Sensors_init(){
 	
 	memset(&Sensors_d, 0, sizeof(Sensors_d));
 	MS5607_init();
+	BMP581_init();
 	MMC5983MA_init();
 	LSM6DSO32_init();
 	LIS331_init(LIS331_RANGE_LOW);
@@ -31,11 +33,20 @@ esp_err_t IRAM_ATTR Sensors_update(){
 	//get new data from sensors
 
 	MS5607_getReloadSmart();
+	BMP581_getReloadSmart();
 	LIS331_readMeas();
 	LSM6DSO32_readMeasAll();
 	MMC5983MA_readMeas();
 
 	MS5607_getMeas	 (0, &(Sensors_d.MS5607));
+#if defined(SPI_SLAVE_BMP581_PIN)
+	{
+		BMP581_meas_t baro;
+		BMP581_getMeas(0, &baro);
+		Sensors_d.MS5607.press = baro.press;
+		Sensors_d.MS5607.temp = baro.temp;
+	}
+#endif
 	LIS331_getMeas	 (0, &(Sensors_d.LIS331));
 	LSM6DSO32_getMeas(0, &(Sensors_d.LSM6DSO32[0]));
 	LSM6DSO32_getMeas(1, &(Sensors_d.LSM6DSO32[1]));
@@ -65,7 +76,7 @@ esp_err_t IRAM_ATTR Sensors_axes_translation(){
 	Sensors_d.MMC5983MA.magY  = -Sensors_b.MMC5983MA.magX;
 	Sensors_d.MMC5983MA.magZ  =  Sensors_b.MMC5983MA.magZ;
 
-#elif defined CONFIG_BOARD_ARECORDER_VER_3_REV_0
+#elif defined(CONFIG_BOARD_ARECORDER_VER_3_REV_0) || defined(CONFIG_BOARD_PTR_MINI_VER_0_REV_0)
 	Sensors_d.LIS331.accX	  =  Sensors_b.LIS331.accX;
 	Sensors_d.LIS331.accY     = -Sensors_b.LIS331.accY;
 	Sensors_d.LIS331.accZ     = -Sensors_b.LIS331.accZ;
@@ -77,6 +88,15 @@ esp_err_t IRAM_ATTR Sensors_axes_translation(){
 	Sensors_d.LSM6DSO32[0].gyroX =  Sensors_b.LSM6DSO32[0].gyroX;
 	Sensors_d.LSM6DSO32[0].gyroY = -Sensors_b.LSM6DSO32[0].gyroY;
 	Sensors_d.LSM6DSO32[0].gyroZ = -Sensors_b.LSM6DSO32[0].gyroZ;
+#elif defined(CONFIG_BOARD_PTR_MICRO_VER_0_REV_1)
+	/* No high-G sensor. LSM6 mounting signs are not defined yet. */
+	Sensors_d.LSM6DSO32[0].accX  = Sensors_b.LSM6DSO32[0].accX;
+	Sensors_d.LSM6DSO32[0].accY  = Sensors_b.LSM6DSO32[0].accY;
+	Sensors_d.LSM6DSO32[0].accZ  = Sensors_b.LSM6DSO32[0].accZ;
+
+	Sensors_d.LSM6DSO32[0].gyroX = Sensors_b.LSM6DSO32[0].gyroX;
+	Sensors_d.LSM6DSO32[0].gyroY = Sensors_b.LSM6DSO32[0].gyroY;
+	Sensors_d.LSM6DSO32[0].gyroZ = Sensors_b.LSM6DSO32[0].gyroZ;
 #else
 #warning "No board selected!"
 #endif
