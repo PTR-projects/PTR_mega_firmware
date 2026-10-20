@@ -61,7 +61,7 @@ jobs:
       - name: Install PlatformIO packages
         if: steps.pio-cache.outputs.cache-hit != 'true'
         run: |
-          pio pkg install -e native -e PTR_mega_v0_1 -e PTR_mega_v1_0 -e PTR_mini_v1_0
+          pio pkg install -e native -e PTR_mega_v0_1 -e PTR_mega_v1_0 -e PTR_mini_v0_1 -e PTR_mini_v1_0 -e PTR_micro_v0_1
           pio pkg install -g -t "platformio/tool-cppcheck"
 
   build:
@@ -72,7 +72,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v1_0]
+        targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v0_1, PTR_mini_v1_0, PTR_micro_v0_1]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -188,7 +188,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v1_0]
+        targets: [PTR_mega_v0_1, PTR_mega_v1_0, PTR_mini_v0_1, PTR_mini_v1_0, PTR_micro_v0_1]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7

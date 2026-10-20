@@ -18,8 +18,8 @@
 #include "boards/board_ptr_mega_ver_1_rev_0.h"
 #elif defined(CONFIG_BOARD_ARECORDER_VER_3_REV_0)
 #include "boards/board_arecorder_ver_3_rev_0.h"
-#elif defined(CONFIG_BOARD_PTR_MINI_VER_0_REV_0)
-#include "boards/board_ptr_mini_ver_0_rev_0.h"
+#elif defined(CONFIG_BOARD_PTR_MINI_VER_1_REV_0)
+#include "boards/board_ptr_mini_ver_1_rev_0.h"
 #elif defined(CONFIG_BOARD_PTR_MICRO_VER_0_REV_1)
 #include "boards/board_ptr_micro_ver_0_rev_1.h"
 #else

@@ -17,7 +17,7 @@
 #define SPI_SLAVE_LSM6DSO32_PINS	{SPI_SLAVE_LSM6DSO32_0_PIN}
 #define LSM6DSO32_COUNT			1
 
-#define SPI_SLAVE_BMP581_PIN		2
+#define SPI_SLAVE_BMP581_PIN	2
 
 #define BUZZER_PIN				5
 
@@ -33,10 +33,10 @@
 #define ADC_CHANNELS_LIST		VBAT_MEAS_PIN, IGN_DET_PINS_LIST
 #define ADC_CHANNELS_NUM		3
 
-#define LED_WS_PIN				-1
-#define LED_2_PIN				21
-#define LED_WS_COUNT			0
-#define LED_STD_COUNT			1
+#define LED_WS_PIN				21
+//#define LED_2_PIN				-1
+#define LED_WS_COUNT			1
+#define LED_STD_COUNT			0
 #define BUZZER_COUNT			1
 
 #define LED_WS_POS0				0
@@ -45,9 +45,9 @@
 
 #define LED_POS_READY			-1
 #define LED_POS_ARM				-1
-#define LED_POS_STAT			LED_STD_POS0
-#define LED_POS_IGN1			-1
-#define LED_POS_IGN2			-1
+#define LED_POS_STAT			(LED_WS_POS0+0)
+#define LED_POS_IGN1			(LED_WS_POS0+1)
+#define LED_POS_IGN2			(LED_WS_POS0+2)
 #define LED_POS_IGN3			-1
 #define LED_POS_IGN4			-1
 #define LED_POS_RF				-1
