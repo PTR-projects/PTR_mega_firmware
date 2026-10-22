@@ -37,8 +37,11 @@ esp_err_t IRAM_ATTR Sensors_update(){
 
 	MS5607_getMeas	 (0, &(Sensors_d.MS5607));
 	LIS331_getMeas	 (0, &(Sensors_d.LIS331));
-	LSM6DSO32_getMeas(0, &(Sensors_d.LSM6DSO32[0]));
-	LSM6DSO32_getMeas(1, &(Sensors_d.LSM6DSO32[1]));
+
+	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++){
+		LSM6DSO32_getMeas(sensor, &(Sensors_d.LSM6DSO32[sensor]));
+	}
+	
 	MMC5983MA_getMeas(&(Sensors_d.MMC5983MA));
 
 	Sensors_axes_translation();
