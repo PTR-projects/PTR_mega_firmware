@@ -87,3 +87,6 @@ esp_err_t LORA_performCAD(void);
 * @return ESP_OK if transmitted successfully, ESP_FAIL if channel was busy.
 */
 esp_err_t LORA_sendWithLBT(uint8_t *txbuffer, uint8_t size);
+esp_err_t LORA_CW();
+esp_err_t LORA_setRx();
+int16_t   LORA_get_rssi();

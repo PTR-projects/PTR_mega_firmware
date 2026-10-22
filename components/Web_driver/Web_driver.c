@@ -1014,45 +1014,45 @@ esp_err_t Web_status_updateADCS(uint8_t flightstate, float rocket_tilt){        
 }
 
 
-esp_err_t Web_live_from_DataPackage(DataPackage_t * DataPackage_ptr, AHRS_t * ahrs_ptr){
-    if(DataPackage_ptr == NULL || ahrs_ptr == NULL)
+esp_err_t Web_live_from_DataPackage(DataPackageWebLive_t * data){
+    if(data == NULL)
         return ESP_FAIL;
     Web_driver_live_t     live_web;
 
-    live_web.timestamp = DataPackage_ptr->sys_time / 10;	// [ms]
-    live_web.LIS331.ax = DataPackage_ptr->sensors.accHX;
-    live_web.LIS331.ay = DataPackage_ptr->sensors.accHY;
-    live_web.LIS331.az = DataPackage_ptr->sensors.accHZ;
-    live_web.LSM6DS32_0.ax = DataPackage_ptr->sensors.accX;
-    live_web.LSM6DS32_0.ay = DataPackage_ptr->sensors.accY;
-    live_web.LSM6DS32_0.az = DataPackage_ptr->sensors.accZ;
-    live_web.LSM6DS32_0.gx = DataPackage_ptr->sensors.gyroX;
-    live_web.LSM6DS32_0.gy = DataPackage_ptr->sensors.gyroY;
-    live_web.LSM6DS32_0.gz = DataPackage_ptr->sensors.gyroZ;
-    live_web.LSM6DS32_0.temperature = DataPackage_ptr->sensors.temp;
-    live_web.LSM6DS32_1.ax = 0.0f;
-    live_web.LSM6DS32_1.ay = 0.0f;
-    live_web.LSM6DS32_1.az = 0.0f;
-    live_web.LSM6DS32_1.gx = 0.0f;
-    live_web.LSM6DS32_1.gy = 0.0f;
-    live_web.LSM6DS32_1.gz = 0.0f;
-    live_web.LSM6DS32_1.temperature = 0.0f;
-    live_web.MMC5983MA.mx = DataPackage_ptr->sensors.magX;
-    live_web.MMC5983MA.my = DataPackage_ptr->sensors.magY;
-    live_web.MMC5983MA.mz = DataPackage_ptr->sensors.magZ;
-    live_web.MS5607.altitude = ahrs_ptr->altitudeP;
-    live_web.MS5607.pressure = DataPackage_ptr->sensors.pressure;
-    live_web.MS5607.temperature = DataPackage_ptr->sensors.temp;
-    live_web.anglex = ahrs_ptr->orientation.euler.roll;
-    live_web.angley = ahrs_ptr->orientation.euler.pitch;
-    live_web.anglez = ahrs_ptr->orientation.euler.yaw;
-    live_web.gps.fix 		= DataPackage_ptr->sensors.gnss_fix >> 6;
-    live_web.gps.latitude 	= DataPackage_ptr->sensors.latitude;
-    live_web.gps.longitude 	= DataPackage_ptr->sensors.longitude;
-    live_web.gps.sats 		= DataPackage_ptr->sensors.gnss_fix & 0x3F;
+    live_web.timestamp = data->timestamp_ms;	// [ms]
+    live_web.LIS331.ax = data->sensors.LIS331.accX;
+    live_web.LIS331.ay = data->sensors.LIS331.accY;
+    live_web.LIS331.az = data->sensors.LIS331.accZ;
+    live_web.LSM6DS32_0.ax = data->sensors.LSM6DSO32[0].accX;
+    live_web.LSM6DS32_0.ay = data->sensors.LSM6DSO32[0].accY;
+    live_web.LSM6DS32_0.az = data->sensors.LSM6DSO32[0].accZ;
+    live_web.LSM6DS32_0.gx = data->sensors.LSM6DSO32[0].gyroX;
+    live_web.LSM6DS32_0.gy = data->sensors.LSM6DSO32[0].gyroY;
+    live_web.LSM6DS32_0.gz = data->sensors.LSM6DSO32[0].gyroZ;
+    live_web.LSM6DS32_0.temperature = data->sensors.LSM6DSO32[0].temp;
+    live_web.LSM6DS32_1.ax = data->sensors.LSM6DSO32[1].accX;
+    live_web.LSM6DS32_1.ay = data->sensors.LSM6DSO32[1].accY;
+    live_web.LSM6DS32_1.az = data->sensors.LSM6DSO32[1].accZ;
+    live_web.LSM6DS32_1.gx = data->sensors.LSM6DSO32[1].gyroX;
+    live_web.LSM6DS32_1.gy = data->sensors.LSM6DSO32[1].gyroY;
+    live_web.LSM6DS32_1.gz = data->sensors.LSM6DSO32[1].gyroZ;
+    live_web.LSM6DS32_1.temperature = data->sensors.LSM6DSO32[1].temp;
+    live_web.MMC5983MA.mx = data->sensors.MMC5983MA.magX;
+    live_web.MMC5983MA.my = data->sensors.MMC5983MA.magY;
+    live_web.MMC5983MA.mz = data->sensors.MMC5983MA.magZ;
+    live_web.MS5607.altitude = data->ahrs.altitudeP;
+    live_web.MS5607.pressure = data->sensors.MS5607.press;
+    live_web.MS5607.temperature = data->sensors.MS5607.temp;
+    live_web.anglex = data->ahrs.orientation.euler.roll;
+    live_web.angley = data->ahrs.orientation.euler.pitch;
+    live_web.anglez = data->ahrs.orientation.euler.yaw;
+    live_web.gps.fix 		= data->gps.fix;
+    live_web.gps.latitude 	= data->gps.latitude;
+    live_web.gps.longitude 	= data->gps.longitude;
+    live_web.gps.sats 		= data->gps.sats_in_use;
 
-    status_web.flight_state = DataPackage_ptr->flightstate;
-	status_web.rocket_tilt  = AHRS_calcTilt(&(ahrs_ptr->orientation.euler));
+    status_web.flight_state = data->flightstate;
+	status_web.rocket_tilt  = AHRS_calcTilt(&(data->ahrs.orientation.euler));
 
     Web_live_exchange(live_web);
     return ESP_OK;
