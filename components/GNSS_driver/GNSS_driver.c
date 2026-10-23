@@ -155,9 +155,7 @@ gnss_type_t GPS_getType(void)
 //---------------------------------------------
 typedef struct {
 	bool ubx;          /*!< valid UBX frame received */
-	bool pmtk;         /*!< "$PMTK" seen */
-	bool nmea;         /*!< any "$G?" NMEA sentence seen */
-	char win[6];       /*!< last received characters */
+	bool nmea;         /*!< "$G" seen: NMEA text */
 } probe_t;
 
 static void probe_frame_cb(uint8_t cls, uint8_t id, const uint8_t *p, uint16_t len, void *ctx)
@@ -166,24 +164,12 @@ static void probe_frame_cb(uint8_t cls, uint8_t id, const uint8_t *p, uint16_t l
 	((probe_t *)ctx)->ubx = true;
 }
 
-static void probe_scan_text(probe_t *pr, const uint8_t *d, size_t n)
-{
-	for (size_t i = 0; i < n; i++) {
-		memmove(pr->win, pr->win + 1, 5);
-		pr->win[5] = (char)d[i];
-		if (memcmp(pr->win + 1, "$PMTK", 5) == 0)
-			pr->pmtk = true;
-		else if (pr->win[3] == '$' && pr->win[4] == 'G' && pr->win[5] >= 'A' && pr->win[5] <= 'Z')
-			pr->nmea = true;
-	}
-}
-
-/** Ask the receiver for its version in both dialects and see what comes back. */
+/** Poll UBX-MON-VER and watch what comes back: a UBX reply means u-blox, NMEA text means MTK. */
 static bool probe_baud(uint32_t baud, probe_t *pr)
 {
 	uint8_t frame[UBX_FRAME_OVERHEAD];
-	static const char pmtk_query[] = "$PMTK605*31\r\n";
 	uint8_t buf[64];
+	uint8_t prev = 0;
 	ubx_parser_t parser;
 
 	memset(pr, 0, sizeof(*pr));
@@ -191,23 +177,25 @@ static bool probe_baud(uint32_t baud, probe_t *pr)
 
 	gnss_uart_set_baud(baud);
 	gnss_uart_flush_rx();
+	gnss_write(frame, ubx_build_frame(UBX_CLASS_MON, UBX_ID_MON_VER, NULL, 0, frame, sizeof(frame)));
 
-	/* Text query first: binary UBX bytes ahead of it could upset a simple line parser */
-	gnss_write(pmtk_query, sizeof(pmtk_query) - 1);
-	size_t n = ubx_build_frame(UBX_CLASS_MON, UBX_ID_MON_VER, NULL, 0, frame, sizeof(frame));
-	gnss_write(frame, n);
-
-	int64_t end = esp_timer_get_time() + 400 * 1000;
-	while (esp_timer_get_time() < end) {
-		int got = gnss_read(buf, sizeof(buf), 20);
-		if (got > 0) {
-			ubx_parser_feed(&parser, buf, (size_t)got);
-			probe_scan_text(pr, buf, (size_t)got);
-		}
-		if (pr->ubx || pr->pmtk)
+	/* A u-blox answers within ~100 ms. NMEA receivers print about once a second, so wait
+	 * long enough to catch a sentence, but not before the UBX answer had a fair chance. */
+	int64_t start = esp_timer_get_time();
+	int64_t end = start + 1100 * 1000;
+	while (esp_timer_get_time() < end && !pr->ubx) {
+		if (pr->nmea && (esp_timer_get_time() - start) >= 400 * 1000)
 			break;
+		int got = gnss_read(buf, sizeof(buf), 20);
+		for (int i = 0; i < got; i++) {
+			if (prev == '$' && buf[i] == 'G')
+				pr->nmea = true;
+			prev = buf[i];
+		}
+		if (got > 0)
+			ubx_parser_feed(&parser, buf, (size_t)got);
 	}
-	return pr->ubx || pr->pmtk || pr->nmea;
+	return pr->ubx || pr->nmea;
 }
 
 /** Find the receiver type and the baud rate it is currently using. */
@@ -218,18 +206,11 @@ static bool detect_receiver(gnss_type_t *type, uint32_t *baud)
 
 	for (int round = 0; round < 2; round++) {
 		for (size_t i = 0; i < sizeof(bauds) / sizeof(bauds[0]); i++) {
-			if (!probe_baud(bauds[i], &pr))
-				continue;
-
-			*baud = bauds[i];
-			if (pr.ubx) {
-				*type = GNSS_TYPE_UBLOX_UBX;
-			} else {
-				*type = GNSS_TYPE_NMEA_MTK;
-				if (!pr.pmtk)
-					ESP_LOGW(TAG, "NMEA receiver without PMTK reply - configuration commands may be ignored");
+			if (probe_baud(bauds[i], &pr)) {
+				*baud = bauds[i];
+				*type = pr.ubx ? GNSS_TYPE_UBLOX_UBX : GNSS_TYPE_NMEA_MTK;
+				return true;
 			}
-			return true;
 		}
 	}
 	return false;
@@ -288,7 +269,7 @@ static esp_err_t uart_install(void)
 
 esp_err_t GPS_init(void)
 {
-	return GPS_init_type(GNSS_TYPE_DEFAULT);
+	return GPS_init_type(GNSS_TYPE_AUTO);
 }
 
 esp_err_t GPS_init_type(gnss_type_t requested)

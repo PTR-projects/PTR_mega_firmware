@@ -11,6 +11,10 @@
 #include "esp_err.h"
 #include "GNSS_driver.h"
 
+/* Receiver settings (fixed for this board) */
+#define GNSS_TARGET_BAUD      115200            /*!< baud rate used after configuration */
+#define GNSS_NAV_MODE_DEFAULT GPS_MODE_AVIATION /*!< navigation / platform model */
+
 typedef struct {
 	gnss_type_t type;
 	const char *name;

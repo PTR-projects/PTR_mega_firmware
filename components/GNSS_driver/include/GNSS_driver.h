@@ -5,38 +5,9 @@
 #include "GNSS_types.h"
 
 /**
- * Default receiver selection used by GPS_init(). GNSS_TYPE_AUTO probes the UART at
- * start-up and picks the NMEA/MTK or the u-blox UBX backend. A board can force a type by
- * defining GNSS_TYPE_DEFAULT in BOARD_cfg.h.
- */
-#ifndef GNSS_TYPE_DEFAULT
-#define GNSS_TYPE_DEFAULT GNSS_TYPE_AUTO
-#endif
-
-/** Baud rate the receiver and the ESP UART are switched to after detection. */
-#ifndef GNSS_TARGET_BAUD
-#define GNSS_TARGET_BAUD 115200
-#endif
-
-/** Solution rate for NMEA/MTK receivers (ms). */
-#ifndef GNSS_NMEA_RATE_MS
-#define GNSS_NMEA_RATE_MS 200
-#endif
-
-/** Solution rate for u-blox receivers (ms), 50 ms = 20 Hz. */
-#ifndef GNSS_UBX_RATE_MS
-#define GNSS_UBX_RATE_MS 50
-#endif
-
-/** Navigation mode set at start-up. */
-#ifndef GNSS_NAV_MODE_DEFAULT
-#define GNSS_NAV_MODE_DEFAULT GPS_MODE_AVIATION
-#endif
-
-/**
  * @brief Initialize GNSS driver: detect receiver (if type is AUTO), configure it and start the parser task
  *
- * Uses GNSS_TYPE_DEFAULT. Safe to call again after a failure; returns ESP_OK immediately
+ * Detects the receiver automatically (GNSS_TYPE_AUTO). Safe to call again after a failure; returns ESP_OK immediately
  * if the driver is already running.
  *
  * @return esp_err_t

@@ -18,6 +18,7 @@
 #if defined(GNSS_UART) && defined(GNSS_RX_PIN) && defined(GNSS_TX_PIN)
 
 #define NMEA_MAX_STATEMENT_ITEM_LENGTH 16
+#define NMEA_RATE_MS 200   /*!< solution interval (5 Hz) */
 
 typedef enum {
 	STATEMENT_UNKNOWN = 0, /*!< Unknown statement */
@@ -519,7 +520,7 @@ static esp_err_t nmea_configure(uint32_t baud)
 	GPS_nmea_output_set(NMEA_OUT_GLL, NMEA_OUT_RMC, NMEA_OUT_VTG, NMEA_OUT_GGA, NMEA_OUT_GSA, 0);
 	vTaskDelay(pdMS_TO_TICKS(100));
 	nmea_set_nav_mode(GNSS_NAV_MODE_DEFAULT);                  vTaskDelay(pdMS_TO_TICKS(100));
-	nmea_set_rate_ms(GNSS_NMEA_RATE_MS);                       vTaskDelay(pdMS_TO_TICKS(100));
+	nmea_set_rate_ms(NMEA_RATE_MS);                       vTaskDelay(pdMS_TO_TICKS(100));
 	return ESP_OK;
 }
 

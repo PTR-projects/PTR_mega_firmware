@@ -21,28 +21,7 @@
 
 #if defined(GNSS_UART) && defined(GNSS_RX_PIN) && defined(GNSS_TX_PIN)
 
-/* Constellations. On the MAX-M10N 20 Hz is only possible with GPS+Galileo (single
- * constellation: 25 Hz, the default GPS+GAL+BDS set: 10 Hz), see the MAX-M10N data sheet.
- * The MAX-M10N has no GLONASS, so that key is only sent when GNSS_UBX_USE_GLO is defined. */
-#ifndef GNSS_UBX_USE_GPS
-#define GNSS_UBX_USE_GPS 1
-#endif
-#ifndef GNSS_UBX_USE_GAL
-#define GNSS_UBX_USE_GAL 1
-#endif
-#ifndef GNSS_UBX_USE_BDS
-#define GNSS_UBX_USE_BDS 0
-#endif
-#ifndef GNSS_UBX_USE_SBAS
-#define GNSS_UBX_USE_SBAS 0
-#endif
-#ifndef GNSS_UBX_USE_QZSS
-#define GNSS_UBX_USE_QZSS 0
-#endif
-/** Request UBX-NAV-DOP (HDOP/VDOP) at 1 Hz; 0 = HDOP is not provided */
-#ifndef GNSS_UBX_ENABLE_DOP
-#define GNSS_UBX_ENABLE_DOP 1
-#endif
+#define UBX_RATE_MS 50   /*!< solution interval (20 Hz) */
 
 #define UBX_ACK_TIMEOUT_MS 300
 
@@ -239,27 +218,21 @@ static esp_err_t ubx_configure(uint32_t baud)
 		return ESP_FAIL;
 	}
 
-	/* 4. Constellations (optional - a NAK here only costs update rate) */
+	/* 4. Constellations. The MAX-M10N reaches 20 Hz only with GPS+Galileo (default set: 10 Hz).
+	 * Optional - a NAK only costs update rate. */
 	ubx_cfg_item_t sig[] = {
-		{ UBX_KEY_SIGNAL_GPS_ENA,  GNSS_UBX_USE_GPS  },
-		{ UBX_KEY_SIGNAL_GAL_ENA,  GNSS_UBX_USE_GAL  },
-#ifdef GNSS_UBX_USE_GLO
-		{ UBX_KEY_SIGNAL_GLO_ENA,  GNSS_UBX_USE_GLO  },
-#endif
-		{ UBX_KEY_SIGNAL_BDS_ENA,  GNSS_UBX_USE_BDS  },
-		{ UBX_KEY_SIGNAL_SBAS_ENA, GNSS_UBX_USE_SBAS },
-		{ UBX_KEY_SIGNAL_QZSS_ENA, GNSS_UBX_USE_QZSS },
+		{ UBX_KEY_SIGNAL_GPS_ENA,  1 },
+		{ UBX_KEY_SIGNAL_GAL_ENA,  1 },
+		{ UBX_KEY_SIGNAL_BDS_ENA,  0 },
+		{ UBX_KEY_SIGNAL_SBAS_ENA, 0 },
+		{ UBX_KEY_SIGNAL_QZSS_ENA, 0 },
 	};
-	/* One message per key: a single unsupported key (e.g. a constellation the module lacks) makes the
-	 * receiver NAK the whole VALSET, which would silently drop the other constellations too. */
-	for (size_t i = 0; i < sizeof(sig) / sizeof(sig[0]); i++) {
-		if (send_valset(&sig[i], 1, true) != ESP_OK)
-			ESP_LOGW(TAG, "Constellation key 0x%08lX not accepted, update rate may be limited", (unsigned long)sig[i].key);
-	}
+	if (send_valset(sig, sizeof(sig) / sizeof(sig[0]), true) != ESP_OK)
+		ESP_LOGW(TAG, "Constellation selection not confirmed, update rate may be limited");
 
 	/* 5. Navigation rate and platform model */
 	ubx_cfg_item_t rate[] = {
-		{ UBX_KEY_RATE_MEAS, GNSS_UBX_RATE_MS },
+		{ UBX_KEY_RATE_MEAS, UBX_RATE_MS },
 		{ UBX_KEY_RATE_NAV,  1 },
 		{ UBX_KEY_NAVSPG_DYNMODEL, ubx_dynmodel_from_nav_mode(GNSS_NAV_MODE_DEFAULT) },
 	};
@@ -267,14 +240,12 @@ static esp_err_t ubx_configure(uint32_t baud)
 	if (err != ESP_OK)
 		ESP_LOGW(TAG, "Rate/platform model not confirmed (%s)", esp_err_to_name(err));
 
-#if GNSS_UBX_ENABLE_DOP
-	/* 6. Optional: HDOP/VDOP once per second */
-	ubx_cfg_item_t dop = { UBX_KEY_MSGOUT_NAV_DOP_UART1, (1000u / GNSS_UBX_RATE_MS) ? (1000u / GNSS_UBX_RATE_MS) : 1u };
+	/* 6. HDOP/VDOP once per second */
+	ubx_cfg_item_t dop = { UBX_KEY_MSGOUT_NAV_DOP_UART1, 1000u / UBX_RATE_MS };
 	if (send_valset(&dop, 1, true) != ESP_OK)
 		ESP_LOGW(TAG, "NAV-DOP not enabled, dop_h/dop_v stay 0");
-#endif
 
-	ESP_LOGI(TAG, "Configured: %u ms rate, %lu baud", (unsigned)GNSS_UBX_RATE_MS, (unsigned long)cur_baud);
+	ESP_LOGI(TAG, "Configured: %u ms rate, %lu baud", (unsigned)UBX_RATE_MS, (unsigned long)cur_baud);
 	return ESP_OK;
 }
 
