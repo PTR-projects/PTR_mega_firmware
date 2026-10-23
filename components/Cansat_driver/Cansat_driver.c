@@ -6,6 +6,8 @@
 
 #include "AHRS_driver.h"
 #include "Servo_driver.h"
+#include "Storage_driver.h"
+#include "BOARD_cfg.h"
 #include "Cansat_driver.h"
 
 #define TIME_ELAPSED(start_ms, now_ms, wait_ms)  (start_ms <= (now_ms - wait_ms))
@@ -333,8 +335,11 @@ esp_err_t Cansat_parsePacket(const kppacket_payload_cansat_t *pkt) {
             esp_restart();
             break;
         case CANSAT_CMD_MEM_ERASE:
-            // TODO: dispatch to Storage_driver
-            ESP_LOGW(TAG, "Memory erase not yet implemented");
+            ESP_LOGI(TAG, "Memory erase command received");
+            if(Storage_erase(CONFIG_KPPTR_MASTERKEY) != ESP_OK){
+                ESP_LOGE(TAG, "Memory erase failed");
+                return ESP_FAIL;
+            }
             break;
         default:
             ESP_LOGE(TAG, "Unknown CMD 0x%02X", pkt->cmd);

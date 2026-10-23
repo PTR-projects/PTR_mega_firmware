@@ -4,6 +4,7 @@
 #include "sfs_api.h"
 #include <string.h>
 #include "esp_crc.h"
+#include "BOARD_cfg.h"
 #include "SimpleFS_driver.h"
 
 static sfs_info_t partition_info;
@@ -12,6 +13,8 @@ static uint32_t read_ptr = 0;
 static uint32_t write_ptr = 0;
 static bool access_locked_r = false;
 static bool access_locked_w = false;
+static bool data_end_known = false;
+static bool download_active = false;
 
 static uint16_t crc16(uint8_t *buf, uint32_t len);
 static bool component_init_done = false;
@@ -20,6 +23,15 @@ const char ESP_SIMPLEFS_TAG[] = "SimpleFS";
 
 static esp_err_t SimpleFS_findDataEnd();
 
+static void SimpleFS_eraseDone(void)
+{
+	write_ptr = 0;
+	data_end_known = true;
+	access_locked_r = false;
+	access_locked_w = false;
+	ESP_LOGI(ESP_SIMPLEFS_TAG, "Memory erase completed");
+}
+
 esp_err_t SimpleFS_init(const char * label){
 	esp_err_t err = ESP_OK;
 
@@ -27,16 +39,30 @@ esp_err_t SimpleFS_init(const char * label){
 		return ESP_FAIL;
 	}
 
+	if(download_active){
+		return ESP_FAIL;
+	}
+
 	if(component_init_done == false){
+		simplefs_api_register_erase_done_cb(SimpleFS_eraseDone);
 		err = simplefs_api_init(&partition_info, label);
+		if(err != ESP_OK){
+			return err;
+		}
 		component_init_done = true;
 
 		// Reset Read and Write Pointers
 		read_ptr  = 0;
 		write_ptr = 0;
+		data_end_known = false;
 
 	} else {
 		ESP_LOGI(ESP_SIMPLEFS_TAG, "SimpleFS already mounted. Skip API init.");
+	}
+
+	/* After first scan, do not re-run findDataEnd — it contends with meas.bin download on SPI. */
+	if(data_end_known){
+		return (write_ptr == 0) ? ESP_OK : ESP_FAIL;
 	}
 
 	// Check if any data present in memory
@@ -46,7 +72,11 @@ esp_err_t SimpleFS_init(const char * label){
 		if(tmp_buff != 0xFF){
 			ESP_LOGE(ESP_SIMPLEFS_TAG, "File present and not empty!");
 			SimpleFS_findDataEnd();
+			data_end_known = true;
 			err = ESP_FAIL;
+		} else {
+			write_ptr = 0;
+			data_end_known = true;
 		}
 	}
 
@@ -78,19 +108,35 @@ esp_err_t IRAM_ATTR SimpleFS_formatMemory(uint32_t key, sfs_format_type_e type){
 		err = simplefs_api_erase(0);
 	}
 	else if(type == SFS_FORMAT_RANGE) {
+#if defined(SFS_USE_SPI_FLASH)
+		/* External NOR chip erase is full-chip only */
+		err = simplefs_api_erase(0);
+#else
 		err = simplefs_api_erase(write_ptr);
+#endif
 	}
 	else {
 		err = ESP_FAIL;
 	}
 
-	access_locked_r = false;
-	access_locked_w = false;
-
-	if(err == ESP_OK){
-		write_ptr = 0;
+	if(err != ESP_OK){
+		access_locked_r = false;
+		access_locked_w = false;
+		return err;
 	}
-	return err;
+
+#if defined(SFS_USE_SPI_FLASH)
+	/* Async erase: locks released in SimpleFS_eraseDone when WIP clears */
+	ESP_LOGI(ESP_SIMPLEFS_TAG, "Memory erase started (nonblocking)");
+#else
+	/* Sync erase path invokes SimpleFS_eraseDone from sfs_api */
+#endif
+	return ESP_OK;
+}
+
+bool SimpleFS_isErasing(void)
+{
+	return (access_locked_r && access_locked_w);
 }
 
 esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
@@ -135,18 +181,17 @@ uint8_t SimpleFS_memoryUsedPercentage(){
 }
 
 esp_err_t SimpleFS_readMode(){
-
+	download_active = true;
 	return ESP_OK;
 }
 
 esp_err_t SimpleFS_writeMode(){
-
+	download_active = false;
 	return ESP_OK;
 }
 
 int32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
-	if((chunk_size == 0)
-			|| ((chunk_size + read_ptr) > partition_info.partition_size_B)
+	if((buffer == NULL) || (chunk_size == 0)
 			|| (chunk_size > SFS_MAX_CHUNK_SIZE_B)
 			|| (chunk_size < sizeof(sfs_packet_t))){
 		return -1;
@@ -156,38 +201,45 @@ int32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
 		return ESP_FAIL;
 	}
 
+	if(read_ptr >= partition_info.partition_size_B){
+		return 0;
+	}
+
+	/* Last chunk: shrink instead of failing (avoids download hang on -1 -> size_t). */
+	if((chunk_size + read_ptr) > partition_info.partition_size_B){
+		chunk_size = partition_info.partition_size_B - read_ptr;
+	}
+
 	// Align chunk size to SFS packet size
 	if(chunk_size > sizeof(sfs_packet_t)){
 		chunk_size = chunk_size - chunk_size % sizeof(sfs_packet_t);
 	}
+	if(chunk_size < sizeof(sfs_packet_t)){
+		return 0;
+	}
 
-	// Create tmp buffer to store raw read
-	uint8_t tmp_buffer[chunk_size];
-
-	// Read raw data from memory
-	if(simplefs_api_read(read_ptr, tmp_buffer, chunk_size) != ESP_OK){
+	/* Read directly into caller buffer — no large VLA on httpd task stack. */
+	if(simplefs_api_read(read_ptr, buffer, chunk_size) != ESP_OK){
 		return -1;
 	}
 
-	// Trim data
-	// First check if last read Byte is empty (FF)
-	if(tmp_buffer[sizeof(tmp_buffer)-1] == 0xFF) {
+	uint8_t *out = (uint8_t *)buffer;
+
+	// Trim trailing erased (0xFF) region
+	if(out[chunk_size - 1] == 0xFF) {
 		ESP_LOGV(ESP_SIMPLEFS_TAG, "Trimm 0xFF");
-		for(uint8_t i=0; i<(chunk_size/sizeof(sfs_packet_t));i++){
-			if(((sfs_packet_t*)(&tmp_buffer[i*sizeof(sfs_packet_t)]))->header.pre != SFS_HEADER_PRE){
-				chunk_size = (i)*sizeof(sfs_packet_t);
+		uint32_t n_packets = chunk_size / sizeof(sfs_packet_t);
+		for(uint32_t i = 0; i < n_packets; i++){
+			if(((sfs_packet_t *)(&out[i * sizeof(sfs_packet_t)]))->header.pre != SFS_HEADER_PRE){
+				chunk_size = i * sizeof(sfs_packet_t);
 				break;
 			}
 		}
 	}
 
-	// Copy trimmed data to output buffer
-	memcpy(buffer, tmp_buffer, chunk_size);
-
-	// Move read pointer to new position
 	read_ptr += chunk_size;
 
-	return chunk_size;
+	return (int32_t)chunk_size;
 }
 
 int32_t IRAM_ATTR SimpleFS_dumpMemory(uint32_t chunk_size, void * buffer){
@@ -218,8 +270,8 @@ int32_t IRAM_ATTR SimpleFS_dumpMemory(uint32_t chunk_size, void * buffer){
 }
 
 int32_t IRAM_ATTR SimpleFS_readMemoryLL(uint32_t position, uint32_t chunk_size, void * buffer){
-	if((chunk_size == 0)
-			|| ((chunk_size + read_ptr) > partition_info.partition_size_B)
+	if((buffer == NULL) || (chunk_size == 0)
+			|| ((chunk_size + position) > partition_info.partition_size_B)
 			|| (chunk_size > SFS_MAX_CHUNK_SIZE_B)){
 		return ESP_FAIL;
 	}
@@ -229,17 +281,11 @@ int32_t IRAM_ATTR SimpleFS_readMemoryLL(uint32_t position, uint32_t chunk_size, 
 		return ESP_FAIL;
 	}
 
-	// Create tmp buffer to store raw read
-	uint8_t tmp_buffer[chunk_size];
-
-	// Read raw data from memory
-	if(simplefs_api_read(position, tmp_buffer, chunk_size) != ESP_OK){
+	if(simplefs_api_read(position, buffer, chunk_size) != ESP_OK){
 		return -1;
 	}
 
-	memcpy(buffer, tmp_buffer, chunk_size);
-
-	return chunk_size;
+	return (int32_t)chunk_size;
 }
 
 void SimpleFS_resetReadPointer(){
@@ -248,6 +294,11 @@ void SimpleFS_resetReadPointer(){
 
 uint32_t SimpleFS_getFileSize(){
 	return write_ptr;
+}
+
+uint32_t SimpleFS_getMemorySize(void)
+{
+	return partition_info.partition_size_B;
 }
 
 static esp_err_t SimpleFS_findDataEnd(){
