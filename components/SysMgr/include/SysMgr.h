@@ -1,5 +1,6 @@
 #pragma once
 
+#include "esp_err.h"
 
 /**
  * @brief Component IDs

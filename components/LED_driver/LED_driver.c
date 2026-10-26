@@ -1,9 +1,11 @@
 #include "LED_driver.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "BOARD_cfg.h"
 #include "driver/gpio.h"
-#include "esp_check.h"
+#include "driver/rmt_encoder.h"
+#include "driver/rmt_tx.h"
 #include "esp_err.h"
 
 static esp_err_t ws2812_control_init(void);
@@ -26,7 +28,11 @@ static StaticSemaphore_t xMutexBuffer_LED;
 static uint8_t LED_brightness_percentage = 100;
 static int32_t LED_POS_IGN[LED_IGN_NUM] = {LED_POS_IGN_LIST};
 
-rmt_item32_t led_data_buffer[LED_WS_BUFFER_ITEMS]; 	//Strip LED set buffer
+#if (LED_WS_COUNT > 0) && (LED_WS_PIN != -1)
+static rmt_channel_handle_t ws2812_tx_channel;
+static rmt_encoder_handle_t ws2812_bytes_encoder;
+static uint8_t led_data_buffer[LED_WS_RGB_COUNT];
+#endif
 static LED_t led_array[LED_ARRAY_SIZE]; 			//LED BUZZER STATUS ARRAY
 
 esp_err_t LED_init(uint32_t interval_ms){
@@ -41,8 +47,14 @@ esp_err_t LED_init(uint32_t interval_ms){
 #endif
 
 #if (LED_WS_COUNT > 0) && (LED_WS_PIN != -1)
-		ws2812_control_deinit();
-		ws2812_control_init();
+		esp_err_t err = ws2812_control_deinit();
+		if(err != ESP_OK){
+			return err;
+		}
+		err = ws2812_control_init();
+		if(err != ESP_OK){
+			return err;
+		}
 #endif
 
 	loop_interval_ms = interval_ms;
@@ -234,6 +246,20 @@ esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t 
 #endif
 }
 
+esp_err_t LED_setBAT(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
+#if !defined(LED_POS_BAT)
+	return ESP_FAIL;
+#elif LED_CHECK_IF_WS(LED_POS_BAT)
+	return LED_blinkWS(LED_POS_BAT, colour, brightness_percent, t_on_ms, t_off_ms, blinks_number);
+#elif LED_CHECK_IF_STD(LED_POS_BAT)
+	return LED_blinkSTD(LED_POS_BAT, t_on_ms, t_off_ms, blinks_number);
+#elif (LED_POS_BAT == -1)
+	return ESP_FAIL;
+#else
+#error "LED BAT not found in configuration"
+#endif
+}
+
 esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number){
 #if !defined(LED_POS_READY)
 	return ESP_FAIL;
@@ -291,65 +317,134 @@ esp_err_t LED_setBrigthnessGlobal(uint8_t percentage){
 //------------------------------------------------
 
 static esp_err_t ws2812_control_init(void) {
-	rmt_config_t config;
-	config.rmt_mode = RMT_MODE_TX;
-	config.channel = STRIP_LED_CHANNEL;
-	config.gpio_num = STRIP_LED_GPIO;
-	config.mem_block_num = 3;
-	config.tx_config.loop_en = false;
-	config.tx_config.carrier_en = false;
-	config.tx_config.idle_output_en = true;
-	config.tx_config.idle_level = 0;
-	config.tx_config.carrier_freq_hz = 10 * 1000 * 1000;
-	config.clk_div = 8;
+	rmt_tx_channel_config_t channel_config = {
+		.gpio_num = STRIP_LED_GPIO,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
+		.resolution_hz = 10000000,
+		.mem_block_symbols = 48,
+		.trans_queue_depth = 1,
+	};
+	rmt_bytes_encoder_config_t encoder_config = {
+		.bit0 = {
+			.duration0 = WS_T0H,
+			.level0 = 1,
+			.duration1 = WS_T0L,
+			.level1 = 0,
+		},
+		.bit1 = {
+			.duration0 = WS_T1H,
+			.level0 = 1,
+			.duration1 = WS_T1L,
+			.level1 = 0,
+		},
+		.flags.msb_first = 1,
+	};
+	rmt_channel_handle_t tx_channel = NULL;
+	rmt_encoder_handle_t bytes_encoder = NULL;
+	esp_err_t err;
+
 	ESP_LOGI(TAG, "Strip LED init start");
-	ESP_ERROR_CHECK(rmt_config(&config));
-	ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
+	err = rmt_new_tx_channel(&channel_config, &tx_channel);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "Failed to create RMT TX channel: %s", esp_err_to_name(err));
+		return err;
+	}
+
+	err = rmt_new_bytes_encoder(&encoder_config, &bytes_encoder);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "Failed to create WS2812 RMT encoder: %s", esp_err_to_name(err));
+		rmt_del_channel(tx_channel);
+		return err;
+	}
+
+	err = rmt_enable(tx_channel);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "Failed to enable RMT TX channel: %s", esp_err_to_name(err));
+		rmt_del_encoder(bytes_encoder);
+		rmt_del_channel(tx_channel);
+		return err;
+	}
+
+	ws2812_tx_channel = tx_channel;
+	ws2812_bytes_encoder = bytes_encoder;
 	ESP_LOGI(TAG, "Strip LED init");
 	return ESP_OK;
 }
 
 static esp_err_t ws2812_control_deinit(void) {
-	rmt_channel_status_result_t tmp;
-	rmt_get_channel_status(&tmp);
-	if(tmp.status[STRIP_LED_CHANNEL] == RMT_CHANNEL_UNINIT)
+	if(ws2812_tx_channel == NULL && ws2812_bytes_encoder == NULL){
 		return ESP_OK;
+	}
 
-	rmt_driver_uninstall(STRIP_LED_CHANNEL); // uninstall RMT driver, ignore errors
+	if(ws2812_tx_channel != NULL){
+		esp_err_t err = rmt_tx_wait_all_done(ws2812_tx_channel, -1);
+		if(err != ESP_OK){
+			ESP_LOGE(TAG, "Failed waiting for RMT TX completion: %s", esp_err_to_name(err));
+			return err;
+		}
+
+		err = rmt_disable(ws2812_tx_channel);
+		if(err != ESP_OK){
+			ESP_LOGE(TAG, "Failed to disable RMT TX channel: %s", esp_err_to_name(err));
+			return err;
+		}
+
+		err = rmt_del_channel(ws2812_tx_channel);
+		if(err != ESP_OK){
+			ESP_LOGE(TAG, "Failed to delete RMT TX channel: %s", esp_err_to_name(err));
+			return err;
+		}
+		ws2812_tx_channel = NULL;
+	}
+
+	if(ws2812_bytes_encoder != NULL){
+		esp_err_t err = rmt_del_encoder(ws2812_bytes_encoder);
+		if(err != ESP_OK){
+			ESP_LOGE(TAG, "Failed to delete WS2812 RMT encoder: %s", esp_err_to_name(err));
+			return err;
+		}
+		ws2812_bytes_encoder = NULL;
+	}
 
 	ESP_LOGI(TAG, "Strip LED deinit");
 	return ESP_OK;
 }
 
 static esp_err_t  ws2812_update(void) {
-	if(rmt_write_items(STRIP_LED_CHANNEL, led_data_buffer, LED_WS_BUFFER_ITEMS, false) != ESP_OK){
-		ESP_LOGE(TAG, "rmt_write_items failed");
-		return ESP_FAIL;
+	if(ws2812_tx_channel == NULL || ws2812_bytes_encoder == NULL){
+		return ESP_ERR_INVALID_STATE;
 	}
-	if(rmt_wait_tx_done(STRIP_LED_CHANNEL, portMAX_DELAY) != ESP_OK){
-		ESP_LOGE(TAG, "rmt_wait_tx_done failed");
-		return ESP_FAIL;
+
+	const rmt_transmit_config_t transmit_config = {
+		.loop_count = 0,
+		.flags.eot_level = 0,
+	};
+	esp_err_t err = rmt_transmit(ws2812_tx_channel, ws2812_bytes_encoder,
+								 led_data_buffer, sizeof(led_data_buffer), &transmit_config);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "RMT transmit failed: %s", esp_err_to_name(err));
+		return err;
+	}
+
+	err = rmt_tx_wait_all_done(ws2812_tx_channel, -1);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "RMT transmit completion wait failed: %s", esp_err_to_name(err));
+		return err;
 	}
 	return ESP_OK;
 }
 
 static esp_err_t setup_rmt_data_buffer(void) {
+#if (LED_WS_COUNT > 0) && (LED_WS_PIN != -1)
 	uint8_t blank = 0;
-	for (uint32_t x = 0; x < LED_WS_COUNT * STRIP_LED_COLOURS; x++) {
-		uint8_t bits_to_send =
-				led_array[x].state ? (((uint16_t)led_array[x].bright * LED_brightness_percentage)/100) : blank;
-		uint8_t mask = 1 << (BITS_PER_LED_CMD - 1);
-		for (uint8_t bit = 0; bit < BITS_PER_LED_CMD; bit++) {
-			uint8_t bit_is_set = bits_to_send & mask;
-			led_data_buffer[x * BITS_PER_LED_CMD + bit] =
-					bit_is_set ?
-							(rmt_item32_t ) { { { WS_T1H, 1, WS_T1L, 0 } } } :
-							(rmt_item32_t ) { { { WS_T0H, 1, WS_T0L, 0 } } };
-							mask >>= 1;
-		}
+	for (uint32_t i = 0; i < LED_WS_RGB_COUNT; i++) {
+		led_data_buffer[i] = led_array[i].state ?
+				((uint16_t)led_array[i].bright * LED_brightness_percentage) / 100 : blank;
 	}
-	ws2812_update();
+	return ws2812_update();
+#else
 	return ESP_OK;
+#endif
 }
 
 static esp_err_t strip_led_colour(uint8_t number, led_colour_t colour, uint8_t brightness_percent) {
