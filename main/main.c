@@ -38,6 +38,8 @@
 
 //----------- Our defines --------------
 #define ESP_CORE_0 0
+#define BATTERY_LED_GREEN_THRESHOLD_MV 3800
+#define BATTERY_LED_ORANGE_THRESHOLD_MV 3500
 #if CONFIG_FREERTOS_UNICORE
 #define ESP_CORE_1 0
 #else
@@ -367,6 +369,12 @@ void task_kpptr_analog(void *pvParameter){
 	uint32_t				ign_led_cnt = 0;
 	sysmgr_checkout_state_t vbat_ok = check_void;
 	Analog_meas_t 			Analog_meas;
+#if (LED_POS_BAT >= 0)
+	int32_t					last_bat_led_colour = -1;
+#endif
+#if (LED_POS_BAT >= 0)
+	int32_t					last_bat_led_colour = -1;
+#endif
 
 	while(Analog_init(100, 0.2f) != ESP_OK){
 		ESP_LOGW(TAG, "Task Analog - failed to init!");
@@ -382,6 +390,34 @@ void task_kpptr_analog(void *pvParameter){
 		Web_status_updateAnalog(Analog_meas.vbat_mV/1000.0f,
 								Analog_getIGNstate(&Analog_meas, 0), Analog_getIGNstate(&Analog_meas, 1),
 								Analog_getIGNstate(&Analog_meas, 2), Analog_getIGNstate(&Analog_meas, 3));
+
+#if (LED_POS_BAT >= 0)
+		led_colour_t bat_led_colour = (Analog_meas.vbat_mV >= BATTERY_LED_GREEN_THRESHOLD_MV) ? COLOUR_GREEN :
+									 (Analog_meas.vbat_mV >= BATTERY_LED_ORANGE_THRESHOLD_MV) ? COLOUR_ORANGE : COLOUR_RED;
+		if(last_bat_led_colour != bat_led_colour){
+			esp_err_t led_err = LED_setBAT(bat_led_colour, 20, 100, 0, 0);
+			if(led_err == ESP_OK){
+				last_bat_led_colour = bat_led_colour;
+			}
+			else{
+				ESP_LOGW(TAG, "Failed to update BAT LED: %s", esp_err_to_name(led_err));
+			}
+		}
+#endif
+
+#if (LED_POS_BAT >= 0)
+		led_colour_t bat_led_colour = (Analog_meas.vbat_mV >= BATTERY_LED_GREEN_THRESHOLD_MV) ? COLOUR_GREEN :
+									 (Analog_meas.vbat_mV >= BATTERY_LED_ORANGE_THRESHOLD_MV) ? COLOUR_ORANGE : COLOUR_RED;
+		if(last_bat_led_colour != bat_led_colour){
+			esp_err_t led_err = LED_setBAT(bat_led_colour, 20, 100, 0, 0);
+			if(led_err == ESP_OK){
+				last_bat_led_colour = bat_led_colour;
+			}
+			else{
+				ESP_LOGW(TAG, "Failed to update BAT LED: %s", esp_err_to_name(led_err));
+			}
+		}
+#endif
 
 		if((vbat_ok != check_ready) && (Analog_meas.vbat_mV > 3700.0f)){
 			vbat_ok = check_ready;
