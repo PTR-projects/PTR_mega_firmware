@@ -1,5 +1,7 @@
 #include <stdio.h>
-//#include "freertos/FreeRTOS.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #include "esp_log.h"
 #include "LED_driver.h"
 #include "SysMgr.h"

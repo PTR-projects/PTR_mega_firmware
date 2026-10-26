@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "sdkconfig.h"
 #include "BOARD_cfg.h"
-#include "driver/rmt.h"
+#include "esp_err.h"
 
 /**
  * @brief Enumeration of possible LED pulse modes.
@@ -34,6 +34,7 @@ typedef enum{
 	LED_READY 	= LED_POS_READY,
 	LED_ARM 	= LED_POS_ARM,
 	LED_STAT 	= LED_POS_STAT,
+	LED_BAT 	= LED_POS_BAT,
 	LED_RF 		= LED_POS_RF,
 	LED_IGN1 	= LED_POS_IGN1,
 	LED_IGN2 	= LED_POS_IGN2,
@@ -67,13 +68,10 @@ typedef struct{
 //#define SRV_CLOCK 100
 //STRIP LED DEFINITIONS
 
-#define STRIP_LED_CHANNEL	0
-#define BITS_PER_LED_CMD 8
 #define STRIP_LED_COLOURS 3
 #define STRIP_LED_GPIO LED_WS_PIN
 
 #define LED_WS_RGB_COUNT 		(LED_WS_COUNT * STRIP_LED_COLOURS)
-#define LED_WS_BUFFER_ITEMS 	((LED_WS_COUNT * BITS_PER_LED_CMD * STRIP_LED_COLOURS))
 #define LED_ARRAY_SIZE 			(LED_WS_RGB_COUNT + LED_STD_COUNT + BUZZER_COUNT)
 #define BUZZER_ARRAY_POS 		(LED_WS_RGB_COUNT + LED_STD_COUNT)
 
@@ -166,6 +164,7 @@ esp_err_t BUZZER_beep(uint16_t t_on_ms, uint16_t t_off_ms, uint16_t beeps_number
 //High Level LED/Buzzer wrapper
 esp_err_t LED_setARM(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setSTAT(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
+esp_err_t LED_setBAT(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setREADY(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
 esp_err_t LED_setIGN(uint8_t ign_no, uint8_t brightness_percent, int8_t state);
 esp_err_t LED_setRF(led_colour_t colour, uint8_t brightness_percent, uint16_t t_on_ms, uint16_t t_off_ms, uint16_t blinks_number);
