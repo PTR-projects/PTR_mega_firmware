@@ -13,7 +13,7 @@
 
 static const char *TAG = "Effector";
 
-static Effector_t    effector_registry[EFFECTOR_MAX_COUNT];
+static Effector_t    effector_registry[EFFECTOR_MAX_COUNT][EFFECTOR_BINDINGS_PER_ID];
 static effector_arm_t arm_igniters;
 static effector_arm_t arm_servos;
 /*!< Timestamp from the most recent Effector_srv() call. Used by
@@ -44,6 +44,53 @@ static esp_err_t Effector_checkArm(Effector_t * entry, effector_id_t id){
         return ESP_ERR_INVALID_STATE;
     }
 
+    return ESP_OK;
+}
+
+static bool Effector_hasBinding(effector_id_t id){
+    for(uint8_t i = 0; i < EFFECTOR_BINDINGS_PER_ID; i++){
+        if(effector_registry[id][i].registered){
+            return true;
+        }
+    }
+    return false;
+}
+
+static Effector_t * Effector_findFree(effector_id_t id){
+    for(uint8_t i = 0; i < EFFECTOR_BINDINGS_PER_ID; i++){
+        if(!effector_registry[id][i].registered){
+            return &effector_registry[id][i];
+        }
+    }
+    return NULL;
+}
+
+static esp_err_t Effector_dispatch(Effector_t * entry, int8_t value);
+
+static esp_err_t Effector_requireId(effector_id_t id){
+    ESP_RETURN_ON_FALSE(id < EFFECTOR_MAX_COUNT, ESP_ERR_INVALID_ARG, TAG, "id %d out of range", id);
+    ESP_RETURN_ON_FALSE(Effector_hasBinding(id), ESP_ERR_INVALID_ARG, TAG, "effector %d not registered", id);
+    return ESP_OK;
+}
+
+/* Commands one binding and clears any timed-activation window. */
+static esp_err_t Effector_commandBinding(effector_id_t id, Effector_t * entry, int8_t value){
+    esp_err_t err = Effector_checkArm(entry, id);
+    if(err != ESP_OK){
+        return err;
+    }
+
+    err = Effector_dispatch(entry, value);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "effector %d dispatch failed: %s", id, esp_err_to_name(err));
+        return err;
+    }
+
+    entry->current_value = value;
+    /* A direct command is not a timed activation. Effector_activate() sets
+     * ACTIVE again after this returns. */
+    entry->state       = EFFECTOR_STATE_IDLE;
+    entry->deadline_ms = 0;
     return ESP_OK;
 }
 
@@ -80,11 +127,6 @@ esp_err_t Effector_register(effector_id_t id, effector_type_t type, effector_hw_
                              uint32_t activation_time_ms){
     ESP_RETURN_ON_FALSE(id < EFFECTOR_MAX_COUNT, ESP_ERR_INVALID_ARG, TAG, "id %d out of range", id);
 
-    if(effector_registry[id].registered){
-        ESP_LOGE(TAG, "Effector %d already registered", id);
-        return ESP_ERR_INVALID_STATE;
-    }
-
     if(activation_time_ms != EFFECTOR_ACTIVATION_INFINITE){
         ESP_RETURN_ON_FALSE(activation_time_ms >= EFFECTOR_ACTIVATION_MIN_MS &&
                              activation_time_ms <= EFFECTOR_ACTIVATION_MAX_MS,
@@ -99,16 +141,22 @@ esp_err_t Effector_register(effector_id_t id, effector_type_t type, effector_hw_
                              id, (unsigned)activation_time_ms, (unsigned)EFFECTOR_ACTIVATION_RESOLUTION_MS);
     }
 
-    effector_registry[id].type               = type;
-    effector_registry[id].hw                 = hw;
-    effector_registry[id].active_value       = active_value;
-    effector_registry[id].inactive_value     = inactive_value;
-    effector_registry[id].current_value      = inactive_value;
-    effector_registry[id].ignore_arm         = ignore_arm;
-    effector_registry[id].activation_time_ms = activation_time_ms;
-    effector_registry[id].state              = EFFECTOR_STATE_IDLE;
-    effector_registry[id].deadline_ms        = 0;
-    effector_registry[id].registered         = true;
+    Effector_t * entry = Effector_findFree(id);
+    if(entry == NULL){
+        ESP_LOGE(TAG, "Effector %d binding list full", id);
+        return ESP_ERR_NO_MEM;
+    }
+
+    entry->type               = type;
+    entry->hw                 = hw;
+    entry->active_value       = active_value;
+    entry->inactive_value     = inactive_value;
+    entry->current_value      = inactive_value;
+    entry->ignore_arm         = ignore_arm;
+    entry->activation_time_ms = activation_time_ms;
+    entry->state              = EFFECTOR_STATE_IDLE;
+    entry->deadline_ms        = 0;
+    entry->registered         = true;
 
     return ESP_OK;
 }
@@ -134,78 +182,126 @@ void Effector_disarmServos(){
 }
 
 esp_err_t Effector_set(effector_id_t id, int8_t value){
-    ESP_RETURN_ON_FALSE(id < EFFECTOR_MAX_COUNT, ESP_ERR_INVALID_ARG, TAG, "id %d out of range", id);
-    ESP_RETURN_ON_FALSE(effector_registry[id].registered, ESP_ERR_INVALID_ARG, TAG, "effector %d not registered", id);
+    esp_err_t id_err = Effector_requireId(id);
+    if(id_err != ESP_OK){
+        return id_err;
+    }
 
-    Effector_t * entry = &effector_registry[id];
+    esp_err_t first_err = ESP_OK;
+    for(uint8_t i = 0; i < EFFECTOR_BINDINGS_PER_ID; i++){
+        Effector_t * entry = &effector_registry[id][i];
+        if(!entry->registered){
+            continue;
+        }
 
-    ESP_RETURN_ON_ERROR(Effector_checkArm(entry, id), TAG, "effector %d arm check failed", id);
-    ESP_RETURN_ON_ERROR(Effector_dispatch(entry, value), TAG, "effector %d dispatch failed", id);
+        esp_err_t err = Effector_commandBinding(id, entry, value);
+        if(err != ESP_OK && first_err == ESP_OK){
+            first_err = err;
+        }
+    }
 
-    entry->current_value = value;
-    /* A direct/manual Effector_set() is not a timed activation: make sure
-     * Effector_srv() does not later act on a stale deadline for this effector. */
-    entry->state = EFFECTOR_STATE_IDLE;
-    return ESP_OK;
+    return first_err;
 }
 
 esp_err_t Effector_activate(effector_id_t id){
-    ESP_RETURN_ON_FALSE(id < EFFECTOR_MAX_COUNT, ESP_ERR_INVALID_ARG, TAG, "id %d out of range", id);
-    ESP_RETURN_ON_FALSE(effector_registry[id].registered, ESP_ERR_INVALID_ARG, TAG, "effector %d not registered", id);
-
-    Effector_t * entry = &effector_registry[id];
-
-    ESP_RETURN_ON_ERROR(Effector_set(id, entry->active_value), TAG, "effector %d activate failed", id);
-
-    entry->state = EFFECTOR_STATE_ACTIVE;
-    if(entry->activation_time_ms != EFFECTOR_ACTIVATION_INFINITE){
-        uint32_t time_now = (uint32_t)(esp_timer_get_time() / 1000);
-        entry->deadline_ms = time_now + entry->activation_time_ms;
+    esp_err_t id_err = Effector_requireId(id);
+    if(id_err != ESP_OK){
+        return id_err;
     }
 
-    return ESP_OK;
+    uint32_t time_now = (uint32_t)(esp_timer_get_time() / 1000);
+    esp_err_t first_err = ESP_OK;
+
+    for(uint8_t i = 0; i < EFFECTOR_BINDINGS_PER_ID; i++){
+        Effector_t * entry = &effector_registry[id][i];
+        if(!entry->registered){
+            continue;
+        }
+
+        esp_err_t err = Effector_commandBinding(id, entry, entry->active_value);
+        if(err != ESP_OK){
+            if(first_err == ESP_OK){
+                first_err = err;
+            }
+            continue;
+        }
+
+        entry->state = EFFECTOR_STATE_ACTIVE;
+        if(entry->activation_time_ms != EFFECTOR_ACTIVATION_INFINITE){
+            entry->deadline_ms = time_now + entry->activation_time_ms;
+        }
+    }
+
+    return first_err;
 }
 
 esp_err_t Effector_deactivate(effector_id_t id){
-    ESP_RETURN_ON_FALSE(id < EFFECTOR_MAX_COUNT, ESP_ERR_INVALID_ARG, TAG, "id %d out of range", id);
-    ESP_RETURN_ON_FALSE(effector_registry[id].registered, ESP_ERR_INVALID_ARG, TAG, "effector %d not registered", id);
+    esp_err_t id_err = Effector_requireId(id);
+    if(id_err != ESP_OK){
+        return id_err;
+    }
 
-    return Effector_set(id, effector_registry[id].inactive_value);
+    esp_err_t first_err = ESP_OK;
+    for(uint8_t i = 0; i < EFFECTOR_BINDINGS_PER_ID; i++){
+        Effector_t * entry = &effector_registry[id][i];
+        if(!entry->registered){
+            continue;
+        }
+
+        esp_err_t err = Effector_commandBinding(id, entry, entry->inactive_value);
+        if(err != ESP_OK && first_err == ESP_OK){
+            first_err = err;
+        }
+    }
+
+    return first_err;
 }
 
 void Effector_srv(void){
     uint32_t time_now = (uint32_t)(esp_timer_get_time() / 1000);
 
     for(effector_id_t id = 0; id < EFFECTOR_MAX_COUNT; id++){
-        Effector_t * entry = &effector_registry[id];
+        for(uint8_t i = 0; i < EFFECTOR_BINDINGS_PER_ID; i++){
+            Effector_t * entry = &effector_registry[id][i];
 
-        if(!entry->registered){
-            continue;
-        }
-        if(entry->state != EFFECTOR_STATE_ACTIVE){
-            continue;
-        }
-        if(entry->activation_time_ms == EFFECTOR_ACTIVATION_INFINITE){
-            continue;
-        }
+            if(!entry->registered){
+                continue;
+            }
+            if(entry->state != EFFECTOR_STATE_ACTIVE){
+                continue;
+            }
+            if(entry->activation_time_ms == EFFECTOR_ACTIVATION_INFINITE){
+                continue;
+            }
 
-        /* Wraparound-safe "has the deadline passed" check: works correctly
-         * across a 32-bit time_now rollover as long as the actual elapsed
-         * time never exceeds ~24.8 days, which always holds here since
-         * activation_time_ms is capped at EFFECTOR_ACTIVATION_MAX_MS (10 s). */
-        if((int32_t)(time_now - entry->deadline_ms) >= 0){
-            esp_err_t err = Effector_deactivate(id);
-            if(err != ESP_OK){
-                ESP_LOGE(TAG, "Effector %d auto-deactivate failed: %s", id, esp_err_to_name(err));
-                /* Leave state as ACTIVE; Effector_srv() will retry on the next call. */
+            /* Wraparound-safe "has the deadline passed" check: works correctly
+             * across a 32-bit time_now rollover as long as the actual elapsed
+             * time never exceeds ~24.8 days, which always holds here since
+             * activation_time_ms is capped at EFFECTOR_ACTIVATION_MAX_MS (10 s). */
+            if((int32_t)(time_now - entry->deadline_ms) >= 0){
+                esp_err_t err = Effector_commandBinding(id, entry, entry->inactive_value);
+                if(err != ESP_OK){
+                    ESP_LOGE(TAG, "Effector %d binding %u auto-deactivate failed: %s",
+                             id, i, esp_err_to_name(err));
+                    /* commandBinding leaves state unchanged on failure, so this
+                     * binding stays ACTIVE and Effector_srv() retries next call.
+                     * Other bindings of this id are not touched. */
+                    entry->state = EFFECTOR_STATE_ACTIVE;
+                }
             }
         }
     }
 }
 
 Effector_t * Effector_getData(effector_id_t id){
-    if(id >= EFFECTOR_MAX_COUNT || !effector_registry[id].registered){
+    if(id >= EFFECTOR_MAX_COUNT){
         return NULL;
     }
-    return &effector_registry[id];
+
+    for(uint8_t i = 0; i < EFFECTOR_BINDINGS_PER_ID; i++){
+        if(effector_registry[id][i].registered){
+            return &effector_registry[id][i];
+        }
+    }
+    return NULL;
 }
