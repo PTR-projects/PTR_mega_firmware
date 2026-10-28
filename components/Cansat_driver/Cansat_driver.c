@@ -5,15 +5,19 @@
 #include "esp_system.h"
 
 #include "AHRS_driver.h"
-#include "Servo_driver.h"
+#include "Effector_driver.h"
 #include "Cansat_driver.h"
 
 #define TIME_ELAPSED(start_ms, now_ms, wait_ms)  (start_ms <= (now_ms - wait_ms))
 
-#define CANSAT_BATCH1_TIME_S          3.0f  /*!< Deploy batch 1 when T-3 s to apogee. */
-#define CANSAT_BATCH2_TIME_S          2.0f  /*!< Deploy batch 2 when T-2 s to apogee. */
-#define CANSAT_BATCH3_TIME_S          1.0f  /*!< Deploy batch 3 when T-1 s to apogee. */
-#define CANSAT_POST_BATCH3_TIMEOUT_MS 3000  /*!< Fallback: transition to DEPLOYED this many ms after batch 3. */
+#define CANSAT_BATCH_COUNT              3      /*!< Number of batches in the automatic sequence. */
+#define CANSAT_BATCH_INTERVAL_S         1.0f   /*!< Wall-clock delay between consecutive batch deployments. [s] */
+#define CANSAT_LAST_BATCH_TO_APOGEE_S   1.0f   /*!< Deploy the last batch this long before apogee. [s] */
+#define CANSAT_FIRST_BATCH_TIME_S       (CANSAT_LAST_BATCH_TO_APOGEE_S + ((CANSAT_BATCH_COUNT - 1) * CANSAT_BATCH_INTERVAL_S))
+#define CANSAT_COUNTDOWN_HYSTERESIS_S   0.5f   /*!< Estimate must exceed the first gate by this much before the countdown can arm. [s] */
+#define CANSAT_COUNTDOWN_LATCH_S        (CANSAT_FIRST_BATCH_TIME_S + CANSAT_COUNTDOWN_HYSTERESIS_S)
+#define CANSAT_BATCH_INTERVAL_MS        ((uint64_t)(CANSAT_BATCH_INTERVAL_S * 1000.0f))
+#define CANSAT_POST_BATCH3_TIMEOUT_MS   3000   /*!< Fallback: transition to DEPLOYED this many ms after batch 3. */
 
 //----- Private function declarations ----------
 static void CansatState_IDLE         (uint64_t time_ms, Cansat_t * cs, AHRS_t * ahrs);
@@ -26,6 +30,7 @@ static void CansatState_MANUAL       (uint64_t time_ms, Cansat_t * cs, AHRS_t * 
 
 static void Cansat_deployBatch(uint8_t batch);
 static void Cansat_closeBatch (uint8_t batch);
+static effector_id_t Cansat_batchEffector(uint8_t batch);
 
 //----- Private variables ----------
 static const char *TAG = "Cansat";
@@ -33,6 +38,7 @@ static const char *TAG = "Cansat";
 static Cansat_t  cansat_d;
 static AHRS_t  * AHRS_ptr;
 static uint64_t  stateChangeTime = 0;
+static bool      countdown_latched = false;
 
 
 //----- Public API ----------
@@ -91,6 +97,10 @@ void Cansat_exitManual(){
 }
 
 void Cansat_forceOpen(uint8_t batch){
+    if(batch < 1 || batch > 3){
+        ESP_LOGE(TAG, "forceOpen ignored - batch %u out of range", batch);
+        return;
+    }
     if(cansat_d.state != CANSAT_MANUAL){
         ESP_LOGE(TAG, "forceOpen ignored - not in manual mode");
         return;
@@ -100,6 +110,10 @@ void Cansat_forceOpen(uint8_t batch){
 }
 
 void Cansat_forceClose(uint8_t batch){
+    if(batch < 1 || batch > 3){
+        ESP_LOGE(TAG, "forceClose ignored - batch %u out of range", batch);
+        return;
+    }
     if(cansat_d.state != CANSAT_MANUAL){
         ESP_LOGE(TAG, "forceClose ignored - not in manual mode");
         return;
@@ -108,7 +122,12 @@ void Cansat_forceClose(uint8_t batch){
     Cansat_closeBatch(batch);
 }
 
-esp_err_t Cansat_compute(uint64_t time_ms){
+esp_err_t Cansat_fsd(uint64_t time_ms){
+    if(AHRS_ptr == NULL){
+        ESP_LOGE(TAG, "Cansat_fsd called before init");
+        return ESP_FAIL;
+    }
+
     Cansat_t * cs   = &cansat_d;
     AHRS_t   * ahrs = AHRS_ptr;
 
@@ -170,14 +189,20 @@ static void CansatState_IDLE(uint64_t time_ms, Cansat_t * cs, AHRS_t * ahrs){
 static void CansatState_ARMED(uint64_t time_ms, Cansat_t * cs, AHRS_t * ahrs){
     //Executed only once
     if(!(cs->state_ready)){
-        cs->state_ready = true;
-        stateChangeTime = time_ms;
+        cs->state_ready   = true;
+        stateChangeTime   = time_ms;
+        countdown_latched = false;
     }
 
     //Executed every loop
+    // Latch above the deploy gate, so a spike through the gate during boost
+    // does not open batch 1. Deploy still happens at the first-batch time.
+    if(ahrs->time_to_apogee_est > CANSAT_COUNTDOWN_LATCH_S){
+        countdown_latched = true;
+    }
 
-    //State change conditions
-    if((ahrs->time_to_apogee_est > 0.0f) && (ahrs->time_to_apogee_est <= CANSAT_BATCH1_TIME_S)){
+    //State change conditions: estimate has fallen back to the first-batch time
+    if(countdown_latched && (ahrs->time_to_apogee_est <= CANSAT_FIRST_BATCH_TIME_S)){
         cs->state       = CANSAT_DEPLOY_BATCH1;
         cs->state_ready = false;
     }
@@ -197,7 +222,7 @@ static void CansatState_DEPLOY_BATCH1(uint64_t time_ms, Cansat_t * cs, AHRS_t * 
     //Executed every loop
 
     //State change conditions
-    if((ahrs->time_to_apogee_est > 0.0f) && (ahrs->time_to_apogee_est <= CANSAT_BATCH2_TIME_S)){
+    if(TIME_ELAPSED(stateChangeTime, time_ms, CANSAT_BATCH_INTERVAL_MS)){
         cs->state       = CANSAT_DEPLOY_BATCH2;
         cs->state_ready = false;
     }
@@ -217,7 +242,7 @@ static void CansatState_DEPLOY_BATCH2(uint64_t time_ms, Cansat_t * cs, AHRS_t * 
     //Executed every loop
 
     //State change conditions
-    if((ahrs->time_to_apogee_est > 0.0f) && (ahrs->time_to_apogee_est <= CANSAT_BATCH3_TIME_S)){
+    if(TIME_ELAPSED(stateChangeTime, time_ms, CANSAT_BATCH_INTERVAL_MS)){
         cs->state       = CANSAT_DEPLOY_BATCH3;
         cs->state_ready = false;
     }
@@ -346,14 +371,29 @@ esp_err_t Cansat_parsePacket(const kppacket_payload_cansat_t *pkt) {
 
 //----- Deployment functions ----------
 
+static effector_id_t Cansat_batchEffector(uint8_t batch){
+    switch(batch){
+    case 1: return EFFECTOR_CANSAT_1;
+    case 2: return EFFECTOR_CANSAT_2;
+    case 3: return EFFECTOR_CANSAT_3;
+    default: return EFFECTOR_MAX_COUNT;
+    }
+}
+
 static void Cansat_deployBatch(uint8_t batch){
-    // TODO: replace with real servo/mechanism actuation for each batch
-    ESP_LOGI(TAG, "Deploying batch %d", batch);
-    Servo_driveSinglePWM(batch, 100);
+    esp_err_t err = Effector_activate(Cansat_batchEffector(batch));
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "Deploy batch %u failed: %s", batch, esp_err_to_name(err));
+        return;
+    }
+    ESP_LOGI(TAG, "Deploying batch %u", batch);
 }
 
 static void Cansat_closeBatch(uint8_t batch){
-    // TODO: replace with real servo/mechanism retraction for each batch
-    ESP_LOGI(TAG, "Closing batch %d", batch);
-    Servo_driveSinglePWM(batch, -100);
+    esp_err_t err = Effector_deactivate(Cansat_batchEffector(batch));
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "Close batch %u failed: %s", batch, esp_err_to_name(err));
+        return;
+    }
+    ESP_LOGI(TAG, "Closing batch %u", batch);
 }
