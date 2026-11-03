@@ -179,12 +179,13 @@ static bool probe_baud(uint32_t baud, probe_t *pr)
 	gnss_uart_flush_rx();
 	gnss_write(frame, ubx_build_frame(UBX_CLASS_MON, UBX_ID_MON_VER, NULL, 0, frame, sizeof(frame)));
 
-	/* A u-blox answers within ~100 ms. NMEA receivers print about once a second, so wait
-	 * long enough to catch a sentence, but not before the UBX answer had a fair chance. */
+	/* A u-blox answers within ~100 ms, but at 9600 a MON-VER frame is ~220 bytes and often
+	 * follows an NMEA burst. Once "$G" is seen, stop only between UBX frames so that
+	 * reply can finish. A pure NMEA receiver never leaves the sync state. */
 	int64_t start = esp_timer_get_time();
 	int64_t end = start + 1100 * 1000;
 	while (esp_timer_get_time() < end && !pr->ubx) {
-		if (pr->nmea && (esp_timer_get_time() - start) >= 400 * 1000)
+		if (pr->nmea && (esp_timer_get_time() - start) >= 400 * 1000 && !ubx_parser_in_frame(&parser))
 			break;
 		int got = gnss_read(buf, sizeof(buf), 20);
 		for (int i = 0; i < got; i++) {

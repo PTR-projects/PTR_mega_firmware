@@ -112,6 +112,8 @@ typedef struct {
 void ubx_parser_init(ubx_parser_t *p, ubx_frame_cb_t cb, void *ctx);
 /** Feed raw bytes from the receiver. Resynchronises automatically on errors. */
 void ubx_parser_feed(ubx_parser_t *p, const uint8_t *data, size_t len);
+/** True after a sync byte until the current frame is accepted or discarded. */
+bool ubx_parser_in_frame(const ubx_parser_t *p);
 
 /** Build a complete frame (sync, header, payload, checksum). Returns frame size or 0 if out is too small. */
 size_t ubx_build_frame(uint8_t cls, uint8_t id, const uint8_t *payload, uint16_t len, uint8_t *out, size_t out_size);

@@ -27,6 +27,11 @@ void ubx_parser_init(ubx_parser_t *p, ubx_frame_cb_t cb, void *ctx)
 	p->ctx = ctx;
 }
 
+bool ubx_parser_in_frame(const ubx_parser_t *p)
+{
+	return p->state != ST_SYNC1;
+}
+
 void ubx_parser_feed(ubx_parser_t *p, const uint8_t *data, size_t len)
 {
 	for (size_t i = 0; i < len; i++) {
