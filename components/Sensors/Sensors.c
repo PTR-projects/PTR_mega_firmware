@@ -37,7 +37,11 @@ esp_err_t IRAM_ATTR Sensors_update(){
 
 	MS5607_getMeas	 (0, &(Sensors_d.MS5607));
 	LIS331_getMeas	 (0, &(Sensors_d.LIS331));
-	LSM6DSO32_getMeas(0, &(Sensors_d.LSM6DSO32));
+
+	for(uint8_t sensor = 0; sensor < LSM6DSO32_COUNT; sensor++){
+		LSM6DSO32_getMeas(sensor, &(Sensors_d.LSM6DSO32[sensor]));
+	}
+	
 	MMC5983MA_getMeas(&(Sensors_d.MMC5983MA));
 
 	Sensors_axes_translation();
@@ -52,13 +56,13 @@ esp_err_t IRAM_ATTR Sensors_axes_translation(){
 	Sensors_d.LIS331.accY     = -Sensors_b.LIS331.accY;
 	Sensors_d.LIS331.accZ     = -Sensors_b.LIS331.accZ;
 
-	Sensors_d.LSM6DSO32.accX  =  Sensors_b.LSM6DSO32.accY;
-	Sensors_d.LSM6DSO32.accY  =  Sensors_b.LSM6DSO32.accX;
-	Sensors_d.LSM6DSO32.accZ  = -Sensors_b.LSM6DSO32.accZ;
+	Sensors_d.LSM6DSO32[0].accX  =  Sensors_b.LSM6DSO32[0].accY;
+	Sensors_d.LSM6DSO32[0].accY  =  Sensors_b.LSM6DSO32[0].accX;
+	Sensors_d.LSM6DSO32[0].accZ  = -Sensors_b.LSM6DSO32[0].accZ;
 
-	Sensors_d.LSM6DSO32.gyroX =  Sensors_b.LSM6DSO32.gyroY;
-	Sensors_d.LSM6DSO32.gyroY =  Sensors_b.LSM6DSO32.gyroX;
-	Sensors_d.LSM6DSO32.gyroZ = -Sensors_b.LSM6DSO32.gyroZ;
+	Sensors_d.LSM6DSO32[0].gyroX =  Sensors_b.LSM6DSO32[0].gyroY;
+	Sensors_d.LSM6DSO32[0].gyroY =  Sensors_b.LSM6DSO32[0].gyroX;
+	Sensors_d.LSM6DSO32[0].gyroZ = -Sensors_b.LSM6DSO32[0].gyroZ;
 
 	Sensors_d.MMC5983MA.magX  = -Sensors_b.MMC5983MA.magY;
 	Sensors_d.MMC5983MA.magY  = -Sensors_b.MMC5983MA.magX;
@@ -69,13 +73,13 @@ esp_err_t IRAM_ATTR Sensors_axes_translation(){
 	Sensors_d.LIS331.accY     = -Sensors_b.LIS331.accY;
 	Sensors_d.LIS331.accZ     = -Sensors_b.LIS331.accZ;
 
-	Sensors_d.LSM6DSO32.accX  =  Sensors_b.LSM6DSO32.accX;
-	Sensors_d.LSM6DSO32.accY  = -Sensors_b.LSM6DSO32.accY;
-	Sensors_d.LSM6DSO32.accZ  = -Sensors_b.LSM6DSO32.accZ;
+	Sensors_d.LSM6DSO32[0].accX  =  Sensors_b.LSM6DSO32[0].accX;
+	Sensors_d.LSM6DSO32[0].accY  = -Sensors_b.LSM6DSO32[0].accY;
+	Sensors_d.LSM6DSO32[0].accZ  = -Sensors_b.LSM6DSO32[0].accZ;
 
-	Sensors_d.LSM6DSO32.gyroX =  Sensors_b.LSM6DSO32.gyroX;
-	Sensors_d.LSM6DSO32.gyroY = -Sensors_b.LSM6DSO32.gyroY;
-	Sensors_d.LSM6DSO32.gyroZ = -Sensors_b.LSM6DSO32.gyroZ;
+	Sensors_d.LSM6DSO32[0].gyroX =  Sensors_b.LSM6DSO32[0].gyroX;
+	Sensors_d.LSM6DSO32[0].gyroY = -Sensors_b.LSM6DSO32[0].gyroY;
+	Sensors_d.LSM6DSO32[0].gyroZ = -Sensors_b.LSM6DSO32[0].gyroZ;
 #else
 #warning "No board selected!"
 #endif

@@ -10,9 +10,9 @@
 typedef enum {
     CANSAT_IDLE,            /*!< Inactive, waiting to be armed. */
     CANSAT_ARMED,           /*!< Armed, monitoring time-to-apogee estimate. */
-    CANSAT_DEPLOY_BATCH1,   /*!< Batch 1 deployed (~3 s before apogee). */
-    CANSAT_DEPLOY_BATCH2,   /*!< Batch 2 deployed (~2 s before apogee). */
-    CANSAT_DEPLOY_BATCH3,   /*!< Batch 3 deployed (~1 s before apogee). */
+    CANSAT_DEPLOY_BATCH1,   /*!< Batch 1 deployed at the computed time-to-apogee. */
+    CANSAT_DEPLOY_BATCH2,   /*!< Batch 2 deployed one inter-batch delay after batch 1. */
+    CANSAT_DEPLOY_BATCH3,   /*!< Batch 3 deployed one inter-batch delay after batch 2. */
     CANSAT_DEPLOYED,        /*!< All batches deployed, apogee passed. */
     CANSAT_MANUAL,          /*!< Manual override — batches controlled individually via forceOpen/forceClose. */
 } cansat_state_t;
@@ -37,12 +37,12 @@ esp_err_t Cansat_init(AHRS_t * ahrs);
 /**
  * @brief Runs one step of the deployment state machine. Call at main loop rate.
  * @param[in] time_ms Current system time in milliseconds.
- * @return ESP_OK always.
+ * @return ESP_OK on success, ESP_FAIL if Cansat_init() has not been called.
  */
-esp_err_t Cansat_compute(uint64_t time_ms);
+esp_err_t Cansat_fsd(uint64_t time_ms);
 
 /**
- * @brief Arms the deployment state machine (transitions from IDLE to ARMED).
+ * @brief Enters CANSAT_ARMED. Does not change effector positions or batch open state.
  */
 void Cansat_arm();
 
@@ -63,12 +63,14 @@ void Cansat_exitManual();
 
 /**
  * @brief Opens (deploys) the specified batch. Only executes when in CANSAT_MANUAL state.
+ *        Ignored when batch is outside 1–3.
  * @param[in] batch Batch number to open (1–3).
  */
 void Cansat_forceOpen(uint8_t batch);
 
 /**
  * @brief Closes the specified batch. Only executes when in CANSAT_MANUAL state.
+ *        Ignored when batch is outside 1–3.
  * @param[in] batch Batch number to close (1–3).
  */
 void Cansat_forceClose(uint8_t batch);

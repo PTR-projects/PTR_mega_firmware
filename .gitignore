@@ -6,3 +6,4 @@
 build
 *.code-workspace
 managed_components
+__pycache__
