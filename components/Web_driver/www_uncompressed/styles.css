@@ -249,3 +249,51 @@ th {
   font-weight: bold;
   font-size: 25px;
 }
+
+.cfg {
+  max-width: 920px;
+  margin: 12px;
+}
+
+.cfg h1 {
+  font-size: 22px;
+  margin: 18px 0 8px;
+}
+
+.cfg-row,
+.cfg-card,
+.cfg-cond {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0;
+}
+
+.cfg-card {
+  border: 1px solid #ccc;
+  padding: 8px;
+  background: #fafafa;
+}
+
+.cfg-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cfg-states button,
+.cfg button {
+  padding: 6px 10px;
+}
+
+.cfg-states button.active {
+  background: #222;
+  color: #fff;
+}
+
+.cfg-handle {
+  cursor: grab;
+  font-weight: bold;
+  padding: 0 6px;
+}

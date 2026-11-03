@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
 #include <sys/unistd.h>
@@ -7,6 +8,7 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
@@ -21,6 +23,7 @@
 #include "lwip/sys.h"
 
 #include "Preferences.h"
+#include "Mission.h"
 #include "DataManager.h"
 #include "Storage_driver.h"
 #include "SimpleFS_driver.h"
@@ -762,6 +765,59 @@ esp_err_t config_post_handler(httpd_req_t *req){
     return ESP_OK;
 }
 
+esp_err_t mission_get_handler(httpd_req_t *req){
+	if(req == NULL){
+		return ESP_FAIL;
+	}
+
+	char *string = Preferences_mission_json();
+	if(string == NULL){
+		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "mission json failed");
+		return ESP_FAIL;
+	}
+
+	httpd_resp_set_type(req, "application/json");
+	httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+	httpd_resp_send(req, string, HTTPD_RESP_USE_STRLEN);
+	free(string);
+	return ESP_OK;
+}
+
+esp_err_t mission_post_handler(httpd_req_t *req){
+	if(req == NULL || req->content_len <= 0 || req->content_len >= MISSION_FILE_MAX){
+		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "content length");
+		return ESP_FAIL;
+	}
+
+	char *buf = calloc(1, (size_t)req->content_len + 1);
+	if(buf == NULL){
+		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no memory");
+		return ESP_FAIL;
+	}
+
+	int cur_len = 0;
+	while(cur_len < req->content_len){
+		int received = httpd_req_recv(req, buf + cur_len, (size_t)(req->content_len - cur_len));
+		if(received <= 0){
+			free(buf);
+			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "recv failed");
+			return ESP_FAIL;
+		}
+		cur_len += received;
+	}
+
+	esp_err_t err = Preferences_mission_store_web(buf);
+	free(buf);
+	if(err != ESP_OK){
+		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "mission rejected");
+		return ESP_FAIL;
+	}
+
+	httpd_resp_sendstr(req, "ok");
+	esp_restart();
+	return ESP_OK;
+}
+
 /*!
  * @brief Initialize HTTP server, create soft access point.
  * @param base_path
@@ -847,6 +903,22 @@ esp_err_t Web_http_init(const char *base_path){
 		.user_ctx = server_data
 	};
 	httpd_register_uri_handler(server, &config_send);
+
+	httpd_uri_t mission_get = {
+		.uri      = "/mission",
+		.method   = HTTP_GET,
+		.handler  = mission_get_handler,
+		.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &mission_get);
+
+	httpd_uri_t mission_post = {
+		.uri      = "/mission",
+		.method   = HTTP_POST,
+		.handler  = mission_post_handler,
+		.user_ctx = server_data
+	};
+	httpd_register_uri_handler(server, &mission_post);
 
 	httpd_uri_t file_delete = {
 		.uri       = "/delete/*",   // Match all URIs of type /delete/path/to/file

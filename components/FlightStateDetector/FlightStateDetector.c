@@ -4,11 +4,9 @@
 #include "esp_err.h"
 #include "AHRS_driver.h"
 #include "Preferences.h"
+#include "Mission.h"
 #include "Effector_driver.h"
 #include "FlightStateDetector.h"
-
-#define TIME_ELAPSED(start_ms, now_ms, wait_ms) (start_ms <= (now_ms - wait_ms))
-#define ALTITUDE_DROP_TRIGGER 10.0f
 
 //----- Our defines ----------
 #define APO 			0
@@ -34,10 +32,31 @@ static void FlightState_LANDING					(uint64_t time_ms, FlightState_t * currentSt
 //----- Private variables ----------
 static FlightState_t flightState_d;
 static AHRS_t * 	 AHRS_ptr;
-static FSD_settings_t FSD_settings_d;
 static const char *TAG = "FSD";
 
 static uint64_t stateChangeTime = 0;
+
+static void FSD_take(uint64_t time_ms, FlightState_t * currentState){
+	float time_state_ms = (float)(time_ms - stateChangeTime);
+	float time_launch_ms = 0.0f;
+	if((flightState_d.ignition_time_ms != 0) && (time_ms >= flightState_d.ignition_time_ms)){
+		time_launch_ms = (float)(time_ms - flightState_d.ignition_time_ms);
+	}
+
+	mission_fire_t fire;
+	if(!Preferences_mission_poll((uint8_t)currentState->state, time_launch_ms, time_state_ms, &fire)){
+		return;
+	}
+
+	for(uint8_t i = 0; i < fire.effector_count; i++){
+		Effector_activate((effector_id_t)fire.effectors[i]);
+	}
+	if(fire.to_state == FLIGHTSTATE_BOOST){
+		flightState_d.ignition_time_ms = time_ms;
+	}
+	currentState->state = (flightstate_t)fire.to_state;
+	currentState->state_ready = false;
+}
 static armingstatus_t armstatus_d = DISARMED;
 
 void FSD_arming(){
@@ -71,17 +90,10 @@ esp_err_t FSD_init(AHRS_t * ahrs){
 	}
 
 	Preferences_data_t pref;
-	if(Preferences_get(&pref) == ESP_OK){
-		FSD_settings_d.drouge_alt 		= (float)pref.drouge_alt_m;
-		FSD_settings_d.main_alt 		= (float)pref.main_alt_m;
-		FSD_settings_d.max_tilt 		= (float)pref.max_tilt_deg;
-		FSD_settings_d.rail_height 		= (float)pref.rail_height_mm;
-		FSD_settings_d.staging_delay_ms	= pref.staging_delay_ms;
-		FSD_settings_d.staging_max_tilt = (float)pref.staging_max_tilt;
-	}
-	else {
+	if(Preferences_get(&pref) != ESP_OK){
 		return ESP_FAIL;
 	}
+	(void)pref;
 
 	AHRS_ptr = ahrs;
 
@@ -167,6 +179,7 @@ esp_err_t IRAM_ATTR FSD_detect(uint64_t time_ms){
 
 
 static void IRAM_ATTR FlightState_STARTUP(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -179,14 +192,11 @@ static void IRAM_ATTR FlightState_STARTUP(uint64_t time_ms, FlightState_t * curr
 	AHRS_resetMaxAltitude();
 
 
-	//State change conditions
-	if (TIME_ELAPSED(stateChangeTime, time_ms, 500)) {
-		currentState->state = FLIGHTSTATE_PREFLIGHT;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_PREFLIGHT(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -198,17 +208,11 @@ static void IRAM_ATTR FlightState_PREFLIGHT(uint64_t time_ms, FlightState_t * cu
 	Sensors_calibrateGyro(0.001f);
 	AHRS_resetMaxAltitude();
 
-	//State change conditions
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (2.6f * 9.81f)) ) {
-
-		flightState_d.ignition_time_ms = time_ms;
-
-		currentState->state = FLIGHTSTATE_BOOST;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_BOOST(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -220,14 +224,11 @@ static void IRAM_ATTR FlightState_BOOST(uint64_t time_ms, FlightState_t * curren
 	//Executed every loop
 
 
-	//State change conditions
-	if((TIME_ELAPSED(stateChangeTime, time_ms, 500))  && (ahrs->acc_axis_lowpass < 0.0f) ) {
-		currentState->state = FLIGHTSTATE_SECOND_STAGE_DELAY;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_SECOND_STAGE_DELAY(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -237,25 +238,11 @@ static void IRAM_ATTR FlightState_SECOND_STAGE_DELAY(uint64_t time_ms, FlightSta
 	//Executed every loop
 
 
-	//State change conditions (second stage ignition)
-	if((TIME_ELAPSED(stateChangeTime, time_ms, FSD_settings_d.staging_delay_ms))) { 
-
-		Effector_activate(EFFECTOR_STAGE2_IGN);
-
-		currentState->state = FLIGHTSTATE_SECOND_STAGE_IGNITION;
-		currentState->state_ready = false;
-	}
-
-	//State change conditions (altitude)
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))
-			&& (ahrs->max_altitude >= ahrs->altitudeP)
-			&& ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
-		currentState->state = FLIGHTSTATE_FREEFALL;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_SECOND_STAGE_IGNITION(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -265,29 +252,11 @@ static void IRAM_ATTR FlightState_SECOND_STAGE_IGNITION(uint64_t time_ms, Flight
 	//Executed every loop
 
 
-	//State change conditions (second stage burn)
-	if((TIME_ELAPSED(stateChangeTime, time_ms, 100)) && (ahrs->acc_axis_lowpass >= (2.6f * 9.81f)) ) { 
-		currentState->state = FLIGHTSTATE_SECOND_STAGE_BOOST;
-		currentState->state_ready = false;
-	}
-
-	//State change conditions (second stage ignition failed)
-	if(TIME_ELAPSED(stateChangeTime, time_ms, 3000))
-	{
-		currentState->state = FLIGHTSTATE_FREEFLIGHT;
-		currentState->state_ready = false;
-	}
-
-	//State change conditions (altitude)
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 1000))
-			&& (ahrs->max_altitude >= ahrs->altitudeP)
-			&& ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
-		currentState->state = FLIGHTSTATE_FREEFALL;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_SECOND_STAGE_BOOST(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -297,14 +266,11 @@ static void IRAM_ATTR FlightState_SECOND_STAGE_BOOST(uint64_t time_ms, FlightSta
 	//Executed every loop
 
 
-	//State change conditions // do poprawy
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))  && (ahrs->acc_axis_lowpass < 0.0f) ) {
-		currentState->state = FLIGHTSTATE_FREEFLIGHT;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_FREEFLIGHT(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -314,16 +280,11 @@ static void IRAM_ATTR FlightState_FREEFLIGHT(uint64_t time_ms, FlightState_t * c
 	//Executed every loop
 
 
-	//State change conditions
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))
-			&& (ahrs->max_altitude >= ahrs->altitudeP)
-			&& ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
-			currentState->state = FLIGHTSTATE_FREEFALL;
-			currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_FREEFALL(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -333,17 +294,11 @@ static void IRAM_ATTR FlightState_FREEFALL(uint64_t time_ms, FlightState_t * cur
 	//Executed every loop
 
 
-	//State change conditions
-	if (/*(TIME_ELAPSED(stateChangeTime, time_ms, 100))*/ 1) {
-
-		Effector_activate(EFFECTOR_DROGUE);
-
-		currentState->state = FLIGHTSTATE_DRAGCHUTE_FALL;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_DRAGCHUTE_FALL(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -353,21 +308,11 @@ static void IRAM_ATTR FlightState_DRAGCHUTE_FALL(uint64_t time_ms, FlightState_t
 	//Executed every loop
 
 
-	//State change conditions
-	if ((TIME_ELAPSED(stateChangeTime, time_ms, 100) && (ahrs->altitudeP <= FSD_settings_d.main_alt))) {
-
-		Effector_activate(EFFECTOR_MAIN);
-
-		currentState->state = FLIGHTSTATE_MAINSHUTE_FALL;
-		currentState->state_ready = false;
-	}
-	else if((TIME_ELAPSED(stateChangeTime, time_ms, 2000) && (ahrs->ascent_rate < -60.0f))){
-		currentState->state = FLIGHTSTATE_DRAGCHUTE_FAILURE;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_DRAGCHUTE_FAILURE(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -377,18 +322,11 @@ static void IRAM_ATTR FlightState_DRAGCHUTE_FAILURE(uint64_t time_ms, FlightStat
 	//Executed every loop
 
 
-	//State change conditions
-	if(TIME_ELAPSED(stateChangeTime, time_ms, 100)){
-
-		Effector_activate(EFFECTOR_DROGUE);
-		Effector_activate(EFFECTOR_MAIN);
-
-		currentState->state = FLIGHTSTATE_MAINSHUTE_FALL;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_MAINSHUTE_FALL(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -398,18 +336,11 @@ static void IRAM_ATTR FlightState_MAINSHUTE_FALL(uint64_t time_ms, FlightState_t
 	//Executed every loop
 
 
-	//State change conditions
-	if(TIME_ELAPSED(stateChangeTime, time_ms, 5000) && (ahrs->ascent_rate < -60.0f) ){
-		currentState->state = FLIGHTSTATE_RECOVERY_FAILURE;
-		currentState->state_ready = false;
-	}
-	else if(TIME_ELAPSED(stateChangeTime, time_ms, 30000)  && (ahrs->altitudeP < 200.0f) && (ahrs->velocityP > -2.0f)){
-		currentState->state = FLIGHTSTATE_LANDING;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_RECOVERY_FAILURE(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -418,14 +349,11 @@ static void IRAM_ATTR FlightState_RECOVERY_FAILURE(uint64_t time_ms, FlightState
 
 	//Executed every loop
 
-	//State change conditions
-	if(TIME_ELAPSED(stateChangeTime, time_ms, 30000)  && (ahrs->altitudeP < 200.0f) && (ahrs->velocityP > -2.0f)){
-		currentState->state = FLIGHTSTATE_LANDING;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 static void IRAM_ATTR FlightState_LANDING(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	(void)ahrs;
 	//Executed only once
 	if(!(currentState->state_ready)) {
 		currentState->state_ready = true;
@@ -435,11 +363,7 @@ static void IRAM_ATTR FlightState_LANDING(uint64_t time_ms, FlightState_t * curr
 
 	//Executed every loop
 
-	//State change conditions
-	if (TIME_ELAPSED(stateChangeTime, time_ms, 30000)){
-		currentState->state = FLIGHTSTATE_SHUTDOWN;
-		currentState->state_ready = false;
-	}
+	FSD_take(time_ms, currentState);
 }
 
 

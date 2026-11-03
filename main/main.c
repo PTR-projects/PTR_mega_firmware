@@ -27,6 +27,7 @@
 #include "FlightStateDetector.h"
 #include "Web_driver.h"
 #include "Preferences.h"
+#include "Mission.h"
 #include "DataManager.h"
 #include "PTR_DataPacket.h"
 #include "SysMgr.h"
@@ -61,7 +62,7 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	kppacket_t 		     DataPackageRF_d;
 	DataPackageWebLive_t DataPackageWebLive_d;
 	gps_t 			     gps_d;
-	Analog_meas_t 	     Analog_meas;
+	Analog_meas_t 	     Analog_meas = {0};
 	int64_t              time_us = esp_timer_get_time();
 	esp_err_t            status = ESP_FAIL;
 
@@ -88,18 +89,34 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 
 		int64_t time_us = esp_timer_get_time();
 
+		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 		GPS_getData(&gps_d, 0);
 		Sensors_update();
 		AHRS_compute(time_us, Sensors_get(), gps_d);
-		FSD_detect(time_us/1000);
 
-		Sensors_t     *sensors   = Sensors_get ();
-		AHRS_t        *ahrs      = AHRS_getData();
+		Sensors_t *sensors = Sensors_get();
+		AHRS_t    *ahrs    = AHRS_getData();
+		mission_sample_t sample = {0};
+		sample.ascent_rate = ahrs->ascent_rate;
+		sample.velocity_p  = ahrs->velocityP;
+		sample.altitude    = ahrs->altitude;
+		sample.altitude_p  = ahrs->altitudeP;
+		sample.alt_drop    = ahrs->max_altitude - ahrs->altitudeP;
+		sample.acc_x       = ahrs->acc_axis_lowpass;
+		sample.acc_y       = ahrs->acc_rf.y;
+		sample.acc_z       = ahrs->acc_rf.z;
+		sample.gyro_x      = sensors->LSM6DSO32[0].gyroX;
+		sample.gyro_y      = sensors->LSM6DSO32[0].gyroY;
+		sample.gyro_z      = sensors->LSM6DSO32[0].gyroZ;
+		sample.tilt        = AHRS_calcTilt(&ahrs->orientation.euler);
+		sample.vbat        = Analog_meas.vbat_mV / 1000.0f;
+		sample.pressure    = sensors->MS5607.press;
+		Preferences_mission_set_sample(&sample);
+
+		FSD_detect(time_us/1000);
 		flightstate_t  fsd_state = FSD_getState();
 		servo_t		  *servos    = Servo_get   ();
 		IGN_t		  igniters   = IGN_getState();
-
-		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
 		DM_collectFlash(&DataPackage_d, time_us, sensors, &gps_d, ahrs, fsd_state, &igniters, &Analog_meas, servos);
 
@@ -325,19 +342,34 @@ void task_kpptr_effector(void *pvParameter){
 	// Init servo driver channels
 	//esp_err_t Servo_configSingle(uint8_t servo_num, int min_pulsewidth, int max_pulsewidth, int frequency);
 
-	// Init default effectors configuration
-	//esp_err_t Effector_register(effector_id_t id, effector_type_t type, effector_hw_t hw, int8_t active_value, int8_t inactive_value, bool ignore_arm);
-	Effector_register(EFFECTOR_DROGUE,     EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 0}, 1, 0, false, 100);
-	Effector_register(EFFECTOR_MAIN,       EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 1}, 1, 0, false, 100);
-	Effector_register(EFFECTOR_STAGE2_IGN, EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 2}, 1, 0, false, 100);
-
+	if(Preferences_mission_effector_count() == 0){
+		Effector_register(EFFECTOR_DROGUE,     EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 0}, 1, 0, false, 100);
+		Effector_register(EFFECTOR_MAIN,       EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 1}, 1, 0, false, 100);
+		Effector_register(EFFECTOR_STAGE2_IGN, EFFECTOR_TYPE_IGNITER, (effector_hw_t){.igniter.channel = 2}, 1, 0, false, 100);
 #ifdef CFG_CANSAT_ROCKET
-	// Init effectors for Cansat rocket
-	Effector_register(EFFECTOR_MAIN,     EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 0);
-	Effector_register(EFFECTOR_CANSAT_1, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 1}, 100, 0, true, 0);
-	Effector_register(EFFECTOR_CANSAT_2, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 2}, 100, 0, true, 0);
-	Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true, 0);
+		Effector_register(EFFECTOR_MAIN,     EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 0);
+		Effector_register(EFFECTOR_CANSAT_1, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 1}, 100, 0, true, 0);
+		Effector_register(EFFECTOR_CANSAT_2, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 2}, 100, 0, true, 0);
+		Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true, 0);
 #endif
+	} else {
+		for(uint8_t i = 0; i < Preferences_mission_effector_count(); i++){
+			const mission_effector_t *binding = Preferences_mission_effector(i);
+			effector_hw_t hw = {0};
+			if(binding->type == EFFECTOR_TYPE_SERVO_PWM){
+				hw.servo_pwm.servo_num = binding->channel;
+			} else if(binding->type == EFFECTOR_TYPE_SERVO_SBUS){
+				hw.servo_sbus.channel = binding->channel;
+			} else if(binding->type == EFFECTOR_TYPE_IGNITER){
+				hw.igniter.channel = binding->channel;
+			} else {
+				continue;
+			}
+			Effector_register((effector_id_t)binding->id, (effector_type_t)binding->type, hw,
+			                  binding->active_value, binding->inactive_value,
+			                  binding->ignore_arm, binding->activation_time_ms);
+		}
+	}
 
 	ESP_LOGI(TAG, "Task Effetor - ready!");
 
@@ -519,6 +551,7 @@ void app_main(void)
     nvs_flash_init();
     Web_storageInit();
     Preferences_init();
+    Preferences_mission_init();
     SysMgr_init();
 
     // Init Web component and make checkout

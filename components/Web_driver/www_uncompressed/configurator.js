@@ -1,0 +1,354 @@
+let mission = null;
+let selected = 0;
+
+function crc16(data) {
+  const poly = 0x1021;
+  let crc = 0xffff;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ poly) : (crc << 1);
+    }
+  }
+  return crc & 0xffff;
+}
+
+function edgesOf(state) {
+  return mission.edges
+    .filter((edge) => edge.from === state)
+    .sort((a, b) => a.order - b.order || a.id - b.id);
+}
+
+function countId(id) {
+  return mission.effectors.filter((item) => item.id === id).length;
+}
+
+function fillSelect(select, values, current, asIndex) {
+  values.forEach((value, index) => {
+    const option = document.createElement('option');
+    const stored = asIndex ? index : value;
+    option.value = String(stored);
+    option.textContent = String(value);
+    if (stored === current) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+}
+
+function renderEffectors() {
+  const root = document.getElementById('effectors');
+  root.innerHTML = '';
+  mission.effectors.forEach((binding, index) => {
+    const row = document.createElement('div');
+    row.className = 'cfg-row';
+
+    const id = document.createElement('select');
+    fillSelect(id, mission.ids, binding.id, true);
+    id.onchange = () => {
+      const next = Number(id.value);
+      if (countId(next) >= mission.bindings_per_id && next !== binding.id) {
+        id.value = String(binding.id);
+        return;
+      }
+      binding.id = next;
+    };
+
+    const type = document.createElement('select');
+    fillSelect(type, mission.types, binding.type, false);
+    type.onchange = () => { binding.type = type.value; };
+
+    const channel = numberInput(binding.ch, 0, 255, 1, (value) => { binding.ch = value; });
+    const active = numberInput(binding.active, -100, 100, 1, (value) => { binding.active = value; });
+    const inactive = numberInput(binding.inactive, -100, 100, 1, (value) => { binding.inactive = value; });
+    const time = numberInput(binding.time_ms, 0, 10000, 10, (value) => { binding.time_ms = value; });
+
+    const ignore = document.createElement('input');
+    ignore.type = 'checkbox';
+    ignore.checked = !!binding.ignore_arm;
+    ignore.onchange = () => { binding.ignore_arm = ignore.checked; };
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Remove';
+    remove.onclick = () => {
+      mission.effectors.splice(index, 1);
+      renderEffectors();
+    };
+
+    row.append('id ', id, ' type ', type, ' ch ', channel, ' active ', active,
+               ' inactive ', inactive, ' ms ', time, ' ignore arm ', ignore, remove);
+    root.appendChild(row);
+  });
+}
+
+function numberInput(value, min, max, step, onChange) {
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  input.value = String(value);
+  input.onchange = () => {
+    let next = Number(input.value);
+    if (!Number.isFinite(next)) {
+      next = Number(value);
+    }
+    if (step >= 1) {
+      const typed = next;
+      next = Math.round(next / step) * step;
+      if (step === 10 && next === 0 && typed !== 0) {
+        next = step;
+      }
+    }
+    if (next < min) {
+      next = min;
+    }
+    if (next > max) {
+      next = max;
+    }
+    input.value = String(next);
+    onChange(next);
+  };
+  return input;
+}
+
+function renderStateList() {
+  const root = document.getElementById('states');
+  root.innerHTML = '';
+  mission.states.forEach((name, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = name;
+    if (index === selected) {
+      button.className = 'active';
+    }
+    button.onclick = () => {
+      selected = index;
+      renderStateList();
+      renderEdges();
+    };
+    root.appendChild(button);
+  });
+}
+
+function renderEdges() {
+  const root = document.getElementById('edges');
+  root.innerHTML = '';
+  const edges = edgesOf(selected);
+  if (edges.length === 0) {
+    root.textContent = 'No outgoing transitions.';
+    return;
+  }
+  edges.forEach((edge) => root.appendChild(edgeCard(edge)));
+}
+
+function edgeCard(edge) {
+  const card = document.createElement('div');
+  card.className = 'cfg-card';
+  card.addEventListener('dragover', (event) => event.preventDefault());
+  card.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const dragId = Number(event.dataTransfer.getData('text/plain'));
+    reorder(dragId, edge.id);
+  });
+
+  const head = document.createElement('div');
+  head.className = 'cfg-row';
+  const handle = document.createElement('span');
+  handle.className = 'cfg-handle';
+  handle.textContent = '::';
+  handle.draggable = true;
+  handle.addEventListener('dragstart', (event) => {
+    event.dataTransfer.setData('text/plain', String(edge.id));
+  });
+
+  const enabled = document.createElement('input');
+  enabled.type = 'checkbox';
+  enabled.checked = !!edge.enabled;
+  enabled.onchange = () => { edge.enabled = enabled.checked; };
+
+  const up = document.createElement('button');
+  up.type = 'button';
+  up.textContent = 'Up';
+  up.onclick = () => moveEdge(edge.id, -1);
+  const down = document.createElement('button');
+  down.type = 'button';
+  down.textContent = 'Down';
+  down.onclick = () => moveEdge(edge.id, 1);
+
+  head.append(handle, up, down, enabled, document.createTextNode(' to ' + edge.to_name));
+  card.appendChild(head);
+
+  const effectors = document.createElement('div');
+  effectors.className = 'cfg-row';
+  effectors.append('Fire ');
+  mission.ids.forEach((name, id) => {
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = edge.effectors.indexOf(id) >= 0;
+    box.onchange = () => {
+      const at = edge.effectors.indexOf(id);
+      if (box.checked && at < 0 && edge.effectors.length < (mission.effectors_per_edge || 4)) {
+        edge.effectors.push(id);
+      } else if (!box.checked && at >= 0) {
+        edge.effectors.splice(at, 1);
+      } else {
+        box.checked = at >= 0;
+      }
+    };
+    effectors.append(box, name + ' ');
+  });
+  card.appendChild(effectors);
+
+  edge.groups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      card.append('OR');
+    }
+    const block = document.createElement('div');
+    group.conds.forEach((cond, condIndex) => {
+      block.appendChild(condRow(edge, group, cond, condIndex));
+    });
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.textContent = 'Add AND';
+    add.onclick = () => {
+      if (group.conds.length >= mission.conds_max) {
+        return;
+      }
+      group.conds.push({ sig: 'time_state_ms', cmp: '>=', thr: 0 });
+      renderEdges();
+    };
+    block.appendChild(add);
+    card.appendChild(block);
+  });
+
+  const addGroup = document.createElement('button');
+  addGroup.type = 'button';
+  addGroup.textContent = 'Add OR group';
+  addGroup.onclick = () => {
+    if (edge.groups.length >= mission.groups_max) {
+      return;
+    }
+    edge.groups.push({ conds: [{ sig: 'time_state_ms', cmp: '>=', thr: 0 }] });
+    renderEdges();
+  };
+  card.appendChild(addGroup);
+  return card;
+}
+
+function condRow(edge, group, cond, condIndex) {
+  const row = document.createElement('div');
+  row.className = 'cfg-cond';
+  const sig = document.createElement('select');
+  fillSelect(sig, mission.signals, cond.sig, false);
+  sig.onchange = () => { cond.sig = sig.value; };
+  const cmp = document.createElement('select');
+  fillSelect(cmp, mission.cmps, cond.cmp, false);
+  cmp.onchange = () => { cond.cmp = cmp.value; };
+  const thr = numberInput(cond.thr, -100000, 100000, 0.1, (value) => { cond.thr = value; });
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.textContent = 'Remove';
+  remove.onclick = () => {
+    group.conds.splice(condIndex, 1);
+    edge.groups = edge.groups.filter((item) => item.conds.length > 0);
+    renderEdges();
+  };
+  row.append(sig, cmp, thr, remove);
+  return row;
+}
+
+function applyOrder(ids) {
+  ids.forEach((id, index) => {
+    mission.edges.find((edge) => edge.id === id).order = index;
+  });
+  renderEdges();
+}
+
+function moveEdge(id, delta) {
+  const ids = edgesOf(selected).map((edge) => edge.id);
+  const from = ids.indexOf(id);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= ids.length) {
+    return;
+  }
+  ids.splice(from, 1);
+  ids.splice(to, 0, id);
+  applyOrder(ids);
+}
+
+function reorder(dragId, dropId) {
+  if (dragId === dropId) {
+    return;
+  }
+  const ids = edgesOf(selected).map((edge) => edge.id);
+  const from = ids.indexOf(dragId);
+  const to = ids.indexOf(dropId);
+  if (from < 0 || to < 0) {
+    return;
+  }
+  ids.splice(from, 1);
+  ids.splice(to, 0, dragId);
+  applyOrder(ids);
+}
+
+function addEffector() {
+  const id = mission.ids.findIndex((_, index) => countId(index) < mission.bindings_per_id);
+  if (id < 0) {
+    return;
+  }
+  mission.effectors.push({
+    id: id,
+    type: mission.types[0],
+    ch: 0,
+    active: 0,
+    inactive: 0,
+    ignore_arm: false,
+    time_ms: 0
+  });
+  renderEffectors();
+}
+
+function save() {
+  if (!confirm('Save mission and restart?')) {
+    return;
+  }
+  const body = JSON.stringify({
+    effectors: mission.effectors,
+    edges: mission.edges.map((edge) => ({
+      id: edge.id,
+      enabled: !!edge.enabled,
+      order: edge.order,
+      effectors: edge.effectors,
+      groups: edge.groups
+    }))
+  });
+  const status = document.getElementById('status');
+  status.textContent = 'Saving...';
+  fetch('/mission', { method: 'POST', body: crc16(body) + ',' + body })
+    .then((res) => {
+      status.textContent = res.ok ? 'Saved. Restarting.' : 'Rejected.';
+    })
+    .catch(() => {
+      status.textContent = 'No response. Reconnect if the device restarted.';
+    });
+}
+
+function boot() {
+  fetch('/mission')
+    .then((res) => res.json())
+    .then((data) => {
+      mission = data;
+      document.getElementById('add-effector').onclick = addEffector;
+      document.getElementById('save').onclick = save;
+      renderEffectors();
+      renderStateList();
+      renderEdges();
+    })
+    .catch(() => {
+      document.getElementById('status').textContent = 'Could not load mission.';
+    });
+}
+
+boot();
