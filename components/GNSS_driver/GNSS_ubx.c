@@ -21,7 +21,7 @@
 
 #if defined(GNSS_UART) && defined(GNSS_RX_PIN) && defined(GNSS_TX_PIN)
 
-#define UBX_RATE_MS 50   /*!< solution interval (20 Hz) */
+#define UBX_RATE_MS 100  /*!< solution interval (10 Hz). 20 Hz allows only GPS+Galileo on the MAX-M10N. */
 
 #define UBX_ACK_TIMEOUT_MS 300
 
@@ -191,7 +191,7 @@ static esp_err_t ubx_configure(uint32_t baud)
 		return ESP_FAIL;
 	}
 
-	/* 2. Faster UART first: 20 Hz of NAV-PVT does not fit in 9600 baud */
+	/* 2. Faster UART first: the configured navigation rate does not fit in 9600 baud */
 	if (cur_baud != GNSS_TARGET_BAUD) {
 		ubx_set_baud(GNSS_TARGET_BAUD, true);
 		if (poll_ver_wait(500) || poll_ver_wait(500)) {
@@ -218,16 +218,17 @@ static esp_err_t ubx_configure(uint32_t baud)
 		return ESP_FAIL;
 	}
 
-	/* 4. Constellations. The MAX-M10N reaches 20 Hz only with GPS+Galileo (default set: 10 Hz).
-	 * Optional - a NAK only costs update rate. */
+	/* 4. All constellations the MAX-M10N can track. 20 Hz GPS+Galileo left only 4-5
+	 * satellites in the solution and gnssFixOK never set. */
 	ubx_cfg_item_t sig[] = {
 		{ UBX_KEY_SIGNAL_GPS_ENA,  1 },
 		{ UBX_KEY_SIGNAL_GAL_ENA,  1 },
-		{ UBX_KEY_SIGNAL_BDS_ENA,  0 },
-		{ UBX_KEY_SIGNAL_SBAS_ENA, 0 },
-		{ UBX_KEY_SIGNAL_QZSS_ENA, 0 },
+		{ UBX_KEY_SIGNAL_BDS_ENA,  1 },
+		{ UBX_KEY_SIGNAL_SBAS_ENA, 1 },
+		{ UBX_KEY_SIGNAL_QZSS_ENA, 1 },
 	};
-	if (send_valset(sig, sizeof(sig) / sizeof(sig[0]), true) != ESP_OK)
+	esp_err_t sig_err = send_valset(sig, sizeof(sig) / sizeof(sig[0]), true);
+	if (sig_err != ESP_OK)
 		ESP_LOGW(TAG, "Constellation selection not confirmed, update rate may be limited");
 
 	/* 5. Navigation rate and platform model */
@@ -236,13 +237,14 @@ static esp_err_t ubx_configure(uint32_t baud)
 		{ UBX_KEY_RATE_NAV,  1 },
 		{ UBX_KEY_NAVSPG_DYNMODEL, ubx_dynmodel_from_nav_mode(GNSS_NAV_MODE_DEFAULT) },
 	};
-	err = send_valset(rate, sizeof(rate) / sizeof(rate[0]), true);
-	if (err != ESP_OK)
-		ESP_LOGW(TAG, "Rate/platform model not confirmed (%s)", esp_err_to_name(err));
+	esp_err_t rate_err = send_valset(rate, sizeof(rate) / sizeof(rate[0]), true);
+	if (rate_err != ESP_OK)
+		ESP_LOGW(TAG, "Rate/platform model not confirmed (%s)", esp_err_to_name(rate_err));
 
 	/* 6. HDOP/VDOP once per second */
 	ubx_cfg_item_t dop = { UBX_KEY_MSGOUT_NAV_DOP_UART1, 1000u / UBX_RATE_MS };
-	if (send_valset(&dop, 1, true) != ESP_OK)
+	esp_err_t dop_err = send_valset(&dop, 1, true);
+	if (dop_err != ESP_OK)
 		ESP_LOGW(TAG, "NAV-DOP not enabled, dop_h/dop_v stay 0");
 
 	ESP_LOGI(TAG, "Configured: %u ms rate, %lu baud", (unsigned)UBX_RATE_MS, (unsigned long)cur_baud);
