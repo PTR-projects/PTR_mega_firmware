@@ -30,7 +30,6 @@ static ubx_parser_t s_parser;
 static gps_t s_cur;                        /*!< solution being published, keeps DOP between epochs */
 static volatile bool s_waiting;            /*!< configure() is waiting for an ACK */
 static volatile uint8_t s_wait_cls, s_wait_id;
-static volatile int s_ack_result;          /*!< 0 pending, 1 ACK, -1 NAK */
 static volatile bool s_ver_seen;
 
 typedef enum {
