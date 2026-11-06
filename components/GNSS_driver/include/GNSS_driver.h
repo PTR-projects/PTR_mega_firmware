@@ -1,7 +1,6 @@
 #pragma once
 
-#include "driver/uart.h"
-#include "esp_event.h"
+#include "esp_err.h"
 #include "GNSS_types.h"
 
 /**
@@ -65,12 +64,12 @@ void GPS_test(void);
 esp_err_t GPS_baud_rate_set(uint32_t baud);
 
 /**
- * @brief Set GPS baud rate and ESP UART baudrate to same value
+ * @brief Set the same baud rate on the receiver and on the ESP UART
  *
  * @param baud desired baudrate: 4800, 9600, 14400, 19200, 38400, 57600, 115200
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t GPS_baud_rate_set_extra(uint32_t baud);
+esp_err_t GPS_baud_rate_set_uart(uint32_t baud);
 
 /**
  * @brief Set GPS fix interval

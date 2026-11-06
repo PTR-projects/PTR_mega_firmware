@@ -40,7 +40,7 @@ typedef struct {
 	uint8_t cur_statement;                         /*!< Current statement ID */
 	uint32_t all_statements;                       /*!< All statements mask */
 	char item_str[NMEA_MAX_STATEMENT_ITEM_LENGTH]; /*!< Current item */
-	gps_t parent;                                  /*!< Solution being assembled */
+	gps_t solution;                                /*!< Solution being assembled */
 } nmea_state_t;
 
 static const char *TAG = "GNSS-NMEA";
@@ -64,9 +64,9 @@ static void parse_utc_time(nmea_state_t *st)
 {
 	if (strlen(st->item_str) < 6)
 		return;
-	st->parent.tim.hour = convert_two_digit2number(st->item_str + 0);
-	st->parent.tim.minute = convert_two_digit2number(st->item_str + 2);
-	st->parent.tim.second = convert_two_digit2number(st->item_str + 4);
+	st->solution.tim.hour = convert_two_digit2number(st->item_str + 0);
+	st->solution.tim.minute = convert_two_digit2number(st->item_str + 2);
+	st->solution.tim.second = convert_two_digit2number(st->item_str + 4);
 	if (st->item_str[6] == '.') {
 		uint16_t tmp = 0;
 		uint8_t digits = 0;
@@ -74,7 +74,7 @@ static void parse_utc_time(nmea_state_t *st)
 			tmp = 10 * tmp + (st->item_str[i] - '0');
 		for (; digits < 3; digits++)   // normalise to milliseconds
 			tmp *= 10;
-		st->parent.tim.thousand = tmp;
+		st->solution.tim.thousand = tmp;
 	}
 }
 
@@ -88,35 +88,35 @@ static void parse_gga(nmea_state_t *st)
 		parse_utc_time(st);
 		break;
 	case 2: /* Latitude */
-		st->parent.latitude = parse_lat_long(st);
+		st->solution.latitude = parse_lat_long(st);
 		break;
 	case 3: /* Latitude north(1)/south(-1) information */
 		if (st->item_str[0] == 'S' || st->item_str[0] == 's')
-			st->parent.latitude *= -1;
+			st->solution.latitude *= -1;
 		break;
 	case 4: /* Longitude */
-		st->parent.longitude = parse_lat_long(st);
+		st->solution.longitude = parse_lat_long(st);
 		break;
 	case 5: /* Longitude east(1)/west(-1) information */
 		if (st->item_str[0] == 'W' || st->item_str[0] == 'w')
-			st->parent.longitude *= -1;
+			st->solution.longitude *= -1;
 		break;
 	case 6: /* Fix status */
-		st->parent.fix = (gps_fix_t)strtol(st->item_str, NULL, 10);
-		st->parent.valid = (st->parent.fix != GPS_FIX_INVALID);
+		st->solution.fix = (gps_fix_t)strtol(st->item_str, NULL, 10);
+		st->solution.valid = (st->solution.fix != GPS_FIX_INVALID);
 		break;
 	case 7: /* Satellites in use */
-		st->parent.sats_in_use = (uint8_t)strtol(st->item_str, NULL, 10);
+		st->solution.sats_in_use = (uint8_t)strtol(st->item_str, NULL, 10);
 		break;
 	case 8: /* HDOP */
-		st->parent.dop_h = strtof(st->item_str, NULL);
+		st->solution.dop_h = strtof(st->item_str, NULL);
 		break;
 	case 9: /* Altitude above mean sea level */
-		st->parent.altitude = strtof(st->item_str, NULL);
-		st->parent.altitude_ellipsoid = st->parent.altitude;
+		st->solution.altitude = strtof(st->item_str, NULL);
+		st->solution.altitude_ellipsoid = st->solution.altitude;
 		break;
 	case 11: /* Geoid separation: ellipsoid height = MSL altitude + separation */
-		st->parent.altitude_ellipsoid = st->parent.altitude + strtof(st->item_str, NULL);
+		st->solution.altitude_ellipsoid = st->solution.altitude + strtof(st->item_str, NULL);
 		break;
 	default:
 		break;
@@ -129,16 +129,16 @@ static void parse_gsa(nmea_state_t *st)
 {
 	switch (st->item_num) {
 	case 2: /* Process fix mode */
-		st->parent.fix_mode = (gps_fix_mode_t)strtol(st->item_str, NULL, 10);
+		st->solution.fix_mode = (gps_fix_mode_t)strtol(st->item_str, NULL, 10);
 		break;
 	case 15: /* Process PDOP */
-		st->parent.dop_p = strtof(st->item_str, NULL);
+		st->solution.dop_p = strtof(st->item_str, NULL);
 		break;
 	case 16: /* Process HDOP */
-		st->parent.dop_h = strtof(st->item_str, NULL);
+		st->solution.dop_h = strtof(st->item_str, NULL);
 		break;
 	case 17: /* Process VDOP */
-		st->parent.dop_v = strtof(st->item_str, NULL);
+		st->solution.dop_v = strtof(st->item_str, NULL);
 		break;
 	default:
 		break;
@@ -154,37 +154,37 @@ static void parse_rmc(nmea_state_t *st)
 		parse_utc_time(st);
 		break;
 	case 2: /* Process valid status */
-		st->parent.valid = (st->item_str[0] == 'A');
+		st->solution.valid = (st->item_str[0] == 'A');
 		break;
 	case 3:/* Latitude */
-		st->parent.latitude = parse_lat_long(st);
+		st->solution.latitude = parse_lat_long(st);
 		break;
 	case 4:
 		if (st->item_str[0] == 'S' || st->item_str[0] == 's')
-			st->parent.latitude *= -1;
+			st->solution.latitude *= -1;
 		break;
 	case 5:/* Longitude */
-		st->parent.longitude = parse_lat_long(st);
+		st->solution.longitude = parse_lat_long(st);
 		break;
 	case 6:
 		if (st->item_str[0] == 'W' || st->item_str[0] == 'w')
-			st->parent.longitude *= -1;
+			st->solution.longitude *= -1;
 		break;
 	case 7: /* Process ground speed, knots -> m/s */
-		st->parent.speed = strtof(st->item_str, NULL) * KNOTS_TO_MPS;
+		st->solution.speed = strtof(st->item_str, NULL) * KNOTS_TO_MPS;
 		break;
 	case 8: /* Process true course over ground */
-		st->parent.cog = strtof(st->item_str, NULL);
+		st->solution.cog = strtof(st->item_str, NULL);
 		break;
 	case 9: /* Process date */
 		if (strlen(st->item_str) >= 6) {
-			st->parent.date.day = convert_two_digit2number(st->item_str + 0);
-			st->parent.date.month = convert_two_digit2number(st->item_str + 2);
-			st->parent.date.year = YEAR_BASE + convert_two_digit2number(st->item_str + 4);
+			st->solution.date.day = convert_two_digit2number(st->item_str + 0);
+			st->solution.date.month = convert_two_digit2number(st->item_str + 2);
+			st->solution.date.year = YEAR_BASE + convert_two_digit2number(st->item_str + 4);
 		}
 		break;
 	case 10: /* Process magnetic variation */
-		st->parent.variation = strtof(st->item_str, NULL);
+		st->solution.variation = strtof(st->item_str, NULL);
 		break;
 	default:
 		break;
@@ -197,24 +197,24 @@ static void parse_gll(nmea_state_t *st)
 {
 	switch (st->item_num) {
 	case 1:/* Latitude */
-		st->parent.latitude = parse_lat_long(st);
+		st->solution.latitude = parse_lat_long(st);
 		break;
 	case 2:
 		if (st->item_str[0] == 'S' || st->item_str[0] == 's')
-			st->parent.latitude *= -1;
+			st->solution.latitude *= -1;
 		break;
 	case 3:/* Longitude */
-		st->parent.longitude = parse_lat_long(st);
+		st->solution.longitude = parse_lat_long(st);
 		break;
 	case 4:
 		if (st->item_str[0] == 'W' || st->item_str[0] == 'w')
-			st->parent.longitude *= -1;
+			st->solution.longitude *= -1;
 		break;
 	case 5:/* Process UTC time */
 		parse_utc_time(st);
 		break;
 	case 6: /* Process valid status */
-		st->parent.valid = (st->item_str[0] == 'A');
+		st->solution.valid = (st->item_str[0] == 'A');
 		break;
 	default:
 		break;
@@ -227,16 +227,16 @@ static void parse_vtg(nmea_state_t *st)
 {
 	switch (st->item_num) {
 	case 1: /* Process true course over ground */
-		st->parent.cog = strtof(st->item_str, NULL);
+		st->solution.cog = strtof(st->item_str, NULL);
 		break;
 	case 3:/* Process magnetic course */
-		st->parent.variation = strtof(st->item_str, NULL);
+		st->solution.variation = strtof(st->item_str, NULL);
 		break;
 	case 5:/* Process ground speed, knots -> m/s */
-		st->parent.speed = strtof(st->item_str, NULL) * KNOTS_TO_MPS;
+		st->solution.speed = strtof(st->item_str, NULL) * KNOTS_TO_MPS;
 		break;
 	case 7:/* Process ground speed, km/h -> m/s */
-		st->parent.speed = strtof(st->item_str, NULL) / 3.6f;
+		st->solution.speed = strtof(st->item_str, NULL) / 3.6f;
 		break;
 	default:
 		break;
@@ -323,8 +323,8 @@ static void nmea_end_of_statement(nmea_state_t *st)
 		/* All requested statements parsed -> solution complete */
 		if ((st->parsed_statement & st->all_statements) == st->all_statements) {
 			st->parsed_statement = 0;
-			st->parent.source = GNSS_TYPE_NMEA_MTK;
-			gnss_publish(&st->parent);
+			st->solution.source = GNSS_TYPE_NMEA_MTK;
+			gnss_publish(&st->solution);
 		}
 	} else {
 		ESP_LOGD(TAG, "CRC Error for statement type %d", (int)st->cur_statement);
@@ -444,8 +444,9 @@ void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uin
 	uint8_t *rates[] = { &GLL, &RMC, &VTG, &GGA, &GSA, &GSV };
 	const char *names[] = { "GLL", "RMC", "VTG", "GGA", "GSA", "GSV" };
 
-	if (GPS_getType() == GNSS_TYPE_UBLOX_UBX) {
-		ESP_LOGW(TAG, "NMEA output selection is not used with a u-blox receiver");
+	if (GPS_getType() != GNSS_TYPE_NMEA_MTK) {
+		if (GPS_getType() == GNSS_TYPE_UBLOX_UBX)
+			ESP_LOGW(TAG, "NMEA output selection is not used with a u-blox receiver");
 		return;
 	}
 	for (int i = 0; i < 6; i++) {

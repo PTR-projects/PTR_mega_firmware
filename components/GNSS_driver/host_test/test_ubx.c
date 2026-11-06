@@ -188,10 +188,10 @@ static void test_valset(void)
 
 static void test_dynmodel(void)
 {
-	CHECK(ubx_dynmodel_from_nav_mode(GPS_MODE_AVIATION) == 8);
-	CHECK(ubx_dynmodel_from_nav_mode(GPS_MODE_BALLON) == 6);
-	CHECK(ubx_dynmodel_from_nav_mode(GPS_MODE_STATIONARY) == 2);
-	CHECK(ubx_dynmodel_from_nav_mode(GPS_MODE_NORMAL) == 0);
+	CHECK(ubx_dynmodel_from_nav_mode(GNSS_NAV_AIRBORNE_4G) == 8);
+	CHECK(ubx_dynmodel_from_nav_mode(GNSS_NAV_AIRBORNE_1G) == 6);
+	CHECK(ubx_dynmodel_from_nav_mode(GNSS_NAV_STATIONARY) == 2);
+	CHECK(ubx_dynmodel_from_nav_mode(GNSS_NAV_PORTABLE) == 0);
 }
 
 int main(void)

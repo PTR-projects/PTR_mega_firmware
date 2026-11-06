@@ -37,7 +37,7 @@ esp_err_t GPS_checkStatus() {return ESP_OK;}
 uint32_t GPS_getData(gps_t * data, uint16_t ms) {(void)data; (void)ms; return 0;}
 void GPS_test(void) {}
 esp_err_t GPS_baud_rate_set(uint32_t baud) {(void)baud; return ESP_OK;}
-esp_err_t GPS_baud_rate_set_extra(uint32_t baud) {(void)baud; return ESP_OK;}
+esp_err_t GPS_baud_rate_set_uart(uint32_t baud) {(void)baud; return ESP_OK;}
 void GPS_fix_interval_set(uint16_t time) {(void)time;}
 void GPS_nav_mode_set(gps_nav_mode_t mode) {(void)mode;}
 void GPS_nmea_output_set(uint8_t GLL, uint8_t RMC, uint8_t VTG, uint8_t GGA, uint8_t GSA, uint8_t GSV)
@@ -50,17 +50,17 @@ static const char *TAG = "GNSS";
 #define GNSS_UART_RX_BUF   CONFIG_NMEA_PARSER_RING_BUFFER_SIZE
 #define GNSS_UART_TX_BUF   256
 #define GNSS_STATS_PERIOD_US (5 * 1000000LL)
+#define GNSS_SOLUTION_SLOT (4 + sizeof(gps_t))  /*!< message-buffer overhead plus one gps_t */
 
-static MessageBufferHandle_t xMessageBuffer_GNSS2Storage;
-static uint8_t xMessageBuffer_GNSS2Storage_buffer[1 + (4 + sizeof(gps_t)) * 10];
-static StaticMessageBuffer_t  xMessageBuffer_GNSS2Storage_struct;
+static MessageBufferHandle_t s_solutions;
+static uint8_t s_solutions_buf[1 + GNSS_SOLUTION_SLOT * 10];
+static StaticMessageBuffer_t s_solutions_struct;
 
 static volatile int64_t last_msg_timestamp = 0;
 static const gnss_backend_t *s_backend = NULL;
 static bool s_uart_installed = false;
 static bool s_running = false;
 static bool s_boot_wait_done = false;
-static uint32_t s_baud = 0;
 
 //---------------------------------------------
 //	UART helpers (used by the backends)
@@ -78,10 +78,7 @@ int gnss_read(uint8_t *buf, size_t len, uint32_t timeout_ms)
 
 esp_err_t gnss_uart_set_baud(uint32_t baud)
 {
-	esp_err_t err = uart_set_baudrate(GNSS_UART, baud);
-	if (err == ESP_OK)
-		s_baud = baud;
-	return err;
+	return uart_set_baudrate(GNSS_UART, baud);
 }
 
 void gnss_uart_flush_rx(void)
@@ -96,38 +93,31 @@ void gnss_publish(gps_t *gps)
 {
 	static int64_t stat_t0 = 0;
 	static uint32_t stat_cnt = 0;
-	static bool stat_first = true;
 
 	int64_t now = esp_timer_get_time();
 	gps->rx_time_us = now;
 	last_msg_timestamp = now;
 
-	if (xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage) < (4 + sizeof(gps_t))) {
+	if (xMessageBufferSpacesAvailable(s_solutions) < GNSS_SOLUTION_SLOT) {
 		ESP_LOGV(TAG, "Oldest packet removed");
 		gps_t tmp_gps;
-		xMessageBufferReceive(xMessageBuffer_GNSS2Storage, (void*)&tmp_gps, sizeof(gps_t), 0);
+		xMessageBufferReceive(s_solutions, (void*)&tmp_gps, sizeof(gps_t), 0);
 	}
-	xMessageBufferSend(xMessageBuffer_GNSS2Storage, (void *)gps, sizeof(gps_t), 0);
+	xMessageBufferSend(s_solutions, (void *)gps, sizeof(gps_t), 0);
 
-	/* Measured solution rate - handy to verify the 20 Hz configuration on real hardware */
 	if (stat_t0 == 0)
 		stat_t0 = now;
 	stat_cnt++;
 	if ((now - stat_t0) >= GNSS_STATS_PERIOD_US) {
 		float hz = stat_cnt * 1e6f / (float)(now - stat_t0);
-		if (stat_first) {
-			ESP_LOGI(TAG, "Solution rate %.1f Hz, fix %d, sats %u", hz, (int)gps->fix, gps->sats_in_use);
-			stat_first = false;
-		} else {
-			ESP_LOGD(TAG, "Solution rate %.1f Hz, fix %d, sats %u", hz, (int)gps->fix, gps->sats_in_use);
-		}
+		ESP_LOGI(TAG, "Solution rate %.1f Hz, fix %d, sats %u", hz, (int)gps->fix, gps->sats_in_use);
 		stat_t0 = now;
 		stat_cnt = 0;
 	}
 }
 
 uint32_t GPS_getData(gps_t * data, uint16_t ms){
-	return xMessageBufferReceive( xMessageBuffer_GNSS2Storage,
+	return xMessageBufferReceive( s_solutions,
 								 ( void * ) data,
 								 sizeof( gps_t ),
 								 pdMS_TO_TICKS( ms ));
@@ -263,7 +253,6 @@ static esp_err_t uart_install(void)
 		uart_driver_delete(GNSS_UART);
 		return ESP_FAIL;
 	}
-	s_baud = GNSS_TARGET_BAUD;
 	s_uart_installed = true;
 	return ESP_OK;
 }
@@ -279,13 +268,13 @@ esp_err_t GPS_init_type(gnss_type_t requested)
 		return ESP_OK;
 
 	//--------- Init ESP queue (once) -------------
-	if (xMessageBuffer_GNSS2Storage == NULL) {
-		xMessageBuffer_GNSS2Storage = xMessageBufferCreateStatic(
-										sizeof(xMessageBuffer_GNSS2Storage_buffer),
-										xMessageBuffer_GNSS2Storage_buffer,
-										&xMessageBuffer_GNSS2Storage_struct);
-		ESP_LOGI(TAG, "New queue created - size %u B, free spaces %u", (unsigned)sizeof(xMessageBuffer_GNSS2Storage_buffer),
-				(unsigned)(xMessageBufferSpacesAvailable(xMessageBuffer_GNSS2Storage)/(4+sizeof(gps_t))));
+	if (s_solutions == NULL) {
+		s_solutions = xMessageBufferCreateStatic(
+										sizeof(s_solutions_buf),
+										s_solutions_buf,
+										&s_solutions_struct);
+		ESP_LOGI(TAG, "New queue created - size %u B, free spaces %u", (unsigned)sizeof(s_solutions_buf),
+				(unsigned)(xMessageBufferSpacesAvailable(s_solutions)/GNSS_SOLUTION_SLOT));
 	}
 
 	//--------- Let the receiver boot, open UART -------------
@@ -345,32 +334,37 @@ esp_err_t GPS_init_type(gnss_type_t requested)
 }
 
 //---------------------------------------------
-//	Runtime settings (dispatch to active backend)
+//	Runtime settings (no-op until init has succeeded)
 //---------------------------------------------
-static const gnss_backend_t *active_backend(void)
-{
-	return s_backend ? s_backend : &gnss_backend_nmea;
-}
-
 void GPS_test(void){
+	if (!s_running)
+		return;
 	ESP_LOGI(TAG, "test");
-	active_backend()->poll_version();
+	s_backend->poll_version();
 }
 
 esp_err_t GPS_baud_rate_set(uint32_t baud){
-	return active_backend()->set_baud(baud, false);
+	if (!s_running)
+		return ESP_ERR_INVALID_STATE;
+	return s_backend->set_baud(baud, false);
 }
 
-esp_err_t GPS_baud_rate_set_extra(uint32_t baud){
-	return active_backend()->set_baud(baud, true);
+esp_err_t GPS_baud_rate_set_uart(uint32_t baud){
+	if (!s_running)
+		return ESP_ERR_INVALID_STATE;
+	return s_backend->set_baud(baud, true);
 }
 
 void GPS_fix_interval_set(uint16_t time){
-	active_backend()->set_rate_ms(time);
+	if (!s_running)
+		return;
+	s_backend->set_rate_ms(time);
 }
 
 void GPS_nav_mode_set(gps_nav_mode_t mode){
-	active_backend()->set_nav_mode(mode);
+	if (!s_running)
+		return;
+	s_backend->set_nav_mode(mode);
 }
 
 #endif

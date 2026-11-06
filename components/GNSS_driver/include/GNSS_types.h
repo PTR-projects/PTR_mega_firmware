@@ -13,19 +13,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define GPS_MAX_SATELLITES_IN_USE (12)
-#define GPS_MAX_SATELLITES_IN_VIEW (16)
 #define YEAR_BASE (2000) //date in NMEA starts from 2000
 
 /**
- * @brief Navigation (dynamic platform) mode
+ * @brief Dynamic platform model sent to the receiver.
+ *        Values are distinct from gps_fix_mode_t. Numeric values match the PMTK886 argument.
  */
 typedef enum {
-	GPS_MODE_NORMAL = 0,
-	GPS_MODE_FITNESS = 1,
-	GPS_MODE_AVIATION = 2,
-	GPS_MODE_BALLON = 3,
-	GPS_MODE_STATIONARY = 4
+	GNSS_NAV_PORTABLE = 0,
+	GNSS_NAV_FITNESS = 1,
+	GNSS_NAV_AIRBORNE_4G = 2,
+	GNSS_NAV_AIRBORNE_1G = 3,
+	GNSS_NAV_STATIONARY = 4
 } gps_nav_mode_t;
 
 /**

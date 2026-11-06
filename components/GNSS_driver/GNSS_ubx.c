@@ -6,7 +6,6 @@
  * its defaults - the auto-detection in GPS_init() copes with that) and delivers one
  * UBX-NAV-PVT per navigation epoch, optionally accompanied by UBX-NAV-DOP at 1 Hz.
  */
-#include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -33,7 +32,14 @@ static volatile bool s_waiting;            /*!< configure() is waiting for an AC
 static volatile uint8_t s_wait_cls, s_wait_id;
 static volatile int s_ack_result;          /*!< 0 pending, 1 ACK, -1 NAK */
 static volatile bool s_ver_seen;
-static uint32_t s_pvt_count;
+
+typedef enum {
+	ACK_PENDING = 0,
+	ACK_OK = 1,
+	ACK_NAK = -1
+} ubx_ack_t;
+
+static volatile ubx_ack_t s_ack_result;    /*!< result of the VALSET currently being waited on */
 
 static void on_frame(uint8_t cls, uint8_t id, const uint8_t *p, uint16_t len, void *ctx)
 {
@@ -43,7 +49,6 @@ static void on_frame(uint8_t cls, uint8_t id, const uint8_t *p, uint16_t len, vo
 		ubx_nav_pvt_t pvt;
 		if (ubx_decode_nav_pvt(p, len, &pvt)) {
 			ubx_pvt_to_gps(&pvt, &s_cur);
-			s_pvt_count++;
 			gnss_publish(&s_cur);
 		}
 	} else if (cls == UBX_CLASS_NAV && id == UBX_ID_NAV_DOP) {
@@ -58,7 +63,7 @@ static void on_frame(uint8_t cls, uint8_t id, const uint8_t *p, uint16_t len, vo
 		if (!ack)
 			ESP_LOGW(TAG, "Receiver rejected message 0x%02X 0x%02X (NAK)", p[0], p[1]);
 		if (s_waiting && p[0] == s_wait_cls && p[1] == s_wait_id)
-			s_ack_result = ack ? 1 : -1;
+			s_ack_result = ack ? ACK_OK : ACK_NAK;
 	} else if (cls == UBX_CLASS_MON && id == UBX_ID_MON_VER && len >= 40) {
 		char sw[31], hw[11];
 		memcpy(sw, p, 30);      sw[30] = '\0';
@@ -78,11 +83,10 @@ static void ubx_reset(void)
 	ubx_parser_init(&s_parser, on_frame, NULL);
 	memset(&s_cur, 0, sizeof(s_cur));
 	s_cur.source = GNSS_TYPE_UBLOX_UBX;
-	s_pvt_count = 0;
 }
 
 /** Read from the receiver for up to timeout_ms, feeding the parser, until *done becomes true. */
-static void pump(uint32_t timeout_ms, volatile int *ack_done, volatile bool *flag_done)
+static void pump(uint32_t timeout_ms, volatile ubx_ack_t *ack_done, volatile bool *flag_done)
 {
 	uint8_t buf[64];
 	int64_t end = esp_timer_get_time() + (int64_t)timeout_ms * 1000;
@@ -104,13 +108,13 @@ static esp_err_t send_frame(const uint8_t *frame, size_t n, bool wait)
 	if (wait) {
 		s_wait_cls = frame[2];
 		s_wait_id = frame[3];
-		s_ack_result = 0;
+		s_ack_result = ACK_PENDING;
 		s_waiting = true;
 	}
 	esp_err_t err = gnss_write(frame, n);
 	if (err == ESP_OK && wait) {
 		pump(UBX_ACK_TIMEOUT_MS, &s_ack_result, NULL);
-		err = (s_ack_result == 1) ? ESP_OK : (s_ack_result == -1 ? ESP_FAIL : ESP_ERR_TIMEOUT);
+		err = (s_ack_result == ACK_OK) ? ESP_OK : (s_ack_result == ACK_NAK ? ESP_FAIL : ESP_ERR_TIMEOUT);
 	}
 	s_waiting = false;
 	return err;
@@ -218,8 +222,7 @@ static esp_err_t ubx_configure(uint32_t baud)
 		return ESP_FAIL;
 	}
 
-	/* 4. All constellations the MAX-M10N can track. 20 Hz GPS+Galileo left only 4-5
-	 * satellites in the solution and gnssFixOK never set. */
+	/* 4. Every constellation the MAX-M10N tracks. 10 Hz is the highest rate that still allows this set. */
 	ubx_cfg_item_t sig[] = {
 		{ UBX_KEY_SIGNAL_GPS_ENA,  1 },
 		{ UBX_KEY_SIGNAL_GAL_ENA,  1 },

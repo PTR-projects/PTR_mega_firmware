@@ -13,7 +13,7 @@
 
 /* Receiver settings (fixed for this board) */
 #define GNSS_TARGET_BAUD      115200            /*!< baud rate used after configuration */
-#define GNSS_NAV_MODE_DEFAULT GPS_MODE_AVIATION /*!< navigation / platform model */
+#define GNSS_NAV_MODE_DEFAULT GNSS_NAV_AIRBORNE_4G /*!< navigation / platform model */
 
 typedef struct {
 	gnss_type_t type;

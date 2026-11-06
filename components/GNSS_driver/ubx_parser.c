@@ -271,11 +271,11 @@ void ubx_pvt_to_gps(const ubx_nav_pvt_t *pvt, gps_t *gps)
 uint8_t ubx_dynmodel_from_nav_mode(gps_nav_mode_t mode)
 {
 	switch (mode) {
-	case GPS_MODE_FITNESS:    return 3;  // pedestrian
-	case GPS_MODE_AVIATION:   return 8;  // airborne, <4g
-	case GPS_MODE_BALLON:     return 6;  // airborne, <1g
-	case GPS_MODE_STATIONARY: return 2;  // stationary
-	case GPS_MODE_NORMAL:
-	default:                  return 0;  // portable
+	case GNSS_NAV_FITNESS:     return 3;  // pedestrian
+	case GNSS_NAV_AIRBORNE_4G: return 8;  // airborne, <4g
+	case GNSS_NAV_AIRBORNE_1G: return 6;  // airborne, <1g
+	case GNSS_NAV_STATIONARY:  return 2;  // stationary
+	case GNSS_NAV_PORTABLE:
+	default:                   return 0;  // portable
 	}
 }
