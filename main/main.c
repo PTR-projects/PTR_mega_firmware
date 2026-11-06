@@ -553,7 +553,7 @@ void app_main(void)
 	xTaskCreatePinnedToCore(&task_kpptr_effector,	"task_kpptr_effector", 	1024*4, NULL, configMAX_PRIORITIES - 2,  NULL, ESP_CORE_0);
 
     vTaskDelay(pdMS_TO_TICKS( 40 ));
-    xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*4, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
+    xTaskCreatePinnedToCore(&task_kpptr_main,		"task_kpptr_main",      1024*8, NULL, configMAX_PRIORITIES - 1,  NULL, ESP_CORE_1);
 
     while (true) {
     	vTaskDelay(pdMS_TO_TICKS( 1000 )); // Limit loop rate to max 1Hz
