@@ -46,7 +46,7 @@
 #define LED_POS_READY			-1
 #define LED_POS_ARM				-1
 #define LED_POS_STAT			(LED_WS_POS0+0)
-#define LED_POS_BAT	    		(LED_WS_POS0+1)
+#define LED_POS_BAT				(LED_WS_POS0+1)
 #define LED_POS_IGN1			(LED_WS_POS0+2)
 #define LED_POS_IGN2			(LED_WS_POS0+3)
 #define LED_POS_IGN3			-1

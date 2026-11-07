@@ -389,16 +389,10 @@ void task_kpptr_analog(void *pvParameter){
 								Analog_getIGNstate(&Analog_meas, 2), Analog_getIGNstate(&Analog_meas, 3));
 
 #if (LED_POS_BAT >= 0)
-		led_colour_t bat_led_colour = (Analog_meas.vbat_mV >= BATTERY_LED_GREEN_THRESHOLD_MV) ? COLOUR_GREEN :
-									 (Analog_meas.vbat_mV >= BATTERY_LED_ORANGE_THRESHOLD_MV) ? COLOUR_ORANGE : COLOUR_RED;
-		if(last_bat_led_colour != bat_led_colour){
-			esp_err_t led_err = LED_setBAT(bat_led_colour, 20, 100, 0, 0);
-			if(led_err == ESP_OK){
-				last_bat_led_colour = bat_led_colour;
-			}
-			else{
-				ESP_LOGW(TAG, "Failed to update BAT LED: %s", esp_err_to_name(led_err));
-			}
+		led_colour_t bat_led_colour = (Analog_meas.vbat_mV >= BATTERY_LED_GREEN_THRESHOLD_MV)  ? COLOUR_GREEN :
+		                              (Analog_meas.vbat_mV >= BATTERY_LED_ORANGE_THRESHOLD_MV) ? COLOUR_ORANGE : COLOUR_RED;
+		if((bat_led_colour != last_bat_led_colour) && (LED_setBAT(bat_led_colour, 20, 100, 0, 0) == ESP_OK)){
+			last_bat_led_colour = bat_led_colour;
 		}
 #endif
 

@@ -182,6 +182,9 @@ esp_err_t LED_blinkSTD(uint8_t led_no, uint16_t t_on_ms, uint16_t t_off_ms, uint
 		}
 		xSemaphoreGive(mutex_LED);
 	}
+	else{
+		return ESP_ERR_TIMEOUT;
+	}
 #endif
 
 	return ESP_OK;
@@ -212,6 +215,9 @@ esp_err_t LED_blinkWS(int16_t led_no, led_colour_t colour, uint8_t brightness_pe
 			strip_led_blink_pulses(led_no, blinks_number);
 		}
 		xSemaphoreGive(mutex_LED);
+	}
+	else{
+		return ESP_ERR_TIMEOUT;
 	}
 #endif
 
