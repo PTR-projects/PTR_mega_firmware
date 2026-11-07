@@ -26,6 +26,3 @@
 #error "This board version don't exist or require new definition."
 #endif
 
-#ifndef LED_POS_BAT
-#define LED_POS_BAT -1
-#endif
