@@ -25,3 +25,4 @@
 #else
 #error "This board version don't exist or require new definition."
 #endif
+
