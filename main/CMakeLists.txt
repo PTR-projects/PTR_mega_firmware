@@ -1,4 +1,4 @@
 idf_component_register(SRC_DIRS "."
                        INCLUDE_DIRS  "."
-                       REQUIRED_IDF_TARGETS esp32s3
+                       REQUIRED_IDF_TARGETS esp32s3 esp32c3
 					   REQUIRES soc nvs_flash driver hal esp_event esp_driver_mcpwm vfs)

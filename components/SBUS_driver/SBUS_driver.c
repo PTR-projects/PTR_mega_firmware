@@ -9,6 +9,22 @@
 #include "BOARD_cfg.h"
 #include "SBUS_driver.h"
 
+#if !(defined(UART_EXT_UART) && defined(UART_EXT_OUT) && defined(UART_EXT_IN))
+
+esp_err_t SBUS_init(void) { return ESP_OK; }
+esp_err_t SBUS_send(uint8_t *buf, uint32_t len) { (void)buf; (void)len; return ESP_OK; }
+esp_err_t SBUS_configChannel(uint8_t channel, int16_t min_value, int16_t max_value) {
+	(void)channel; (void)min_value; (void)max_value;
+	return ESP_OK;
+}
+esp_err_t SBUS_setChannel(uint8_t channel, int8_t position) {
+	(void)channel; (void)position;
+	return ESP_OK;
+}
+esp_err_t SBUS_update(void) { return ESP_OK; }
+
+#else
+
 static const char *TAG = "SBUS";
 
 static SBUS_config_t         SBUS_config_d;
@@ -111,3 +127,5 @@ esp_err_t SBUS_update(){
 
     return SBUS_send(buf, sizeof(buf));
 }
+
+#endif
