@@ -12,8 +12,6 @@ static uint32_t read_ptr = 0;
 static uint32_t write_ptr = 0;
 static bool access_locked_r = false;
 static bool access_locked_w = false;
-
-static uint16_t crc16(uint8_t *buf, uint32_t len);
 static bool component_init_done = false;
 
 const char ESP_SIMPLEFS_TAG[] = "SimpleFS";
@@ -117,7 +115,7 @@ esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
 	new_packet.header.pre = SFS_HEADER_PRE;
 	new_packet.header.filenum = curr_filename;
 	new_packet.header.packet_len = sizeof(sfs_packet_t)/sizeof(uint32_t);
-	new_packet.CRC16 = crc16((void*)&new_packet, sizeof(sfs_packet_t) - sizeof((sfs_packet_t*)0)->CRC16);
+	new_packet.CRC16 = SimpleFS_crc16((void*)&new_packet, sizeof(sfs_packet_t) - sizeof((sfs_packet_t*)0)->CRC16);
 
 	esp_err_t err = simplefs_api_prog(write_ptr, &new_packet, sizeof(sfs_packet_t));
 
@@ -377,7 +375,7 @@ const uint16_t crc_tab16[256] =
     0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040,
 };
 
-static uint16_t IRAM_ATTR crc16(uint8_t *buf, uint32_t len){
+uint16_t IRAM_ATTR SimpleFS_crc16(uint8_t *buf, uint32_t len){
 	uint16_t crc = 0xFFFF;
 
 	while(len--){
