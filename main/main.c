@@ -214,7 +214,7 @@ void task_kpptr_storage(void *pvParameter){
 			if(SD_exportFlightLog() != ESP_OK){
 				ESP_LOGE(TAG, "SD flight log export failed");
 			} else {
-				Storage_erase(SFS_MAGIC_KEY);
+				Storage_erase(CONFIG_KPPTR_MASTERKEY);
 			}
 #endif
 			while(1){

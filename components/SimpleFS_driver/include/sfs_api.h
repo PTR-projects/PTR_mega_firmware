@@ -27,6 +27,7 @@ esp_err_t simplefs_api_init (sfs_info_t * partition_info, const char * label);
 esp_err_t simplefs_api_read (uint32_t position, void *buffer, uint32_t size);
 esp_err_t simplefs_api_prog (uint32_t position, void *buffer, uint32_t size);
 esp_err_t simplefs_api_erase(uint32_t range_end_B);
+void      simplefs_api_register_erase_done_cb(void (*cb)(void));
 
 #ifdef __cplusplus
 }
