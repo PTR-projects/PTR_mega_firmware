@@ -9,6 +9,7 @@ typedef enum{
 	PACKET_SENSORS		= 0x01, // kppacket_payload_rocket_meas_t
 	PACKET_ADCS		    = 0x02,	// kppacket_payload_rocket_ADCS_t
 	PACKET_TRACKER		= 0x03,	// kppacket_payload_rocket_tracker_t
+	PACKET_ROCKET_FULL  = 0x04, // kppacket_payload_rocket_meas_t
 	PACKET_RECU_TC		= 0x80,	// kppacket_recu_tc_t
 	PACKET_RECU_TM		= 0x81,	// kppacket_recu_tm_t
 
@@ -18,7 +19,7 @@ typedef enum{
 	PACKET_CUSTOM_32B	= 0xFC,	// payload = 32B
 	PACKET_CUSTOM_64B	= 0xFD,	// payload = 64B
 	PACKET_CUSTOM_128B	= 0xFE,	// payload = 128B
-	PACKET_CUSTOM_240B	= 0xFF,	// payload = 240B
+	PACKET_CUSTOM_235B	= 0xFF,	// payload = 235B
 } msg_type_e;
 
 // Packet ID definition
@@ -29,18 +30,18 @@ typedef union{
 		uint16_t msg_ver	: 2;	// Message version (should be 0, for future use)
 		uint16_t retransmit	: 1;	// Retransmission flag (1=ON, 0=OFF)
 		uint16_t encoded	: 1;	// Data encryption (1=ON, 0=OFF)
-		uint16_t redu		: 4;	// Redundant bits for future use
+		uint16_t command	: 1;	// Flag for command messages (1 = command, 0 = telemetry/ack/response)
+		uint16_t redu		: 3;	// Redundant bits for future use
 	};
 } packet_id_t;
 
 // Header structure
 typedef struct __attribute__((__packed__)){
     packet_id_t packet_id;
-    uint16_t sender_id;
-    uint16_t dest_id;
+    uint32_t sender_id;
     uint16_t packet_no;
     uint32_t timestamp_ms;
-    uint16_t redu;
+    uint16_t sender_id_ext;
 } kppacket_header_t;
 
 // Legacy header structure
@@ -99,6 +100,7 @@ typedef struct __attribute__((__packed__)){
 
 // RECU command structure
 typedef struct  __attribute__((__packed__)){
+	uint64_t target_id;
 	int8_t  RSSI_uplink;
 	uint8_t seed;
 
@@ -141,6 +143,7 @@ typedef struct __attribute__((__packed__)){
 	int16_t servo3;
 } kppacket_recu_tm_t;
 
+// Rocket standard full telemetry
 typedef struct __attribute__((__packed__)){
 	uint8_t state;
 	uint8_t flags;
@@ -180,5 +183,16 @@ typedef struct __attribute__((__packed__)){
     };
 } kppacket_t;
 
-void   DataPacket_init();
-int8_t DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint8_t sender_id, uint8_t dest_id, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len);
+#define DATAPACKET_TARGET_ID_BROADCAST  UINT64_C(0xFFFFFFFFFFFFFFFF)
+
+void     DataPacket_init(void);
+void     DataPacket_set_sender_id(uint16_t sender_id_ext, uint32_t sender_id);
+uint32_t DataPacket_get_sender_id(void);
+uint16_t DataPacket_get_sender_id_ext(void);
+uint64_t DataPacket_get_target_id(void);
+bool     DataPacket_target_id_matches(uint64_t target_id);
+void     DataPacket_broadcast_unlock(void);
+void     DataPacket_broadcast_lock(void);
+bool     DataPacket_broadcast_is_unlocked(void);
+int8_t   DataPacket_build_msg(kppacket_t * msg, msg_type_e msg_type, bool encrypted, uint16_t packet_no, uint32_t timestamp_ms, void * payload, uint8_t payload_len);
+bool     DataPacket_unpack_msg(kppacket_t * msg, uint8_t * buf, uint8_t size);

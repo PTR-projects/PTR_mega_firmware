@@ -170,7 +170,7 @@ void task_kpptr_telemetry(void *pvParameter){
 
 	while(1){
 		TMTC_process();
-		vTaskDelay(pdMS_TO_TICKS( 100 ));
+		vTaskDelay(1);
 	}
 #else
 	SysMgr_checkout(checkout_lora, check_ready);
