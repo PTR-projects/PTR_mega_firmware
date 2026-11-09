@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PTR serial log</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark">PTR</span>
+      <div>
+        <h1>Serial log</h1>
+        <p>WebSerial capture. Checked tags are combined with OR.</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <label class="baud">
+        Baud
+        <select id="baud">
+          <option>9600</option>
+          <option>19200</option>
+          <option>38400</option>
+          <option>57600</option>
+          <option selected>115200</option>
+          <option>230400</option>
+          <option>460800</option>
+          <option>921600</option>
+        </select>
+      </label>
+      <button id="connect" type="button">Connect</button>
+      <button id="open" type="button">Open log</button>
+      <input id="file" type="file" accept=".txt,.log,text/plain" hidden>
+      <button id="follow" type="button" class="on" aria-pressed="true">Follow</button>
+      <button id="save" type="button" disabled>Save all</button>
+      <button id="clear" type="button">Clear</button>
+    </div>
+  </header>
+  <div id="status" role="status">Not connected</div>
+  <div class="shell">
+    <aside id="sidebar" aria-label="Tag filters"></aside>
+    <main id="stage">
+      <div id="banner" hidden></div>
+      <div id="log" role="log" aria-live="off"></div>
+      <p id="empty"></p>
+      <button id="jump" type="button" hidden></button>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
