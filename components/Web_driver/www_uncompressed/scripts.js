@@ -138,7 +138,7 @@ const CSV_HEADER = [
 	'ign1_state', 'ign2_state', 'ign3_state', 'ign4_state',
 	'vbat_mV',
 	'servo_1', 'servo_2', 'servo_3', 'servo_4', 'servo_en'
-].join(',');
+].join(';');
 
 function pauseStatusPolling() {
 	if (getDataIntervalID) {
@@ -208,7 +208,7 @@ function parseDataPackageCsvLine(view, base) {
 		(ign >> 4) & 1, (ign >> 5) & 1, (ign >> 6) & 1, (ign >> 7) & 1,
 		u16(101),
 		i8(103), i8(104), i8(105), i8(106), u8(107)
-	].join(',');
+	].join(';');
 }
 
 function triggerCsvDownload(blobParts) {
