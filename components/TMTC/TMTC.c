@@ -13,14 +13,20 @@
 
 static const char *TAG = "TMTC";
 
+typedef struct {
+    kppacket_t pkt;
+    lora_phy_t tx;
+    lora_phy_t rx_after;
+} tmtc_tx_job_t;
+
 static StaticQueue_t  s_tx_queue_struct;
-static uint8_t        s_tx_queue_buf[sizeof(kppacket_t)];
+static uint8_t        s_tx_queue_buf[sizeof(tmtc_tx_job_t)];
 static QueueHandle_t  s_tx_queue;
 
 static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size);
 
 esp_err_t TMTC_init(void) {
-    s_tx_queue = xQueueCreateStatic(1, sizeof(kppacket_t),
+    s_tx_queue = xQueueCreateStatic(1, sizeof(tmtc_tx_job_t),
                                     s_tx_queue_buf, &s_tx_queue_struct);
     if(s_tx_queue == NULL){
         ESP_LOGE(TAG, "Failed to create TX queue");
@@ -31,8 +37,14 @@ esp_err_t TMTC_init(void) {
     return ESP_OK;
 }
 
-void TMTC_send(const kppacket_t *pkt) {
-    xQueueOverwrite(s_tx_queue, pkt);
+void TMTC_send(const kppacket_t *pkt, const lora_phy_t *tx, const lora_phy_t *rx_after) {
+    tmtc_tx_job_t job = {0};
+    if(pkt == NULL || tx == NULL || rx_after == NULL)
+        return;
+    job.pkt = *pkt;
+    job.tx = *tx;
+    job.rx_after = *rx_after;
+    xQueueOverwrite(s_tx_queue, &job);
 }
 
 void TMTC_process(void) {
@@ -42,9 +54,9 @@ void TMTC_process(void) {
     if(LORA_receive(rx_buf, &rx_size) == ESP_OK)
         tmtc_dispatch_rx(rx_buf, rx_size);
 
-    kppacket_t tx_pkt;
-    if(xQueueReceive(s_tx_queue, &tx_pkt, 0) == pdTRUE)
-        LORA_sendWithLBT((uint8_t *)&tx_pkt.header, tx_pkt.packet_len);
+    tmtc_tx_job_t job;
+    if(xQueueReceive(s_tx_queue, &job, 0) == pdTRUE)
+        LORA_sendWithLBT((uint8_t *)&job.pkt.header, job.pkt.packet_len, &job.tx, &job.rx_after);
 }
 
 static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size) {

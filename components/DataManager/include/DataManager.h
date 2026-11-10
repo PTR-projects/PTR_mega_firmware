@@ -149,3 +149,4 @@ void DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * senso
  */
 
 void DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs, flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog);
+void DM_collectTracker(kppacket_t * package, int64_t time_us, gps_t * gps, Analog_meas_t * analog);

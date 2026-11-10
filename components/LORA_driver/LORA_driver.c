@@ -6,13 +6,19 @@
 #include "esp_err.h"
 #include "esp_check.h"
 #include "Preferences.h"
+#include "CONFIG.h"
 #include "SX126x_driver.h"
 #include "LORA_driver.h"
 
 static const char *TAG = "LORA driver";
 
+static lora_phy_t s_phy = {0};
+
 static esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower);
 static uint16_t SX126X_readIrqStatus();
+static uint8_t lora_bw_code(uint16_t bw_khz);
+static void lora_apply(const lora_phy_t *phy);
+static uint32_t lora_cad_wait_ms(void);
 
 Lora_settings_t Lora_settings_d;
 
@@ -115,8 +121,11 @@ static esp_err_t LORA_modeLORA(uint32_t frequency, int8_t txpower){
 	sx126x_status_t status = sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
 
 	if(status == SX126X_STATUS_OK){
-		status = LORA_setupLoRaTX(frequency, 0, SX126X_LORA_SF8, SX126X_LORA_BW_125,
+		status = LORA_setupLoRaTX(frequency, 0, CONFIG_LORA_TLM_SF, lora_bw_code(CONFIG_LORA_TLM_BW),
 									SX126X_LORA_CR_4_5, 0x02, 0x02);
+		s_phy.freq_hz = frequency;
+		s_phy.sf = CONFIG_LORA_TLM_SF;
+		s_phy.bw_khz = CONFIG_LORA_TLM_BW;
 	}
 
 	if(status == SX126X_STATUS_OK){
@@ -178,28 +187,81 @@ esp_err_t LORA_receive(uint8_t *rxbuffer, uint8_t *size) {
 	return ret;
 }
 
-esp_err_t LORA_sendWithLBT(uint8_t *txbuffer, uint8_t size) {
+static uint8_t lora_bw_code(uint16_t bw_khz) {
+	switch(bw_khz){
+	case 250: return SX126X_LORA_BW_250;
+	case 500: return SX126X_LORA_BW_500;
+	default:  return SX126X_LORA_BW_125;
+	}
+}
+
+static void lora_apply(const lora_phy_t *phy) {
+	if(phy == NULL)
+		return;
+	if(phy->freq_hz == s_phy.freq_hz && phy->sf == s_phy.sf && phy->bw_khz == s_phy.bw_khz)
+		return;
+
+	sx126x_mod_params_lora_t mod;
+	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
+	sx126x_set_rf_freq(0, phy->freq_hz);
+	mod.sf   = (phy->sf >= 5 && phy->sf <= 12) ? phy->sf : SX126X_LORA_SF7;
+	mod.bw   = lora_bw_code(phy->bw_khz);
+	mod.cr   = SX126X_LORA_CR_4_5;
+	mod.ldro = 0x02;
+	sx126x_set_lora_mod_params(0, &mod);
+	s_phy = *phy;
+	s_phy.sf = mod.sf;
+}
+
+static uint32_t lora_cad_wait_ms(void) {
+	uint32_t bw = s_phy.bw_khz ? s_phy.bw_khz : 125;
+	uint8_t sf = (s_phy.sf >= 5 && s_phy.sf <= 12) ? s_phy.sf : 7;
+	/* Eight symbols, plus margin for the detector to raise CAD_DONE. */
+	uint32_t wait_ms = ((8UL << sf) / bw) + 10U;
+	if(wait_ms < 15U) wait_ms = 15U;
+	if(wait_ms > 200U) wait_ms = 200U;
+	return wait_ms;
+}
+
+esp_err_t LORA_sendWithLBT(uint8_t *txbuffer, uint8_t size, const lora_phy_t *tx, const lora_phy_t *rx_after) {
+	bool sent = false;
+	bool command_waiting = false;
+
+	if(tx == NULL || rx_after == NULL)
+		return ESP_ERR_INVALID_ARG;
+
+	lora_apply(tx);
+
 	/* A telemetry frame can wait. A command on the air cannot, so between
-	 * busy checks the radio goes back to receive. Five tries, 40 ms apart,
-	 * cover one SF8 packet. */
+	 * busy checks the radio goes back to receive. */
 	for(uint8_t attempt = 0; attempt < 5; attempt++){
 		if(LORA_performCAD() == ESP_OK){
 			LORA_sendPacketLoRa(txbuffer, size, LORA_TX_NO_WAIT);
 			LORA_waitTXDone(500);
-			LORA_startRX();
-			return ESP_OK;
+			sent = true;
+			break;
 		}
 
 		LORA_startRX();
 		vTaskDelay(pdMS_TO_TICKS(40));
-		/* A packet arrived while we were waiting. Leave it for LORA_receive. */
-		if(SX126X_readIrqStatus() & SX126X_IRQ_RX_DONE)
-			return ESP_FAIL;
+		/* Only a packet heard on the command channel is kept. */
+		if(SX126X_readIrqStatus() & SX126X_IRQ_RX_DONE){
+			if(s_phy.freq_hz == rx_after->freq_hz && s_phy.sf == rx_after->sf && s_phy.bw_khz == rx_after->bw_khz){
+				command_waiting = true;
+				break;
+			}
+			sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
+		}
 	}
 
-	ESP_LOGW(TAG, "LBT: channel busy, TX skipped");
-	LORA_startRX();
-	return ESP_FAIL;
+	if(!sent && !command_waiting)
+		ESP_LOGW(TAG, "LBT: channel busy, TX skipped");
+
+	if(!command_waiting){
+		lora_apply(rx_after);
+		LORA_startRX();
+	}
+	return sent ? ESP_OK : ESP_FAIL;
 }
 
 esp_err_t LORA_receivePacketLoRa(uint8_t *rxbuffer, uint8_t *size) {
@@ -303,9 +365,9 @@ esp_err_t LORA_performCAD(){
 	sx126x_set_cad_params(0, &par);
 	sx126x_set_cad(0);
 
-	/* 8 symbols at SF8 / 125 kHz is about 16 ms. Wait until the check
-	 * finishes. An unfinished check is not a busy channel. */
-	for(uint8_t waited = 0; waited < 40; waited += 5){
+	/* Eight symbols at the active SF and bandwidth, plus margin.
+	 * An unfinished check is not a busy channel. */
+	for(uint32_t waited = 0; waited < lora_cad_wait_ms(); waited += 5){
 		vTaskDelay(pdMS_TO_TICKS(5));
 		sx126x_get_irq_status(0, &irq_status);
 		if(irq_status & SX126X_IRQ_CAD_DONE)

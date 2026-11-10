@@ -235,4 +235,30 @@ void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * s
 	                     (uint32_t)(time_us / 1000),
 	                     &payload, sizeof(payload));
 }
+
+void IRAM_ATTR DM_collectTracker(kppacket_t * package, int64_t time_us, gps_t * gps, Analog_meas_t * analog){
+	kppacket_payload_rocket_tracker_t payload = {0};
+	static uint16_t tracker_counter = 0;
+	int32_t altitude_10m;
+
+	assert(package != NULL);
+	if(gps == NULL || analog == NULL)
+		return;
+
+	altitude_10m = (int32_t)(gps->altitude / 10.0f);
+	if(altitude_10m > 32767) altitude_10m = 32767;
+	if(altitude_10m < -32768) altitude_10m = -32768;
+
+	payload.retransmission_cnt = 0;
+	payload.vbat_10 = (uint8_t)(analog->vbat_mV / 100.0f);
+	payload.lat = (int32_t)(gps->latitude * 10000000.0f);
+	payload.lon = (int32_t)(gps->longitude * 10000000.0f);
+	payload.alti_gps = (int16_t)altitude_10m;
+	payload.sats_fix = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
+
+	DataPacket_build_msg(package, PACKET_TRACKER, false,
+	                     tracker_counter++,
+	                     (uint32_t)(time_us / 1000),
+	                     &payload, sizeof(payload));
+}
  
