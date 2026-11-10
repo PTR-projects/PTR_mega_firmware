@@ -179,24 +179,27 @@ esp_err_t LORA_receive(uint8_t *rxbuffer, uint8_t *size) {
 }
 
 esp_err_t LORA_sendWithLBT(uint8_t *txbuffer, uint8_t size) {
-	bool channel_clear = false;
-	for(uint8_t i = 0; i < 5; i++){
+	/* A telemetry frame can wait. A command on the air cannot, so between
+	 * busy checks the radio goes back to receive. Five tries, 40 ms apart,
+	 * cover one SF8 packet. */
+	for(uint8_t attempt = 0; attempt < 5; attempt++){
 		if(LORA_performCAD() == ESP_OK){
-			channel_clear = true;
-			break;
+			LORA_sendPacketLoRa(txbuffer, size, LORA_TX_NO_WAIT);
+			LORA_waitTXDone(500);
+			LORA_startRX();
+			return ESP_OK;
 		}
-		vTaskDelay(pdMS_TO_TICKS(5));
+
+		LORA_startRX();
+		vTaskDelay(pdMS_TO_TICKS(40));
+		/* A packet arrived while we were waiting. Leave it for LORA_receive. */
+		if(SX126X_readIrqStatus() & SX126X_IRQ_RX_DONE)
+			return ESP_FAIL;
 	}
 
-	if(channel_clear){
-		LORA_sendPacketLoRa(txbuffer, size, LORA_TX_NO_WAIT);
-		LORA_waitTXDone(500);
-	} else {
-		ESP_LOGW(TAG, "LBT: channel busy, TX skipped");
-	}
-
+	ESP_LOGW(TAG, "LBT: channel busy, TX skipped");
 	LORA_startRX();
-	return channel_clear ? ESP_OK : ESP_FAIL;
+	return ESP_FAIL;
 }
 
 esp_err_t LORA_receivePacketLoRa(uint8_t *rxbuffer, uint8_t *size) {
@@ -282,28 +285,37 @@ esp_err_t LORA_setRx() {
 }
 
 esp_err_t LORA_performCAD(){
-	sx126x_irq_mask_t irq_status;
+	sx126x_irq_mask_t irq_status = 0;
 	sx126x_cad_params_t par;
+	/* SF8. A higher peak is less sensitive. 23 was tripping on noise and
+	 * holding telemetry back when no command was on the air. */
 	par.cad_detect_min 	= 10;
-	par.cad_detect_peak = 23;
-	par.cad_exit_mode 	= SX126X_CAD_LBT;
-	par.cad_symb_nb 	= SX126X_CAD_04_SYMB;
+	par.cad_detect_peak = 25;
+	/* CAD_ONLY listens and stops. CAD_LBT starts a transmit by itself,
+	 * using the 255-byte receive packet size, which holds the channel
+	 * long after the real telemetry frame. */
+	par.cad_exit_mode 	= SX126X_CAD_ONLY;
+	par.cad_symb_nb 	= SX126X_CAD_08_SYMB;
 	par.cad_timeout 	= 0;
 
-
+	sx126x_set_standby(0, SX126X_STANDBY_CFG_RC);
+	sx126x_clear_irq_status(0, SX126X_IRQ_ALL);
 	sx126x_set_cad_params(0, &par);
 	sx126x_set_cad(0);
-	vTaskDelay(pdMS_TO_TICKS( 10 ));
-	sx126x_get_irq_status(0, &irq_status);
 
-	if(irq_status & SX126X_IRQ_CAD_DONE)
-		ESP_LOGI(TAG, "CAD done!");
-
-	if(irq_status & SX126X_IRQ_CAD_DETECTED)
-		ESP_LOGI(TAG, "CAD detected!");
+	/* 8 symbols at SF8 / 125 kHz is about 16 ms. Wait until the check
+	 * finishes. An unfinished check is not a busy channel. */
+	for(uint8_t waited = 0; waited < 40; waited += 5){
+		vTaskDelay(pdMS_TO_TICKS(5));
+		sx126x_get_irq_status(0, &irq_status);
+		if(irq_status & SX126X_IRQ_CAD_DONE)
+			break;
+	}
 
 	sx126x_clear_irq_status(0, SX126X_IRQ_CAD_DONE | SX126X_IRQ_CAD_DETECTED);
 
+	if((irq_status & SX126X_IRQ_CAD_DONE) && (irq_status & SX126X_IRQ_CAD_DETECTED))
+		return ESP_FAIL;
 	return ESP_OK;
 }
 
