@@ -76,6 +76,10 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		status |= AHRS_init(time_us);
 		status |= FSD_init(AHRS_getData());
 
+		#ifdef CFG_CANSAT_ROCKET
+		status |= Cansat_init(AHRS_getData());
+		#endif
+
 		if(status != ESP_OK){
 			ESP_LOGW(TAG, "Main task - failed to prepare main task");
 			SysMgr_checkout(checkout_main, check_fail);
@@ -97,15 +101,19 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		AHRS_compute(time_us, Sensors_get(), gps_d);
 		FSD_detect(time_us/1000);
 
+		if(FSD_getState() > FLIGHTSTATE_BOOST)
+			Cansat_compute(time_us/1000);
+
 		Sensors_t     *sensors   = Sensors_get ();
 		AHRS_t        *ahrs      = AHRS_getData();
 		flightstate_t  fsd_state = FSD_getState();
 		servo_t		  *servos    = Servo_get   ();
 		IGN_t		  igniters   = IGN_getState();
+		Cansat_t	  *cansat   = Cansat_getData();
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
-		DM_collectFlash(&DataPackage_d, time_us, sensors, &gps_d, ahrs, fsd_state, &igniters, &Analog_meas, servos);
+		DM_collectFlash(&DataPackage_d, time_us, sensors, &gps_d, ahrs, fsd_state, &igniters, &Analog_meas, servos, cansat);
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
@@ -491,6 +499,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 				}
 				if((esp_timer_get_time() - ready_to_arm_time) > auto_arming_time && auto_arming == true){
 					FSD_arming();
+					Cansat_arm();
 					ready_to_arm_time_passed = 1;
 				}
 			}

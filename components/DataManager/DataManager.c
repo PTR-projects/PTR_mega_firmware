@@ -106,7 +106,7 @@ esp_err_t IRAM_ATTR DM_addToMainRB(DataPackage_t ** ptr){
 }
 
 void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
-		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, servo_t * servo){
+		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, servo_t * servo, Cansat_t *cansat){
 
 	assert(package != NULL);
 
@@ -116,6 +116,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	static IGN_t ign_d = {0};
 	static Analog_meas_t analog_d = {0};
 	static servo_t servo_d = {0};
+	static Cansat_t cansat_d = {0};
 
 	if(sensors == NULL)	sensors = &sensors_d;
 	if(gps == NULL)		gps 	= &gps_d;
@@ -123,6 +124,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	if(ign == NULL)		ign 	= &ign_d;
 	if(analog == NULL)	analog 	= &analog_d;
 	if(servo == NULL)	servo 	= &servo_d;
+	if(cansat == NULL)	cansat 	= &cansat_d;
 
 	package->sys_time = time_us/100;	// 0.1ms resolution
 
@@ -138,9 +140,9 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->sensors.gyroY 		= sensors->LSM6DSO32.gyroY;
 	package->sensors.gyroZ 		= sensors->LSM6DSO32.gyroZ;
 
-	package->sensors.magX 		= sensors->MMC5983MA.magX;
-	package->sensors.magY 		= sensors->MMC5983MA.magY;
-	package->sensors.magZ 		= sensors->MMC5983MA.magZ;
+	package->sensors.magX 		= (float)(cansat->state);	//sensors->MMC5983MA.magX;
+	package->sensors.magY 		= (float)(cansat->batches_deployed); //sensors->MMC5983MA.magY;
+	package->sensors.magZ 		= (float)(cansat->state_ready); //sensors->MMC5983MA.magZ;
 
 	package->sensors.pressure 	= sensors->MS5607.press;
 	package->sensors.temp 		= (int8_t)sensors->MS5607.temp;
