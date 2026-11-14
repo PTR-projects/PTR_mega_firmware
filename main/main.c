@@ -108,7 +108,7 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		FSD_detect(time_us/1000);
 
 		if(FSD_getState() > FLIGHTSTATE_BOOST)
-			Cansat_compute(time_us/1000);
+			Cansat_fsd(time_us/1000);
 
 		Sensors_t     *sensors   = Sensors_get ();
 		AHRS_t        *ahrs      = AHRS_getData();
