@@ -106,7 +106,7 @@ esp_err_t IRAM_ATTR DM_addToMainRB(DataPackage_t ** ptr){
 }
 
 void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors_t * sensors, gps_t * gps, AHRS_t * ahrs,
-		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, servo_t * servo){
+		flightstate_t flightstate, IGN_t * ign, Analog_meas_t * analog, servo_t * servo, Cansat_t *cansat){
 
 	assert(package != NULL);
 
@@ -116,6 +116,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	static IGN_t ign_d = {0};
 	static Analog_meas_t analog_d = {0};
 	static servo_t servo_d = {0};
+	static Cansat_t cansat_d = {0};
 
 	if(sensors == NULL)	sensors = &sensors_d;
 	if(gps == NULL)		gps 	= &gps_d;
@@ -123,6 +124,7 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	if(ign == NULL)		ign 	= &ign_d;
 	if(analog == NULL)	analog 	= &analog_d;
 	if(servo == NULL)	servo 	= &servo_d;
+	if(cansat == NULL)	cansat 	= &cansat_d;
 
 	package->sys_time = time_us/100;	// 0.1ms resolution
 
@@ -138,9 +140,9 @@ void IRAM_ATTR DM_collectFlash(DataPackage_t * package, int64_t time_us, Sensors
 	package->sensors.gyroY 		= sensors->LSM6DSO32[0].gyroY;
 	package->sensors.gyroZ 		= sensors->LSM6DSO32[0].gyroZ;
 
-	package->sensors.magX 		= sensors->MMC5983MA.magX;
-	package->sensors.magY 		= sensors->MMC5983MA.magY;
-	package->sensors.magZ 		= sensors->MMC5983MA.magZ;
+	package->sensors.magX 		= (float)(cansat->state);	//sensors->MMC5983MA.magX;
+	package->sensors.magY 		= (float)(cansat->batches_deployed); //sensors->MMC5983MA.magY;
+	package->sensors.magZ 		= (float)(cansat->state_ready); //sensors->MMC5983MA.magZ;
 
 	package->sensors.pressure 	= sensors->MS5607.press;
 	package->sensors.temp 		= (int8_t)sensors->MS5607.temp;
@@ -232,6 +234,32 @@ void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * s
 
 	DataPacket_build_msg(package, PACKET_ROCKET_FULL, false,
 	                     packet_counter++,
+	                     (uint32_t)(time_us / 1000),
+	                     &payload, sizeof(payload));
+}
+
+void IRAM_ATTR DM_collectTracker(kppacket_t * package, int64_t time_us, gps_t * gps, Analog_meas_t * analog){
+	kppacket_payload_rocket_tracker_t payload = {0};
+	static uint16_t tracker_counter = 0;
+	int32_t altitude_10m;
+
+	assert(package != NULL);
+	if(gps == NULL || analog == NULL)
+		return;
+
+	altitude_10m = (int32_t)(gps->altitude / 10.0f);
+	if(altitude_10m > 32767) altitude_10m = 32767;
+	if(altitude_10m < -32768) altitude_10m = -32768;
+
+	payload.retransmission_cnt = 0;
+	payload.vbat_10 = (uint8_t)(analog->vbat_mV / 100.0f);
+	payload.lat = (int32_t)(gps->latitude * 10000000.0f);
+	payload.lon = (int32_t)(gps->longitude * 10000000.0f);
+	payload.alti_gps = (int16_t)altitude_10m;
+	payload.sats_fix = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
+
+	DataPacket_build_msg(package, PACKET_TRACKER, false,
+	                     tracker_counter++,
 	                     (uint32_t)(time_us / 1000),
 	                     &payload, sizeof(payload));
 }

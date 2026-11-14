@@ -18,9 +18,9 @@
 
 static const char *TAG = "PTR_DataPacket";
 
-static uint32_t s_sender_id     = 0;
-static uint16_t s_sender_id_ext = 0;
-static uint64_t s_target_id     = 0;
+static uint32_t s_sender_id      = 0;
+static uint16_t s_sender_id_ext  = 0;
+static uint16_t s_sender_id_hash = 0;
 static bool     s_broadcast_unlocked = false;
 
 static void     encrypt_msg  (kppacket_t * msg, uint8_t length);
@@ -28,12 +28,17 @@ static bool     decrypt_msg  (kppacket_t * msg, uint8_t length);
 static uint8_t  getRandomByte();
 static uint16_t crc16        (uint8_t *buf, uint32_t len);
 
-static uint64_t datapacket_pack_target_id(uint16_t id_ext, uint32_t id) {
+static uint16_t datapacket_sender_hash(uint16_t id_ext, uint32_t id) {
     uint64_t board_id_48 = ((uint64_t)id_ext << 32) | (uint64_t)id;
-    uint16_t hash16 = (uint16_t)(board_id_48 >> 32)
-                    ^ (uint16_t)(board_id_48 >> 16)
-                    ^ (uint16_t)board_id_48;
-    return (board_id_48 << 16) | (uint64_t)hash16;
+    return (uint16_t)(board_id_48 >> 32)
+         ^ (uint16_t)(board_id_48 >> 16)
+         ^ (uint16_t)board_id_48;
+}
+
+static void datapacket_set_sender(uint16_t id_ext, uint32_t id) {
+    s_sender_id_ext  = id_ext;
+    s_sender_id      = id;
+    s_sender_id_hash = datapacket_sender_hash(id_ext, id);
 }
 
 void DataPacket_init(){
@@ -43,21 +48,20 @@ void DataPacket_init(){
     uint8_t mac[6] = {0};
     if(esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK){
         /* MAC AA:BB:CC:DD:EE:FF → ext=AABB, id=CCDDEEFF */
-        s_sender_id_ext = ((uint16_t)mac[0] << 8) | (uint16_t)mac[1];
-        s_sender_id     = ((uint32_t)mac[2] << 24) | ((uint32_t)mac[3] << 16)
-                        | ((uint32_t)mac[4] << 8)  | (uint32_t)mac[5];
-        s_target_id     = datapacket_pack_target_id(s_sender_id_ext, s_sender_id);
-        ESP_LOGI(TAG, "LoRa sender ID 0x%04X%08lX target 0x%016llX (MAC %02X:%02X:%02X:%02X:%02X:%02X)",
-                 s_sender_id_ext, (unsigned long)s_sender_id,
-                 (unsigned long long)s_target_id,
+        datapacket_set_sender(
+            ((uint16_t)mac[0] << 8) | (uint16_t)mac[1],
+            ((uint32_t)mac[2] << 24) | ((uint32_t)mac[3] << 16)
+                | ((uint32_t)mac[4] << 8) | (uint32_t)mac[5]);
+        ESP_LOGI(TAG, "LoRa sender ID 0x%04X%08lX hash 0x%04X (MAC %02X:%02X:%02X:%02X:%02X:%02X)",
+                 s_sender_id_ext, (unsigned long)s_sender_id, s_sender_id_hash,
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     } else {
         ESP_LOGW(TAG, "esp_read_mac failed; LoRa sender ID remains 0");
-        s_target_id = datapacket_pack_target_id(0, 0);
+        datapacket_set_sender(0, 0);
     }
     #else
     srand(134);
-    s_target_id = datapacket_pack_target_id(s_sender_id_ext, s_sender_id);
+    datapacket_set_sender(s_sender_id_ext, s_sender_id);
     #endif
 
     Encryption_init(12345);
@@ -72,20 +76,22 @@ uint16_t DataPacket_get_sender_id_ext(void) {
 }
 
 void DataPacket_set_sender_id(uint16_t sender_id_ext, uint32_t sender_id) {
-    s_sender_id_ext = sender_id_ext;
-    s_sender_id     = sender_id;
-    s_target_id     = datapacket_pack_target_id(s_sender_id_ext, s_sender_id);
-    ESP_LOGI(TAG, "LoRa sender ID overridden to 0x%04X%08lX target 0x%016llX",
-             s_sender_id_ext, (unsigned long)s_sender_id,
-             (unsigned long long)s_target_id);
+    datapacket_set_sender(sender_id_ext, sender_id);
+    ESP_LOGI(TAG, "LoRa sender ID overridden to 0x%04X%08lX hash 0x%04X",
+             s_sender_id_ext, (unsigned long)s_sender_id, s_sender_id_hash);
 }
 
 uint64_t DataPacket_get_target_id(void) {
-    return s_target_id;
+    return ((uint64_t)s_sender_id_ext << 48)
+         | ((uint64_t)s_sender_id << 16)
+         | (uint64_t)s_sender_id_hash;
 }
 
 bool DataPacket_target_id_matches(uint64_t target_id) {
-    if(target_id == s_target_id)
+    uint16_t hash = (uint16_t)target_id;
+    uint32_t id   = (uint32_t)(target_id >> 16);
+    uint16_t ext  = (uint16_t)(target_id >> 48);
+    if(ext == s_sender_id_ext && id == s_sender_id && hash == s_sender_id_hash)
         return true;
     if(target_id == DATAPACKET_TARGET_ID_BROADCAST && s_broadcast_unlocked)
         return true;

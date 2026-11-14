@@ -62,8 +62,10 @@ QueueHandle_t queue_MainToWeb;
  */
 void IRAM_ATTR task_kpptr_main(void *pvParameter){
 	TickType_t 		     xLastWakeTime = 0;
-	TickType_t 		     prevTickCountRF = 0;
 	TickType_t 		     prevTickCountWeb = 0;
+	TickType_t           prevTelemetry = 0;
+	TickType_t           prevTracker = 0;
+	bool                 tracker_started = false;
 	DataPackage_t *      DataPackage_ptr = NULL;
 	DataPackage_t        DataPackage_d;
 	kppacket_t 		     DataPackageRF_d;
@@ -79,6 +81,10 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		status |= GPS_init();
 		status |= AHRS_init(time_us);
 		status |= FSD_init(AHRS_getData());
+
+		#ifdef CFG_CANSAT_ROCKET
+		status |= Cansat_init(AHRS_getData());
+		#endif
 
 		if(status != ESP_OK){
 			ESP_LOGW(TAG, "Main task - failed to prepare main task");
@@ -101,15 +107,19 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		AHRS_compute(time_us, Sensors_get(), gps_d);
 		FSD_detect(time_us/1000);
 
+		if(FSD_getState() > FLIGHTSTATE_BOOST)
+			Cansat_compute(time_us/1000);
+
 		Sensors_t     *sensors   = Sensors_get ();
 		AHRS_t        *ahrs      = AHRS_getData();
 		flightstate_t  fsd_state = FSD_getState();
 		servo_t		  *servos    = Servo_get   ();
 		IGN_t		  igniters   = IGN_getState();
+		Cansat_t	  *cansat   = Cansat_getData();
 
 		xQueueReceive(queue_AnalogToMain, &Analog_meas, 0);
 
-		DM_collectFlash(&DataPackage_d, time_us, sensors, &gps_d, ahrs, fsd_state, &igniters, &Analog_meas, servos);
+		DM_collectFlash(&DataPackage_d, time_us, sensors, &gps_d, ahrs, fsd_state, &igniters, &Analog_meas, servos, cansat);
 
 		if(DM_getFreePointerToMainRB(&DataPackage_ptr) == ESP_OK){
 			if(DataPackage_ptr != NULL){
@@ -124,21 +134,42 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		}
 
 #if defined (RF_BUSY_PIN) && defined (RF_RST_PIN) && defined (SPI_SLAVE_SX1262_PIN)
-		//Send data to RF every 1000/CONFIG_TELEMETRY_FREQUENCY ms
-	if((fsd_state < FLIGHTSTATE_BOOST) || (fsd_state >= FLIGHTSTATE_SHUTDOWN)){
-		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY )) <= xLastWakeTime)){
-			prevTickCountRF = xLastWakeTime;
+	{
+		Preferences_data_t pref;
+		lora_phy_t telemetry_phy;
+		lora_phy_t tracker_phy;
+		kppacket_t tracker_pkt;
+
+		telemetry_phy.freq_hz = 433125000UL;
+		telemetry_phy.sf = CONFIG_LORA_TLM_SF;
+		telemetry_phy.bw_khz = CONFIG_LORA_TLM_BW;
+		tracker_phy.freq_hz = 434250000UL;
+		tracker_phy.sf = CONFIG_LORA_TRK_SF;
+		tracker_phy.bw_khz = CONFIG_LORA_TRK_BW;
+		if(Preferences_get(&pref) == ESP_OK){
+			telemetry_phy.freq_hz = (uint32_t)pref.lora_freq_khz * 1000UL;
+			tracker_phy.freq_hz = (uint32_t)pref.lora_tracker_freq_khz * 1000UL;
+		}
+
+		if(prevTelemetry == 0 || (xLastWakeTime - prevTelemetry) >= pdMS_TO_TICKS(CONFIG_LORA_TLM_PERIOD_MS)){
+			prevTelemetry = xLastWakeTime;
 			DM_collectRF(&DataPackageRF_d, time_us, sensors, &gps_d, ahrs, fsd_state, NULL, &Analog_meas);
-			TMTC_send(&DataPackageRF_d);
+			TMTC_send(&DataPackageRF_d, &telemetry_phy, &telemetry_phy);
+		}
+
+		if(!tracker_started){
+			if(prevTelemetry != 0 && (xLastWakeTime - prevTelemetry) >= pdMS_TO_TICKS(CONFIG_LORA_TRK_OFFSET_MS)){
+				tracker_started = true;
+				prevTracker = xLastWakeTime;
+				DM_collectTracker(&tracker_pkt, time_us, &gps_d, &Analog_meas);
+				TMTC_send(&tracker_pkt, &tracker_phy, &telemetry_phy);
+			}
+		} else if((xLastWakeTime - prevTracker) >= pdMS_TO_TICKS(CONFIG_LORA_TRK_PERIOD_MS)){
+			prevTracker = xLastWakeTime;
+			DM_collectTracker(&tracker_pkt, time_us, &gps_d, &Analog_meas);
+			TMTC_send(&tracker_pkt, &tracker_phy, &telemetry_phy);
 		}
 	}
-	else{
-		if(((prevTickCountRF + pdMS_TO_TICKS( 1000 / CONFIG_TELEMETRY_FREQUENCY_FLIGHT )) <= xLastWakeTime)){
-			prevTickCountRF = xLastWakeTime;
-			DM_collectRF(&DataPackageRF_d, time_us, sensors, &gps_d, ahrs, fsd_state, NULL, &Analog_meas);
-			TMTC_send(&DataPackageRF_d);
-		}
-	}	
 #endif
 
 		//Send data to Web every 1000ms
@@ -511,6 +542,7 @@ void task_kpptr_sysmgr(void *pvParameter){
 				}
 				if((esp_timer_get_time() - ready_to_arm_time) > auto_arming_time && auto_arming == true){
 					FSD_arming();
+					Cansat_arm();
 					ready_to_arm_time_passed = 1;
 				}
 			}

@@ -9,6 +9,13 @@ typedef struct {
 	uint64_t security_key;
 } Lora_settings_t;
 
+/* sf is 5..12. bw_khz is 125, 250, or 500. */
+typedef struct {
+	uint32_t freq_hz;
+	uint8_t sf;
+	uint16_t bw_khz;
+} lora_phy_t;
+
 
 /**
 * @brief Initializes the LORA module to default settings.
@@ -84,9 +91,11 @@ esp_err_t LORA_performCAD(void);
 *        then re-enters RX mode. Drops the packet and logs a warning if channel stays busy.
 * @param[in] txbuffer Data to transmit.
 * @param[in] size Number of bytes to transmit.
+* @param[in] tx Radio settings for this packet.
+* @param[in] rx_after Settings restored before receive. Commands use this link.
 * @return ESP_OK if transmitted successfully, ESP_FAIL if channel was busy.
 */
-esp_err_t LORA_sendWithLBT(uint8_t *txbuffer, uint8_t size);
+esp_err_t LORA_sendWithLBT(uint8_t *txbuffer, uint8_t size, const lora_phy_t *tx, const lora_phy_t *rx_after);
 esp_err_t LORA_CW();
 esp_err_t LORA_setRx();
 int16_t   LORA_get_rssi();

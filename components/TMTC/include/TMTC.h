@@ -2,6 +2,7 @@
 
 #include "esp_err.h"
 #include "PTR_DataPacket.h"
+#include "LORA_driver.h"
 
 /**
  * @brief Initializes the TMTC layer: creates internal TX queue and enters RX mode.
@@ -14,8 +15,10 @@ esp_err_t TMTC_init(void);
  * @brief Queues a packet for transmission. Overwrites any previously queued packet.
  *        Non-blocking. Safe to call from any task.
  * @param[in] pkt Pointer to the packet to send.
+ * @param[in] tx Frequency and modulation for this packet.
+ * @param[in] rx_after Settings restored for receive after the transmit.
  */
-void TMTC_send(const kppacket_t *pkt);
+void TMTC_send(const kppacket_t *pkt, const lora_phy_t *tx, const lora_phy_t *rx_after);
 
 /**
  * @brief One iteration of the TMTC loop: polls for incoming packets and dispatches
