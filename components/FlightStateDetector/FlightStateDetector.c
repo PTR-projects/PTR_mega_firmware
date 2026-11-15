@@ -241,21 +241,20 @@ static void IRAM_ATTR FlightState_SECOND_STAGE_DELAY(uint64_t time_ms, FlightSta
 
 	//Executed every loop
 
-
-	//State change conditions (second stage ignition)
-	if((TIME_ELAPSED(stateChangeTime, time_ms, FSD_settings_d.staging_delay_ms))) { 
-
-		Effector_activate(EFFECTOR_STAGE2_IGN);
-
-		currentState->state = FLIGHTSTATE_SECOND_STAGE_IGNITION;
-		currentState->state_ready = false;
-	}
-
 	//State change conditions (altitude)
 	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))
 			&& (ahrs->max_altitude >= ahrs->altitudeP)
 			&& ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
 		currentState->state = FLIGHTSTATE_FREEFALL;
+		currentState->state_ready = false;
+	}
+
+	//State change conditions (second stage ignition)
+	else if(TIME_ELAPSED(stateChangeTime, time_ms, FSD_settings_d.staging_delay_ms) 
+			&& (ahrs->ascent_rate > 10.0f)) { 
+		Effector_activate(EFFECTOR_STAGE2_IGN);
+
+		currentState->state = FLIGHTSTATE_SECOND_STAGE_IGNITION;
 		currentState->state_ready = false;
 	}
 }

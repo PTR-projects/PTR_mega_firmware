@@ -60,9 +60,8 @@ void TMTC_process(void) {
         return;
     }
 
-    // TODO - needs some logic rework
-    // if(LORA_receive(rx_buf, &rx_size) == ESP_OK)
-    //     tmtc_dispatch_rx(rx_buf, rx_size);
+    if(LORA_receive(rx_buf, &rx_size) == ESP_OK)
+        tmtc_dispatch_rx(rx_buf, rx_size);
 
     tmtc_tx_job_t job;
     if(xQueueReceive(s_tx_queue, &job, 0) == pdTRUE)

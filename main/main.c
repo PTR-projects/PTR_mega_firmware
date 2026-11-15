@@ -82,9 +82,9 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		status |= AHRS_init(time_us);
 		status |= FSD_init(AHRS_getData());
 
-		#ifdef CFG_CANSAT_ROCKET
+#ifdef CFG_CANSAT_ROCKET
 		status |= Cansat_init(AHRS_getData());
-		#endif
+#endif
 
 		if(status != ESP_OK){
 			ESP_LOGW(TAG, "Main task - failed to prepare main task");
@@ -107,8 +107,10 @@ void IRAM_ATTR task_kpptr_main(void *pvParameter){
 		AHRS_compute(time_us, Sensors_get(), gps_d);
 		FSD_detect(time_us/1000);
 
+#ifdef CFG_CANSAT_ROCKET
 		if(FSD_getState() > FLIGHTSTATE_BOOST)
 			Cansat_fsd(time_us/1000);
+#endif
 
 		Sensors_t     *sensors   = Sensors_get ();
 		AHRS_t        *ahrs      = AHRS_getData();
@@ -390,7 +392,6 @@ void task_kpptr_effector(void *pvParameter){
 
 #ifdef CFG_CANSAT_ROCKET
 	// Init effectors for Cansat rocket
-	Effector_register(EFFECTOR_MAIN,     EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 0}, 100, 0, true, 0);
 	Effector_register(EFFECTOR_CANSAT_1, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 1}, 100, 0, true, 0);
 	Effector_register(EFFECTOR_CANSAT_2, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 2}, 100, 0, true, 0);
 	Effector_register(EFFECTOR_CANSAT_3, EFFECTOR_TYPE_SERVO_SBUS, (effector_hw_t){.servo_sbus.channel = 3}, 100, 0, true, 0);
@@ -542,7 +543,9 @@ void task_kpptr_sysmgr(void *pvParameter){
 				}
 				if((esp_timer_get_time() - ready_to_arm_time) > auto_arming_time && auto_arming == true){
 					FSD_arming();
+#ifdef CFG_CANSAT_ROCKET
 					Cansat_arm();
+#endif
 					ready_to_arm_time_passed = 1;
 				}
 			}

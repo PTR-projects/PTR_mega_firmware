@@ -13,7 +13,7 @@
 #define TIME_ELAPSED(start_ms, now_ms, wait_ms)  (start_ms <= (now_ms - wait_ms))
 
 #define CANSAT_BATCH_COUNT              3      /*!< Number of batches in the automatic sequence. */
-#define CANSAT_BATCH_INTERVAL_S         1.0f   /*!< Wall-clock delay between consecutive batch deployments. [s] */
+#define CANSAT_BATCH_INTERVAL_S         0.5f   /*!< Wall-clock delay between consecutive batch deployments. [s] */
 #define CANSAT_LAST_BATCH_TO_APOGEE_S   1.0f   /*!< Deploy the last batch this long before apogee. [s] */
 #define CANSAT_FIRST_BATCH_TIME_S       (CANSAT_LAST_BATCH_TO_APOGEE_S + ((CANSAT_BATCH_COUNT - 1) * CANSAT_BATCH_INTERVAL_S))
 #define CANSAT_COUNTDOWN_HYSTERESIS_S   0.5f   /*!< Estimate must exceed the first gate by this much before the countdown can arm. [s] */

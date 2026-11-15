@@ -2,7 +2,7 @@
 #include <stddef.h>
 
 // Global variable holding the key from the API
-static uint64_t encryption_key = 0;
+static uint64_t encryption_key = 0x0011223344556677;
 
 // Internal function: single XXTEA step for a 64-bit block (2 words)
 // Used as a secure keystream generator

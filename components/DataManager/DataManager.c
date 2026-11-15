@@ -232,7 +232,7 @@ void IRAM_ATTR DM_collectRF(kppacket_t * package, int64_t time_us, Sensors_t * s
 	payload.alti_gps    = (int32_t)(gps->altitude);
 	payload.sats_fix    = ((gps->sats_in_use) & 0x3F) | (((uint8_t)(gps->fix)) << 6);
 
-	DataPacket_build_msg(package, PACKET_ROCKET_FULL, false,
+	DataPacket_build_msg(package, PACKET_ROCKET_FULL, true,
 	                     packet_counter++,
 	                     (uint32_t)(time_us / 1000),
 	                     &payload, sizeof(payload));
