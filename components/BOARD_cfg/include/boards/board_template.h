@@ -78,6 +78,7 @@
 #define LED_POS_READY           -1
 #define LED_POS_ARM             -1
 #define LED_POS_STAT            -1
+#define LED_POS_BAT             -1
 #define LED_POS_IGN1            -1
 #define LED_POS_IGN2            -1
 #define LED_POS_IGN3            -1
