@@ -1,9 +1,14 @@
 #pragma once
+#include <stdint.h>
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
+
+/* A stored key of 0 means this factory key. It is the key the radio used
+ * before the setting existed, so an old preferences file keeps the same link. */
+#define PREFERENCES_LORA_KEY_FACTORY UINT64_C(12345)
 
 typedef struct{
 	char *wifi_pass;

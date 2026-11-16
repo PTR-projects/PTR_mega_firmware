@@ -7,8 +7,10 @@
 
 #include "LORA_driver.h"
 #include "PTR_DataPacket.h"
+#include "encryption.h"
 #include "Packet_custom_cansat.h"
 #include "Cansat_driver.h"
+#include "Preferences.h"
 #include "TMTC.h"
 
 static const char *TAG = "TMTC";
@@ -33,6 +35,13 @@ esp_err_t TMTC_init(void) {
         return ESP_FAIL;
     }
     DataPacket_init();
+    {
+        Preferences_data_t pref;
+        uint64_t key = PREFERENCES_LORA_KEY_FACTORY;
+        if(Preferences_get(&pref) == ESP_OK)
+            key = pref.lora_key;
+        Encryption_init(key);
+    }
     LORA_startRX();
     return ESP_OK;
 }

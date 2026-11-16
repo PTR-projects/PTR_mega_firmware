@@ -15,6 +15,9 @@
 #include "esp_system.h"
 #include <rom/crc.h>
 
+#include <stdlib.h>
+#include <errno.h>
+
 #include "esp_spiffs.h"
 #include "cJSON.h"
 #include "lwip/err.h"
@@ -23,6 +26,8 @@
 
 static bool json_check_cfg(cJSON * json);
 static int preferences_tracker_khz(int khz);
+static uint64_t preferences_parse_lora_key(const cJSON *item);
+static void preferences_add_lora_key(cJSON *json, uint64_t key);
 
 static const char *TAG = "Preferences_driver";
 const char* preferences_path = "/www/preferences.txt";
@@ -35,7 +40,7 @@ static volatile char wifi_pass[64] = { CONFIG_ESP_WIFI_PASSWORD };	// max passwo
 esp_err_t Preferences_init(){
 	ESP_LOGI(TAG, "Preferences init");
 
-	char buf[512] = {0};
+	char buf[1024] = {0};
 
 	//Deafult KPPTR configuration
 	Preferences_default.main_alt_m 			= 200;
@@ -48,7 +53,7 @@ esp_err_t Preferences_init(){
 	Preferences_default.lora_freq_khz 		= 433125;
 	Preferences_default.lora_tracker_freq_khz = 434250;
 	Preferences_default.wifi_pass = (char*) wifi_pass;
-	Preferences_default.lora_key 			= 0;
+	Preferences_default.lora_key 			= PREFERENCES_LORA_KEY_FACTORY;
 
 	// Check if configuration file exists
 	struct stat st;
@@ -75,6 +80,15 @@ esp_err_t Preferences_init(){
 	size_t size = ftell(f);
 	fseek(f, 0L, SEEK_SET);
 	ESP_LOGI(TAG, "Configuration file size: %d", size);
+
+	if(size == 0 || size >= sizeof(buf)){
+		ESP_LOGE(TAG, "Config file size invalid");
+		fclose(f);
+		Preferences_update(Preferences_default, false);
+		Preferences_data_d = Preferences_default;
+		pref_init_done = true;
+		return ESP_ERR_INVALID_SIZE;
+	}
 
 	fread(buf, size , 1, f);	// Read file (config + 2 bytes of CRC16)
 	fclose(f);
@@ -120,7 +134,7 @@ esp_err_t Preferences_init(){
 			: 434250;
 	}
 	Preferences_data_d.lora_mode 			= cJSON_GetObjectItem(json, "lora_mode")->valueint;
-	Preferences_data_d.lora_key 			= cJSON_GetObjectItem(json, "lora_key")->valueint;
+	Preferences_data_d.lora_key 			= preferences_parse_lora_key(cJSON_GetObjectItem(json, "lora_key"));
 
 	Preferences_data_d.wifi_pass 			= (char*)wifi_pass;
 	strncpy(Preferences_data_d.wifi_pass,
@@ -170,8 +184,7 @@ esp_err_t Preferences_update(Preferences_data_t config, bool req_restart){
 	cJSON_AddNumberToObject(json, "lora_freq", 			Preferences_data_d.lora_freq_khz);
 	cJSON_AddNumberToObject(json, "lora_tracker_freq", 	Preferences_data_d.lora_tracker_freq_khz);
 	cJSON_AddNumberToObject(json, "lora_mode", 			Preferences_data_d.lora_mode);
-	cJSON_AddNumberToObject(json, "lora_key", 			Preferences_data_d.lora_key);
-	cJSON_AddNumberToObject(json, "key",				Preferences_data_d.lora_key);
+	preferences_add_lora_key(json, Preferences_data_d.lora_key);
 	
 	if(cJSON_PrintPreallocated(json, conf_file+2, sizeof(conf_file), 0) == 0){
 		ESP_LOGE(TAG, "Cannot create JSON string");
@@ -256,18 +269,38 @@ esp_err_t Prefences_update_web(char *buf){
 		temp.lora_tracker_freq_khz = preferences_tracker_khz(tracker_khz);
 	}
 	temp.lora_mode 			= cJSON_GetObjectItem(json, "lora_mode")->valueint;
-	temp.lora_key 			= cJSON_GetObjectItem(json, "lora_key")->valueint;
+	temp.lora_key 			= preferences_parse_lora_key(cJSON_GetObjectItem(json, "lora_key"));
 
 	return Preferences_update(temp, true);
 }
 
-/**
- * @brief Checks if provided configuration JSON is valid. Pointer must not be NULL
- * and all necessary data must be present.
- *
- * @param json Pointer to configuration JSON to be check
- * @return bool True = JSON valid, False = invalid
- */
+static uint64_t preferences_parse_lora_key(const cJSON *item) {
+	uint64_t key = PREFERENCES_LORA_KEY_FACTORY;
+
+	if(cJSON_IsString(item) && item->valuestring != NULL){
+		char *end = NULL;
+		errno = 0;
+		unsigned long long parsed = strtoull(item->valuestring, &end, 10);
+		if(end != item->valuestring && end != NULL && *end == '\0' && errno != ERANGE)
+			key = (uint64_t)parsed;
+	} else if(cJSON_IsNumber(item) && item->valuedouble >= 0){
+		key = (uint64_t)item->valuedouble;
+	}
+
+	/* 0 was written before this setting was used. Keep the previous link. */
+	if(key == 0)
+		key = PREFERENCES_LORA_KEY_FACTORY;
+
+	return key;
+}
+
+static void preferences_add_lora_key(cJSON *json, uint64_t key) {
+	char key_str[21];
+	snprintf(key_str, sizeof(key_str), "%llu", (unsigned long long)key);
+	cJSON_AddStringToObject(json, "lora_key", key_str);
+	cJSON_AddStringToObject(json, "key", key_str);
+}
+
 static int preferences_tracker_khz(int khz) {
 	switch (khz) {
 	case 434250:
@@ -280,6 +313,13 @@ static int preferences_tracker_khz(int khz) {
 	}
 }
 
+/**
+ * @brief Checks if provided configuration JSON is valid. Pointer must not be NULL
+ * and all necessary data must be present.
+ *
+ * @param json Pointer to configuration JSON to be check
+ * @return bool True = JSON valid, False = invalid
+ */
 static bool json_check_cfg(cJSON * json){
 	if(json == NULL) {
 		return false;
@@ -295,7 +335,12 @@ static bool json_check_cfg(cJSON * json){
 	json_check |= (NULL == cJSON_GetObjectItem(json, "auto_arming_time_s"));
 	json_check |= (NULL == cJSON_GetObjectItem(json, "lora_freq"));
 	json_check |= (NULL == cJSON_GetObjectItem(json, "lora_mode"));
-	json_check |= (NULL == cJSON_GetObjectItem(json, "lora_key"));
+	{
+		cJSON *lora_key = cJSON_GetObjectItem(json, "lora_key");
+		json_check |= (lora_key == NULL);
+		if(lora_key != NULL)
+			json_check |= !(cJSON_IsString(lora_key) || cJSON_IsNumber(lora_key));
+	}
 	json_check |= (NULL == cJSON_GetObjectItem(json, "wifi_pass"));
 	json_check |= (NULL == cJSON_GetObjectItem(json, "drouge_alt"));
 	json_check |= (NULL == cJSON_GetObjectItem(json, "key"));

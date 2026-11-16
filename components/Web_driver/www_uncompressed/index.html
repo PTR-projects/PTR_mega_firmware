@@ -349,11 +349,24 @@
           </td>
         </tr>
         <tr>
+          <td>
+            <label>Tracker frequency [MHz]</label>
+          </td>
+          <td>
+            <select class="tab-settings-input" id="pref-lora-tracker-frequency" onchange="updatePreferencesData()">
+              <option value="434250">434.250</option>
+              <option value="434375">434.375</option>
+              <option value="434500">434.500</option>
+              <option value="434625">434.625</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
 		  <td>
 			<label>LoRa encryption key</label>
 		  </td>
 		  <td>
-			<input class="tab-settings-input" type="number" id="pref-lora-key" min="0" max="18446744073709551616" value="0" step="216498" size="12" onchange="updatePreferencesData()">
+			<input class="tab-settings-input" type="text" id="pref-lora-key" inputmode="numeric" pattern="[0-9]*" maxlength="20" size="20" value="12345" oninput="updatePreferencesData()">
 		  </td>
 		</tr>
         <tr>
