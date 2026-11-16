@@ -363,10 +363,10 @@
         </tr>
         <tr>
 		  <td>
-			<label>LoRa encryption key</label>
+			<label>LoRa password</label>
 		  </td>
 		  <td>
-			<input class="tab-settings-input" type="text" id="pref-lora-key" inputmode="numeric" pattern="[0-9]*" maxlength="20" size="20" value="12345" oninput="updatePreferencesData()">
+			<input class="tab-settings-input" type="text" id="pref-lora-pass" minlength="8" maxlength="63" size="20" value="" autocomplete="off" spellcheck="false" placeholder="at least 8 characters" oninput="updatePreferencesData()">
 		  </td>
 		</tr>
         <tr>

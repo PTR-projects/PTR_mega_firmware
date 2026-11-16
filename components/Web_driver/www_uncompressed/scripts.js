@@ -12,26 +12,20 @@ const preferencesData = {
 	staging_max_tilt: 45,
 	auto_arming_time_s: 60,
 	auto_arming: true,
-	key: "12345",
+	key: 0,
 	lora_freq: 433125,
 	lora_tracker_freq: 434250,
 	lora_mode: true, /* true for network, false for exclusive */
 	lora_tx_dbm: 0,
-	lora_key: "12345"
+	lora_key: "0",
+	lora_pass: ""
 };
 
-const LORA_KEY_FACTORY = "12345";
-const LORA_KEY_MAX = "18446744073709551615";
+const LORA_PASS_MIN = 8;
 const TRACKER_FREQ_KHZ = ["434250", "434375", "434500", "434625"];
 
-function normalizeLoraKey(value) {
-	let text = String(value == null ? "" : value).trim();
-	if (!/^[0-9]+$/.test(text)) return LORA_KEY_FACTORY;
-	text = text.replace(/^0+(?=\d)/, "");
-	if (text === "0") return LORA_KEY_FACTORY;
-	if (text.length > LORA_KEY_MAX.length) return LORA_KEY_FACTORY;
-	if (text.length === LORA_KEY_MAX.length && text > LORA_KEY_MAX) return LORA_KEY_FACTORY;
-	return text;
+function normalizeLoraPass(value) {
+	return String(value == null ? "" : value).trim().slice(0, 63);
 }
 
 /* Tab content div IDs in order (index 0 = tab 1) */
@@ -541,6 +535,10 @@ function calculateCRC16(data) {
 
 function sendPreferencesData(preferencesData) {
 	updatePreferencesData();
+	if (preferencesData.lora_pass.length < LORA_PASS_MIN) {
+		alert("LoRa password must be at least 8 characters.");
+		return;
+	}
 	if (confirm('Save and restart? If you changed WiFi password then change your phone settings too.')) {
 		const jsonData = JSON.stringify(preferencesData, null, '\t');
 		const crc16    = calculateCRC16(jsonData);
@@ -570,8 +568,9 @@ function updatePreferencesData() {
 	preferencesData.lora_freq          = parseInt(1000 * document.getElementById('pref-lora-frequency').value);
 	preferencesData.lora_tracker_freq  = parseInt(document.getElementById('pref-lora-tracker-frequency').value, 10);
 	preferencesData.lora_mode          = parseInt(document.getElementById('pref-lora-mode').selectedIndex);
-	preferencesData.lora_key           = normalizeLoraKey(document.getElementById('pref-lora-key').value);
-	preferencesData.key                = preferencesData.lora_key;
+	preferencesData.lora_pass          = normalizeLoraPass(document.getElementById('pref-lora-pass').value);
+	preferencesData.lora_key           = "0";
+	preferencesData.key                = 0;
 	preferencesData.lora_tx_dbm        = 0;
 	preferencesData.wifi_pass          = document.getElementById('pref-wifi-pass').value;
 	console.log("Updated preferencesData:", preferencesData);
@@ -604,7 +603,7 @@ function getPref() {
 			document.getElementById('pref-wifi-pass').value              = data.pref_wifi_pass;
 			document.getElementById('pref-autoarm-enable').selectedIndex = parseInt(data.pref_autoarming);
 			document.getElementById('pref-lora-mode').selectedIndex      = parseInt(data.pref_lora_mode);
-			document.getElementById('pref-lora-key').value               = normalizeLoraKey(data.pref_lora_key);
+			document.getElementById('pref-lora-pass').value              = typeof data.pref_lora_pass === "string" ? data.pref_lora_pass : "";
 			updatePreferencesData();
 			preferencesData.wifi_pass = document.getElementById('pref-wifi-pass').value;
 		})
