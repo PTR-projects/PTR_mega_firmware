@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PTR flight log</title>
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark">PTR</span>
+      <div>
+        <h1>Flight log</h1>
+        <p id="file-name">Open a meas.bin or meas.csv log</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button id="open" type="button">Open log</button>
+      <input id="file" type="file" accept=".bin,.csv,text/csv,application/octet-stream" hidden>
+      <button id="reset" type="button" disabled>Reset view</button>
+      <button id="save" type="button" disabled>Save report</button>
+    </div>
+  </header>
+  <div id="status" role="status">No file loaded</div>
+  <section id="stats" hidden></section>
+  <div id="layout" hidden>
+    <div id="charts"></div>
+    <aside>
+      <h2>At cursor</h2>
+      <dl id="readout"></dl>
+      <h2>Ground track</h2>
+      <canvas id="track" width="560" height="420"></canvas>
+      <p class="hint">North up, metres from the first sample. Drag a chart to pan, scroll to zoom, double-click to reset.</p>
+      <h2>Events</h2>
+      <ol id="events"></ol>
+    </aside>
+  </div>
+  <div id="drop">
+    <p>Drop a flight log here</p>
+    <p class="hint">Drop a meas.bin log or a meas.csv export. A .bin file uses the schema stored in its header.</p>
+  </div>
+  <script src="viewer.js"></script>
+</body>
+</html>
