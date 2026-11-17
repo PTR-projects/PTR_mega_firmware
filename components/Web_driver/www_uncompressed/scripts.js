@@ -138,11 +138,28 @@ const CSV_HEADER = [
 	'ign1_state', 'ign2_state', 'ign3_state', 'ign4_state',
 	'vbat_mV',
 	'servo_1', 'servo_2', 'servo_3', 'servo_4', 'servo_en'
-].join(',');
+].join(';');
+
+function pauseStatusPolling() {
+	if (getDataIntervalID) {
+		clearInterval(getDataIntervalID);
+		getDataIntervalID = null;
+	}
+	clearInterval(getDataLiveIntervalID);
+}
+
+function resumeStatusPolling() {
+	if (!getDataIntervalID) {
+		getDataIntervalID = setInterval(getDataStatus, 1000);
+	}
+}
 
 function storage_download_handler() {
 	console.log("Storage - Download pressed");
+	/* /status every 1s + large SoftAP download often drops the STA mid-transfer */
+	pauseStatusPolling();
 	location.href = '/storage/meas.bin';
+	setTimeout(resumeStatusPolling, 180000);
 }
 
 function storage_remove_handler() {
@@ -191,7 +208,7 @@ function parseDataPackageCsvLine(view, base) {
 		(ign >> 4) & 1, (ign >> 5) & 1, (ign >> 6) & 1, (ign >> 7) & 1,
 		u16(101),
 		i8(103), i8(104), i8(105), i8(106), u8(107)
-	].join(',');
+	].join(';');
 }
 
 function triggerCsvDownload(blobParts) {
@@ -215,6 +232,7 @@ async function storage_download_csv_handler() {
 		btn.textContent = 'Converting...';
 	}
 
+	pauseStatusPolling();
 	try {
 		const response = await fetch('/storage/meas.bin');
 		if (!response.ok)
@@ -266,6 +284,7 @@ async function storage_download_csv_handler() {
 		console.error('CSV download failed', err);
 		alert('CSV download failed: ' + (err && err.message ? err.message : err));
 	} finally {
+		resumeStatusPolling();
 		if (btn) {
 			btn.disabled = false;
 			btn.textContent = prevLabel;
@@ -397,7 +416,7 @@ function IGN_contToLabel(cont, label) {
 
 function webInit() {
 	TabsInit();
-	setInterval(getDataStatus, 1000);
+	getDataIntervalID = setInterval(getDataStatus, 1000);
 	initDataLive();
 	getDataStatus();
 }

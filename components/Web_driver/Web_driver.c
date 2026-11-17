@@ -7,9 +7,11 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
-#include "esp_wifi.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
+
+#include "Wifi_driver.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
@@ -23,7 +25,7 @@
 #include "Preferences.h"
 #include "DataManager.h"
 #include "Storage_driver.h"
-#include "SimpleFS_driver.h"
+#include "BOARD_cfg.h"
 #include "AHRS_driver.h"
 #include "FlightStateDetector.h"
 
@@ -32,9 +34,6 @@
 #include "Web_driver_cmd.h"
 
 static const char *TAG = "Web_driver";
-
-#define WIFI_CHANNEL   1
-#define MAX_STA_CONN   1
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 
@@ -50,7 +49,6 @@ Web_driver_status_t status_web;
 Web_driver_live_t live_web;
 
 
-esp_err_t Web_wifi_init 				(void);
 esp_err_t Web_http_init 				(const char *base_path);
 void Web_http_stop						(httpd_handle_t server);
 esp_err_t Web_wifi_stop					(void);
@@ -79,13 +77,15 @@ esp_err_t Web_init(void){
 	esp_err_t ret = ESP_FAIL;
 	const char* base_path = "/www";
 
-	ret = Web_wifi_init();
-	if(ret == ESP_OK){
-		ret = Web_http_init(base_path);
+	if(get_wifi_status() != WIFI_ACTIVE){
+		ESP_LOGE(TAG, "WIFI is not active, HTTP server not started");
+		Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
+		return ESP_FAIL;
 	}
 
+	ret = Web_http_init(base_path);
 	Web_cmd_init(CONFIG_KPPTR_MASTERKEY);
-	
+
 	return ret;
 }
 
@@ -105,77 +105,6 @@ esp_err_t Web_storageInit(){
 
 	return ret;
 }
-
-/*!
- * @brief Initialize wifi, create soft access point.
- * @return `ESP_OK` if initialized
- * @return `ESP_FAIL` otherwise.
- */
-esp_err_t Web_wifi_init(void){
-    uint8_t mac[6];
-    uint8_t mac_addr[13];
-    uint8_t ssid_size = 32;
-    uint8_t ssid[ssid_size];
-
-	esp_err_t ret = nvs_flash_init();
-
-	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
-		ESP_ERROR_CHECK(nvs_flash_erase()); //potencjalnie niebezpieczne
-		ret = nvs_flash_init();
-	}
-
-	ESP_ERROR_CHECK(ret);
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_ap();
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
-    // last two mac address digits should be sufficient to make SSID unique
-    snprintf((char *)mac_addr, sizeof(mac_addr), "%02X%02X", mac[4], mac[5]);
-    ESP_LOGI(TAG, "MAC address: %s", mac_addr);
-
-    memset(ssid, 0x00, ssid_size);
-    snprintf((char *)ssid, ssid_size, "%s-%s", CONFIG_ESP_WIFI_SSID, mac_addr);
-    ESP_LOGI(TAG, "SSID: %s", ssid);
-    wifi_config_t wifi_config = {0};
-    wifi_config.ap.ssid_len       = strlen((char *)ssid);
-    wifi_config.ap.channel        = WIFI_CHANNEL;
-    wifi_config.ap.max_connection = MAX_STA_CONN;
-    wifi_config.ap.authmode       = WIFI_AUTH_WPA_WPA2_PSK;
-    strncpy((char *)wifi_config.ap.password, CONFIG_ESP_WIFI_PASSWORD,
-            sizeof(wifi_config.ap.password) - 1);
-    strncpy((char *)wifi_config.ap.ssid, (char *)ssid, ssid_size);
-
-    Preferences_data_t pref;
-    if(Preferences_get(&pref) == ESP_OK){
-    	memset((void *)wifi_config.ap.password, 0, sizeof(wifi_config.ap.password));
-    	strncpy((char *)wifi_config.ap.password, pref.wifi_pass, sizeof(wifi_config.ap.password));
-    	ESP_LOGV(TAG, "WiFi Pass from pref.: %s", (char *)wifi_config.ap.password);
-    }
-    else if (strlen(CONFIG_ESP_WIFI_PASSWORD) == 0) {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-        ESP_LOGI(TAG, "WiFi Open");
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "Soft AP initialization finished. SSID: %s password: %s channel: %d", wifi_config.ap.ssid, wifi_config.ap.password, wifi_config.ap.channel);
-
-    // tcpip_adapter_ip_info_t ip_info;
-    // ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info));
-
-    // ESP_LOGI(TAG,"IP Address:  %s", ip4addr_ntoa(&ip_info.ip));
-    // ESP_LOGI(TAG,"Subnet mask: %s", ip4addr_ntoa(&ip_info.netmask));
-    // ESP_LOGI(TAG,"Gateway:     %s", ip4addr_ntoa(&ip_info.gw));
-
-    return ESP_OK;
-}
-
 
 /*!
  * @brief Set HTTP response content type according to file extension.
@@ -279,64 +208,54 @@ static esp_err_t download_get_handler(httpd_req_t *req){
     }
 
     if(strstr(filename, "meas.bin") != NULL){
-#if defined(CONFIG_FS_LITTLEFS) || defined(CONFIG_FS_SPIFFS)
-    	Storage_blockMeasFile();
-    }
-#else
-        /* If name has trailing '/', respond with directory contents */
-        ESP_LOGI(TAG, "Filename: %s",filename);
-        if(strstr(filename, "meas.bin") == NULL){
-            /* Respond with 404 Not Found */
-            httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
-            return ESP_FAIL;
-        }
+        ESP_LOGI(TAG, "Filename: %s", filename);
 
-        //Lock write and enable read from memory
-        SimpleFS_readMode();
+        Storage_readMode();
 
-        ESP_LOGI(TAG, "Sending file: %s (%i bytes)...", filename, SimpleFS_getFileSize());
+        ESP_LOGI(TAG, "Sending file: %s (%i bytes)...", filename, (int)Storage_getFileSize());
     	set_content_type_from_file(req, filename);
+    	httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"meas.bin\"");
+    	httpd_resp_set_hdr(req, "Connection", "close");
 
-    	/* Retrieve the pointer to scratch buffer for temporary storage */
     	char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
-    	size_t chunksize;
+    	int32_t nread = 0;
+    	uint32_t sent_chunks = 0;
 
-    	// Reset read pointer to the beginning of the memory
-    	SimpleFS_resetReadPointer();
+    	Storage_resetReadPointer();
 
     	do{
-    		/* Read file in chunks into the scratch buffer */
-    		chunksize = SimpleFS_readMemory(SCRATCH_BUFSIZE, chunk);
-
-    		if (chunksize > 0) {
-    			/* Send the buffer contents as HTTP response chunk */
-    			if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
-    				ESP_LOGE(TAG, "File sending failed!");
-    				/* Abort sending file */
-    				httpd_resp_sendstr_chunk(req, NULL);
-    				/* Respond with 500 Internal Server Error */
-    				httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
-    				return ESP_FAIL;
-    		   }
+    		nread = Storage_readMemory(SCRATCH_BUFSIZE, chunk);
+    		if(nread < 0){
+    			ESP_LOGE(TAG, "Storage read failed during download");
+    			httpd_resp_sendstr_chunk(req, NULL);
+    			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read storage");
+    			Storage_writeMode();
+    			return ESP_FAIL;
     		}
 
-    		/* Keep looping till the whole file is sent */
-    	}while (chunksize != 0);
+    		if (nread > 0) {
+    			if (httpd_resp_send_chunk(req, chunk, (size_t)nread) != ESP_OK) {
+    				ESP_LOGE(TAG, "File sending failed!");
+    				httpd_resp_sendstr_chunk(req, NULL);
+    				httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
+    				Storage_writeMode();
+    				return ESP_FAIL;
+    		   }
+    			sent_chunks++;
+    			/* Let higher-priority SPI users run; avoid starving wifi/tcp. */
+    			if((sent_chunks & 0x3FU) == 0U){
+    				vTaskDelay(1);
+    			}
+    		}
+    	}while (nread > 0);
 
     	ESP_LOGI(TAG, "File sending complete");
-
-    	SimpleFS_writeMode();
+    	Storage_writeMode();
     }
     else{
-#endif
-        /* If name has trailing '/', respond with directory contents */
-        ESP_LOGI(TAG, "Filename: %s",filename);
+        ESP_LOGI(TAG, "Filename: %s", filename);
         if(stat(filepath, &file_stat) == -1){
-            /* If file not present on SPIFFS check if URI
-             * corresponds to one of the hardcoded paths */
-
             ESP_LOGE(TAG, "Failed to stat file : %s", filepath);
-            /* Respond with 404 Not Found */
             httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
             return ESP_FAIL;
         }
@@ -345,7 +264,6 @@ static esp_err_t download_get_handler(httpd_req_t *req){
 
 		if(!fd){
 			ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
-			/* Respond with 500 Internal Server Error */
 			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read existing file");
 			return ESP_FAIL;
 		}
@@ -353,42 +271,25 @@ static esp_err_t download_get_handler(httpd_req_t *req){
 		ESP_LOGI(TAG, "Sending file: %s (%ld bytes)...", filename, file_stat.st_size);
 		set_content_type_from_file(req, filename);
 
-		/* Retrieve the pointer to scratch buffer for temporary storage */
 		char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
 		size_t chunksize;
 		do{
-			/* Read file in chunks into the scratch buffer */
 			chunksize = fread(chunk, 1, SCRATCH_BUFSIZE, fd);
 
 			if (chunksize > 0) {
-				/* Send the buffer contents as HTTP response chunk */
 				if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
 					fclose(fd);
-
 					ESP_LOGE(TAG, "File sending failed!");
-					/* Abort sending file */
 					httpd_resp_sendstr_chunk(req, NULL);
-					/* Respond with 500 Internal Server Error */
 					httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
 				   return ESP_FAIL;
     	           }
     	        }
-
-    	        /* Keep looping till the whole file is sent */
     	    }while (chunksize != 0);
 
-    	    /* Close file after sending complete */
     	    fclose(fd);
     	    ESP_LOGI(TAG, "File sending complete");
-
-
-
-#if defined(CONFIG_FS_LITTLEFS) || defined(CONFIG_FS_SPIFFS)
-    	    if(strstr(filename, "meas.bin") != NULL)
-				Storage_unblockMeasFile();
-#else
     }
-#endif
 
     /* Respond with an empty chunk to signal HTTP response completion */
 	httpd_resp_send_chunk(req, NULL, 0);
@@ -407,10 +308,6 @@ static esp_err_t download_get_handler(httpd_req_t *req){
 static esp_err_t delete_post_handler(httpd_req_t *req)
 {
     char filepath[FILE_PATH_MAX];
-#if defined(CONFIG_FS_LITTLEFS) || defined(CONFIG_FS_SPIFFS)
-    FILE *fd = NULL;
-    struct stat file_stat;
-#endif
 
     if(req == NULL){
 		return ESP_FAIL;
@@ -421,41 +318,17 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     const char *filename = get_path_from_uri(filepath, ((struct file_server_data *)req->user_ctx)->base_path,
                                              req->uri  + sizeof("/delete") - 1, sizeof(filepath));
     if(!filename){
-        /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Filename too long");
         return ESP_FAIL;
     }
 
-    /* Filename cannot have a trailing '/' */
     if(filename[strlen(filename) - 1] == '/'){
         ESP_LOGE(TAG, "Invalid filename : %s", filename);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Invalid filename");
         return ESP_FAIL;
     }
 
-#if defined(CONFIG_FS_LITTLEFS) || defined(CONFIG_FS_SPIFFS)
-    if(stat(filepath, &file_stat) == -1){
-        ESP_LOGE(TAG, "File does not exist : %s", filename);
-        /* Respond with 400 Bad Request */
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File does not exist");
-        return ESP_FAIL;
-    }
-
-    ESP_LOGI(TAG, "Deleting file : %s", filename);
-    /* Delete file */
-    unlink(filepath);
-
-    fd = fopen(filepath, "w");
-    if (!fd) {
-    	ESP_LOGE(TAG, "Failed to create file : %s", filepath);
-        /* Respond with 500 Internal Server Error */
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to create file");
-        return ESP_FAIL;
-    }
-
-#elif defined(CONFIG_FS_SIMPLEFS)
 	if(strstr(filename, "meas.bin") == NULL){
-		/* Respond with 404 Not Found */
 		httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
 		ESP_LOGE(TAG, "Delete failed - file: %s", filename);
 		return ESP_FAIL;
@@ -463,12 +336,10 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
 
 	ESP_LOGI(TAG, "Deleting file : %s", filename);
 
-	/* Delete file */
-	if(SimpleFS_formatMemory(SFS_MAGIC_KEY, SFS_FORMAT_RANGE) != ESP_OK){
+	if(Storage_erase(CONFIG_KPPTR_MASTERKEY) != ESP_OK){
 		ESP_LOGE(TAG, "Deleting file failed!");
 		return ESP_FAIL;
 	}
-#endif
 
     /* Redirect onto root to see the updated file list */
     httpd_resp_set_status(req, "303 See Other");
@@ -773,6 +644,12 @@ esp_err_t Web_http_init(const char *base_path){
 	httpd_handle_t server = NULL;
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 	config.max_uri_handlers = 16;
+	/* meas.bin download + SPI flash path needs more than default 4KB stack */
+	config.stack_size = 8192;
+	/* SoftAP + ~2.5MB chunked download needs longer socket wait than default 5s */
+	config.send_wait_timeout = 30;
+	config.recv_wait_timeout = 30;
+	config.lru_purge_enable = true;
 	static struct file_server_data *server_data = NULL;
 
 	if(base_path == NULL){
@@ -898,11 +775,7 @@ void Web_http_stop(httpd_handle_t server){
  * @return `ESP_FAIL` otherwise.
  */
 esp_err_t Web_wifi_stop(void){
-	esp_err_t ret = ESP_FAIL;
-
-	ret = esp_wifi_stop();
-
-	return ret;
+	return wifi_disable();
 }
 
 

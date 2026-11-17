@@ -188,6 +188,7 @@ char* Web_driver_json_prefCreate(){
 	cJSON_AddNumberToObject(json, "pref_autoarm_delay", 	pref.auto_arming_time_s);
 	cJSON_AddNumberToObject(json, "pref_autoarming", 		pref.auto_arming);
 	cJSON_AddNumberToObject(json, "pref_lora_frequency", 	pref.lora_freq_khz);
+	cJSON_AddNumberToObject(json, "pref_lora_tracker_frequency", pref.lora_tracker_freq_khz);
 	cJSON_AddNumberToObject(json, "pref_lora_mode", 		pref.lora_mode);
 	cJSON_AddNumberToObject(json, "pref_lora_key", 			pref.lora_key);
 	cJSON_AddStringToObject(json, "pref_wifi_pass", 		pref.wifi_pass);

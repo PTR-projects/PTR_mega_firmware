@@ -6,12 +6,14 @@
 
 #include "AHRS_driver.h"
 #include "Effector_driver.h"
+#include "Storage_driver.h"
+#include "BOARD_cfg.h"
 #include "Cansat_driver.h"
 
 #define TIME_ELAPSED(start_ms, now_ms, wait_ms)  (start_ms <= (now_ms - wait_ms))
 
 #define CANSAT_BATCH_COUNT              3      /*!< Number of batches in the automatic sequence. */
-#define CANSAT_BATCH_INTERVAL_S         1.0f   /*!< Wall-clock delay between consecutive batch deployments. [s] */
+#define CANSAT_BATCH_INTERVAL_S         0.5f   /*!< Wall-clock delay between consecutive batch deployments. [s] */
 #define CANSAT_LAST_BATCH_TO_APOGEE_S   1.0f   /*!< Deploy the last batch this long before apogee. [s] */
 #define CANSAT_FIRST_BATCH_TIME_S       (CANSAT_LAST_BATCH_TO_APOGEE_S + ((CANSAT_BATCH_COUNT - 1) * CANSAT_BATCH_INTERVAL_S))
 #define CANSAT_COUNTDOWN_HYSTERESIS_S   0.5f   /*!< Estimate must exceed the first gate by this much before the countdown can arm. [s] */
@@ -311,8 +313,8 @@ static uint16_t crc16(const uint8_t *data, uint16_t len) {
 }
 
 esp_err_t Cansat_parsePacket(const kppacket_payload_cansat_t *pkt) {
-    // 1. CRC16 over bytes [0..13]
-    if(crc16((const uint8_t *)pkt, 14) != pkt->checksum) {
+    // 1. CRC16 over bytes [0..29]
+    if(crc16((const uint8_t *)pkt, 30) != pkt->checksum) {
         ESP_LOGE(TAG, "Packet CRC mismatch");
         return ESP_ERR_INVALID_CRC;
     }
@@ -358,8 +360,11 @@ esp_err_t Cansat_parsePacket(const kppacket_payload_cansat_t *pkt) {
             esp_restart();
             break;
         case CANSAT_CMD_MEM_ERASE:
-            // TODO: dispatch to Storage_driver
-            ESP_LOGW(TAG, "Memory erase not yet implemented");
+            ESP_LOGI(TAG, "Memory erase command received");
+            if(Storage_erase(CONFIG_KPPTR_MASTERKEY) != ESP_OK){
+                ESP_LOGE(TAG, "Memory erase failed");
+                return ESP_FAIL;
+            }
             break;
         default:
             ESP_LOGE(TAG, "Unknown CMD 0x%02X", pkt->cmd);

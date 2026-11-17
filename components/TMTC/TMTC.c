@@ -3,38 +3,52 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include <string.h>
 
 #include "LORA_driver.h"
 #include "PTR_DataPacket.h"
+#include "Packet_custom_cansat.h"
 #include "Cansat_driver.h"
 #include "TMTC.h"
 
 static const char *TAG = "TMTC";
 
+typedef struct {
+    kppacket_t pkt;
+    lora_phy_t tx;
+    lora_phy_t rx_after;
+} tmtc_tx_job_t;
+
 static StaticQueue_t  s_tx_queue_struct;
-static uint8_t        s_tx_queue_buf[sizeof(kppacket_t)];
+static uint8_t        s_tx_queue_buf[sizeof(tmtc_tx_job_t)];
 static QueueHandle_t  s_tx_queue;
 
 static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size);
 
 esp_err_t TMTC_init(void) {
-    s_tx_queue = xQueueCreateStatic(1, sizeof(kppacket_t),
+    s_tx_queue = xQueueCreateStatic(1, sizeof(tmtc_tx_job_t),
                                     s_tx_queue_buf, &s_tx_queue_struct);
     if(s_tx_queue == NULL){
         ESP_LOGE(TAG, "Failed to create TX queue");
         return ESP_FAIL;
     }
+    DataPacket_init();
     LORA_startRX();
     return ESP_OK;
 }
 
-void TMTC_send(const kppacket_t *pkt) {
+void TMTC_send(const kppacket_t *pkt, const lora_phy_t *tx, const lora_phy_t *rx_after) {
+    tmtc_tx_job_t job = {0};
     if(s_tx_queue == NULL) {
         ESP_LOGE(TAG, "TMTC queue not initialized!");
         return;
     }
-
-    xQueueOverwrite(s_tx_queue, pkt);
+    if(pkt == NULL || tx == NULL || rx_after == NULL)
+        return;
+    job.pkt = *pkt;
+    job.tx = *tx;
+    job.rx_after = *rx_after;
+    xQueueOverwrite(s_tx_queue, &job);
 }
 
 void TMTC_process(void) {
@@ -46,28 +60,51 @@ void TMTC_process(void) {
         return;
     }
 
-    // TODO - needs some logic rework
-    // if(LORA_receive(rx_buf, &rx_size) == ESP_OK)
-    //     tmtc_dispatch_rx(rx_buf, rx_size);
+    if(LORA_receive(rx_buf, &rx_size) == ESP_OK)
+        tmtc_dispatch_rx(rx_buf, rx_size);
 
-    kppacket_t tx_pkt;
-    if(xQueueReceive(s_tx_queue, &tx_pkt, 0) == pdTRUE)
-        LORA_sendWithLBT((uint8_t *)&tx_pkt.header, tx_pkt.packet_len);
+    tmtc_tx_job_t job;
+    if(xQueueReceive(s_tx_queue, &job, 0) == pdTRUE)
+        LORA_sendWithLBT((uint8_t *)&job.pkt.header, job.pkt.packet_len, &job.tx, &job.rx_after);
 }
 
 static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size) {
-    kppacket_header_t *hdr = (kppacket_header_t *)buf;
+    if(size < sizeof(kppacket_header_t))
+        return;
+    if(buf == NULL)
+        return;
 
-    switch(hdr->packet_id.msg_type){
+    kppacket_t msg = {0};
+    if(false == DataPacket_unpack_msg(&msg, buf, size))
+        return;
+
+    const uint8_t payload_len = (uint8_t)(msg.packet_len - sizeof(kppacket_header_t));
+
+    if(msg.header.packet_id.command) {
+        uint64_t target_id = 0;
+        if(payload_len < sizeof(uint64_t)) {
+            ESP_LOGW(TAG, "Command frame too short for target_id (%u)", payload_len);
+            return;
+        }
+        memcpy(&target_id, msg.payload, sizeof(target_id));
+        if(!DataPacket_target_id_matches(target_id)) {
+            ESP_LOGW(TAG, "Command target_id mismatch 0x%016llX",
+                     (uint64_t)target_id);
+            return;
+        }
+    }
+
+    switch(msg.header.packet_id.msg_type){
         case PACKET_HEARTBEAT:
-            ESP_LOGI(TAG, "HB from 0x%04X", hdr->sender_id);
+            ESP_LOGI(TAG, "HB from 0x%04X%08lX",
+                     msg.header.sender_id_ext, (uint32_t)msg.header.sender_id);
             break;
-        case PACKET_CUSTOM_16B:
-            Cansat_parsePacket(
-                (kppacket_payload_cansat_t *)(buf + sizeof(kppacket_header_t)));
+        case PACKET_CUSTOM_32B:
+            if(payload_len == sizeof(kppacket_payload_cansat_t))
+                Cansat_parsePacket((kppacket_payload_cansat_t *)(msg.payload));
             break;
         default:
-            ESP_LOGW(TAG, "Unhandled packet type 0x%02X", hdr->packet_id.msg_type);
+            ESP_LOGW(TAG, "Unhandled packet type 0x%02X", msg.header.packet_id.msg_type);
             break;
     }
 }

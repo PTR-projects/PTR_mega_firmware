@@ -21,6 +21,7 @@ typedef struct{
 	int auto_arming_time_s;
 
 	int lora_freq_khz;
+	int lora_tracker_freq_khz;
 	bool lora_mode;
 	uint64_t lora_key;
 

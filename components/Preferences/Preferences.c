@@ -22,6 +22,7 @@
 #include "BOARD_cfg.h"
 
 static bool json_check_cfg(cJSON * json);
+static int preferences_tracker_khz(int khz);
 
 static const char *TAG = "Preferences_driver";
 const char* preferences_path = "/www/preferences.txt";
@@ -45,6 +46,7 @@ esp_err_t Preferences_init(){
 	Preferences_default.auto_arming 		= true;
 	Preferences_default.auto_arming_time_s 	= 60;
 	Preferences_default.lora_freq_khz 		= 433125;
+	Preferences_default.lora_tracker_freq_khz = 434250;
 	Preferences_default.wifi_pass = (char*) wifi_pass;
 	Preferences_default.lora_key 			= 0;
 
@@ -111,6 +113,12 @@ esp_err_t Preferences_init(){
 	Preferences_data_d.auto_arming 			= cJSON_GetObjectItem(json, "auto_arming")->valueint;
 	Preferences_data_d.auto_arming_time_s 	= cJSON_GetObjectItem(json, "auto_arming_time_s")->valueint;
 	Preferences_data_d.lora_freq_khz 		= cJSON_GetObjectItem(json, "lora_freq")->valueint;
+	{
+		cJSON *tracker = cJSON_GetObjectItem(json, "lora_tracker_freq");
+		Preferences_data_d.lora_tracker_freq_khz = tracker
+			? preferences_tracker_khz(tracker->valueint)
+			: 434250;
+	}
 	Preferences_data_d.lora_mode 			= cJSON_GetObjectItem(json, "lora_mode")->valueint;
 	Preferences_data_d.lora_key 			= cJSON_GetObjectItem(json, "lora_key")->valueint;
 
@@ -160,6 +168,7 @@ esp_err_t Preferences_update(Preferences_data_t config, bool req_restart){
 	cJSON_AddNumberToObject(json, "auto_arming_time_s", Preferences_data_d.auto_arming_time_s);
 	cJSON_AddNumberToObject(json, "auto_arming", 		Preferences_data_d.auto_arming);
 	cJSON_AddNumberToObject(json, "lora_freq", 			Preferences_data_d.lora_freq_khz);
+	cJSON_AddNumberToObject(json, "lora_tracker_freq", 	Preferences_data_d.lora_tracker_freq_khz);
 	cJSON_AddNumberToObject(json, "lora_mode", 			Preferences_data_d.lora_mode);
 	cJSON_AddNumberToObject(json, "lora_key", 			Preferences_data_d.lora_key);
 	cJSON_AddNumberToObject(json, "key",				Preferences_data_d.lora_key);
@@ -241,6 +250,11 @@ esp_err_t Prefences_update_web(char *buf){
 	temp.auto_arming 		= cJSON_GetObjectItem(json, "auto_arming")->valueint;
 	temp.key 				= cJSON_GetObjectItem(json, "key")->valueint;
 	temp.lora_freq_khz 		= cJSON_GetObjectItem(json, "lora_freq")->valueint;
+	{
+		cJSON *tracker = cJSON_GetObjectItem(json, "lora_tracker_freq");
+		int tracker_khz = tracker ? tracker->valueint : Preferences_data_d.lora_tracker_freq_khz;
+		temp.lora_tracker_freq_khz = preferences_tracker_khz(tracker_khz);
+	}
 	temp.lora_mode 			= cJSON_GetObjectItem(json, "lora_mode")->valueint;
 	temp.lora_key 			= cJSON_GetObjectItem(json, "lora_key")->valueint;
 
@@ -254,6 +268,18 @@ esp_err_t Prefences_update_web(char *buf){
  * @param json Pointer to configuration JSON to be check
  * @return bool True = JSON valid, False = invalid
  */
+static int preferences_tracker_khz(int khz) {
+	switch (khz) {
+	case 434250:
+	case 434375:
+	case 434500:
+	case 434625:
+		return khz;
+	default:
+		return 434250;
+	}
+}
+
 static bool json_check_cfg(cJSON * json){
 	if(json == NULL) {
 		return false;

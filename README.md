@@ -27,8 +27,8 @@ This project is composed of several distinct software components, each responsib
 - **Analog_driver**: Responsible for handling the Analog-to-Digital Conversion (ADC) process, enabling measurements of Vbat (battery voltage) and the continuity of igniters.
 - **BOARD**: This component defines board-specific configurations, ensuring seamless integration of the firmware with the hardware.
 - **DataManager**: Efficiently packs data into Flash and RF frames, facilitating high-speed communication between the AHRS task and the Storage task.
-- **esp_littlefs**: An external LittleFS library, augmenting file system capabilities for the project.
-- **FLASH_driver**: While not currently used, this component is reserved for potential future integration with external Flash memory.
+- **SimpleFS_driver**: Append-only flight log filesystem (internal flash or external SPI NOR via `SPIFLASH_driver`).
+- **SPIFLASH_driver**: External SPI flash backend for SimpleFS on boards that provide `SPI_SLAVE_FLASH_PIN`.
 - **FlightStateDetector**: Detects the current flight state, contributing to accurate decision-making during the mission.
 - **GNSS_driver**: Manages communication with the GNSS receiver, gathering essential location data.
 - **IGN_driver**: Drives igniter outputs, crucial for controlled actions during the flight.
@@ -44,7 +44,7 @@ This project is composed of several distinct software components, each responsib
 - **Servo_driver**: Reserved for potential future use with servo motors.
 - **soc**: This is a copy of the IDF component with applied fixes in the SPI driver.
 - **SPI_driver**: Provides a custom API for the SPI peripheral, enhancing communication capabilities.
-- **Storage_driver**: Handles data storage in Flash memory, ensuring important data is retained for later analysis.
+- **Storage_driver**: Flight-log storage API over SimpleFS (measurement logging only; web UI assets use SPIFFS on the `www` partition).
 - **SX126x_driver**: A library for the LORA module provided by the manufacturer, simplifying LORA communication.
 - **SysMgr**: Acts as the system manager, monitoring the states of critical components to ensure reliable operation.
 - **Telemetry_driver**: Currently not used, this component is reserved for potential future use.

@@ -30,6 +30,7 @@ static void FlightState_DRAGCHUTE_FAILURE		(uint64_t time_ms, FlightState_t * cu
 static void FlightState_MAINSHUTE_FALL			(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_RECOVERY_FAILURE		(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 static void FlightState_LANDING					(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
+static void FlightState_SHUTDOWN				(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs);
 
 //----- Private variables ----------
 static FlightState_t flightState_d;
@@ -157,6 +158,10 @@ esp_err_t IRAM_ATTR FSD_detect(uint64_t time_ms){
 		FlightState_LANDING(time_ms, currentState, ahrs);
 		break;
 
+	case FLIGHTSTATE_SHUTDOWN:
+		FlightState_SHUTDOWN(time_ms, currentState, ahrs);
+		break;
+
 	default:
 		ESP_LOGE(TAG, "Wrong state! Disarming!");
 		FSD_disarming();
@@ -236,21 +241,20 @@ static void IRAM_ATTR FlightState_SECOND_STAGE_DELAY(uint64_t time_ms, FlightSta
 
 	//Executed every loop
 
-
-	//State change conditions (second stage ignition)
-	if((TIME_ELAPSED(stateChangeTime, time_ms, FSD_settings_d.staging_delay_ms))) { 
-
-		Effector_activate(EFFECTOR_STAGE2_IGN);
-
-		currentState->state = FLIGHTSTATE_SECOND_STAGE_IGNITION;
-		currentState->state_ready = false;
-	}
-
 	//State change conditions (altitude)
 	if ((TIME_ELAPSED(stateChangeTime, time_ms, 200))
 			&& (ahrs->max_altitude >= ahrs->altitudeP)
 			&& ((ahrs->max_altitude - ahrs->altitudeP) > ALTITUDE_DROP_TRIGGER) ) {
 		currentState->state = FLIGHTSTATE_FREEFALL;
+		currentState->state_ready = false;
+	}
+
+	//State change conditions (second stage ignition)
+	else if(TIME_ELAPSED(stateChangeTime, time_ms, FSD_settings_d.staging_delay_ms) 
+			&& (ahrs->ascent_rate > 10.0f)) { 
+		Effector_activate(EFFECTOR_STAGE2_IGN);
+
+		currentState->state = FLIGHTSTATE_SECOND_STAGE_IGNITION;
 		currentState->state_ready = false;
 	}
 }
@@ -403,7 +407,7 @@ static void IRAM_ATTR FlightState_MAINSHUTE_FALL(uint64_t time_ms, FlightState_t
 		currentState->state = FLIGHTSTATE_RECOVERY_FAILURE;
 		currentState->state_ready = false;
 	}
-	else if(TIME_ELAPSED(stateChangeTime, time_ms, 30000)  && (ahrs->altitudeP < 200.0f) && (ahrs->velocityP > -2.0f)){
+	else if(TIME_ELAPSED(stateChangeTime, time_ms, 10000)  && (ahrs->altitudeP < 200.0f) && (ahrs->velocityP > -2.0f)){
 		currentState->state = FLIGHTSTATE_LANDING;
 		currentState->state_ready = false;
 	}
@@ -436,9 +440,19 @@ static void IRAM_ATTR FlightState_LANDING(uint64_t time_ms, FlightState_t * curr
 	//Executed every loop
 
 	//State change conditions
-	if (TIME_ELAPSED(stateChangeTime, time_ms, 30000)){
+	if (TIME_ELAPSED(stateChangeTime, time_ms, 10000)){
 		currentState->state = FLIGHTSTATE_SHUTDOWN;
 		currentState->state_ready = false;
+	}
+}
+
+static void IRAM_ATTR FlightState_SHUTDOWN(uint64_t time_ms, FlightState_t * currentState, AHRS_t * ahrs){
+	// Executed only once: disarm effectors, keep FSD armed so state latches
+	if(!(currentState->state_ready)) {
+		currentState->state_ready = true;
+		Effector_disarmServos();
+		Effector_disarmIgniters();
+		ESP_LOGI(TAG, "SHUTDOWN: effectors disarmed");
 	}
 }
 
