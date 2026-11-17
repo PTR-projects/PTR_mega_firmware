@@ -20,6 +20,7 @@ typedef struct {
 esp_err_t Storage_init(void);
 esp_err_t Storage_erase(uint32_t key);
 esp_err_t Storage_writePacket(void *buf, uint16_t len);
+esp_err_t Storage_writeHeader(void *data, uint16_t length);
 size_t Storage_getFreeMem(void);
 Storage_data_t Storage_listParams(void);
 

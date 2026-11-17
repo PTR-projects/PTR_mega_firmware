@@ -82,6 +82,7 @@ static uint16_t schema_blob_len;
 static uint16_t schema_blob_crc;
 static uint8_t schema_chunk_count;
 static uint8_t schema_next_chunk;
+static uint16_t schema_frame_size;
 static bool schema_built;
 
 _Static_assert(sizeof(log_schema_chunk_hdr_t) == LOG_SCHEMA_HDR_SIZE, "schema chunk header size");
@@ -397,14 +398,15 @@ static esp_err_t LogSchema_checkFrames(void){
 	LogSchema_rewind();
 
 	for(uint8_t i = 0; i < schema_chunk_count; i++){
-		uint16_t len = 0;
 		log_schema_chunk_hdr_t hdr;
 		uint16_t slice;
+		uint16_t len;
 
-		if(LogSchema_write(frame, sizeof(frame), &len) != ESP_OK){
+		if(LogSchema_generate(frame, sizeof(frame)) != ESP_OK){
 			ESP_LOGE(TAG, "Missing schema chunk %u", i);
 			return ESP_FAIL;
 		}
+		len = LogSchema_size();
 		if(len < sizeof(hdr)){
 			ESP_LOGE(TAG, "Schema chunk %u is too short", i);
 			return ESP_FAIL;
@@ -435,12 +437,9 @@ static esp_err_t LogSchema_checkFrames(void){
 		filled = (uint16_t)(filled + slice);
 	}
 
-	{
-		uint16_t extra_len = 0;
-		if(LogSchema_write(frame, sizeof(frame), &extra_len) != ESP_ERR_NOT_FOUND){
-			ESP_LOGE(TAG, "Schema produced an extra chunk");
-			return ESP_FAIL;
-		}
+	if(LogSchema_generate(frame, sizeof(frame)) != ESP_ERR_NOT_FOUND){
+		ESP_LOGE(TAG, "Schema produced an extra chunk");
+		return ESP_FAIL;
 	}
 	if(filled != schema_blob_len || memcmp(rebuilt, schema_blob, filled) != 0){
 		ESP_LOGE(TAG, "Schema frames do not rebuild the blob");
@@ -498,18 +497,30 @@ void LogSchema_rewind(void){
 	schema_next_chunk = 0;
 }
 
-esp_err_t LogSchema_write(uint8_t *buf, uint16_t buf_size, uint16_t *len){
+uint16_t LogSchema_size(void){
+	return schema_frame_size;
+}
+
+esp_err_t LogSchema_generate(uint8_t *buf, uint16_t buf_size){
+	static bool schema_init_failed = false;
 	uint16_t offset;
 	uint16_t remain;
 	uint16_t slice;
 	uint16_t total;
 	log_schema_chunk_hdr_t hdr;
 
-	if(buf == NULL || len == NULL){
+	if(buf == NULL){
 		return ESP_ERR_INVALID_ARG;
 	}
-	if(!schema_built){
+	if(schema_init_failed){
 		return ESP_FAIL;
+	}
+	/* Self-check calls this while init is already in progress and schema_built is set. */
+	if(!schema_built){
+		if(LogSchema_init() != ESP_OK){
+			schema_init_failed = true;
+			return ESP_FAIL;
+		}
 	}
 	if(schema_next_chunk >= schema_chunk_count){
 		return ESP_ERR_NOT_FOUND;
@@ -537,7 +548,7 @@ esp_err_t LogSchema_write(uint8_t *buf, uint16_t buf_size, uint16_t *len){
 
 	memcpy(buf, &hdr, sizeof(hdr));
 	memcpy(buf + sizeof(hdr), &schema_blob[offset], slice);
-	*len = total;
+	schema_frame_size = total;
 	schema_next_chunk++;
 	return ESP_OK;
 }

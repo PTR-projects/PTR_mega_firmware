@@ -66,6 +66,19 @@ esp_err_t Storage_writePacket(void *buf, uint16_t len)
 }
 
 /*!
+ * @brief Append a schema header frame to SimpleFS.
+ */
+esp_err_t Storage_writeHeader(void *data, uint16_t length)
+{
+	if(!Storage_data_d.ReadyFlag){
+		ESP_LOGE(TAG, "Initialization failed, cannot proceed!");
+		return ESP_FAIL;
+	}
+
+	return SimpleFS_appendFrame(SFS_HEADER_SCHEMA, data, length);
+}
+
+/*!
  * @brief Get free memory available for logging in kB.
  */
 size_t Storage_getFreeMem(void)

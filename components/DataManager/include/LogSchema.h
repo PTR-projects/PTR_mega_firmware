@@ -111,12 +111,18 @@ esp_err_t LogSchema_selfCheck(void);
 void LogSchema_rewind(void);
 
 /**
- * @brief Copy the next schema frame payload into buf.
+ * @brief Copy the next schema frame into buf.
+ * The first call builds and checks the schema. The frame length is then
+ * available from LogSchema_size(), for Storage_writeHeader().
  * @param buf      Destination, at least LOG_SCHEMA_MAX_PAYLOAD bytes.
  * @param buf_size Size of buf.
- * @param len      Set to the payload length (header plus slice, not zero padding).
  * @return ESP_OK when a frame was copied.
  * @return ESP_ERR_NOT_FOUND when every chunk has already been copied.
- * @return ESP_FAIL if LogSchema_init() did not succeed.
+ * @return ESP_FAIL if the schema could not be built.
  */
-esp_err_t LogSchema_write(uint8_t *buf, uint16_t buf_size, uint16_t *len);
+esp_err_t LogSchema_generate(uint8_t *buf, uint16_t buf_size);
+
+/**
+ * @brief Length of the frame last copied by LogSchema_generate().
+ */
+uint16_t LogSchema_size(void);
