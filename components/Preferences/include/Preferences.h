@@ -1,9 +1,16 @@
 #pragma once
+#include <stdint.h>
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
+
+/* A password of at least 8 characters is SHA-256'd. The key is the first
+ * 8 hash bytes, little-endian. The ground station uses the same rule.
+ * No password, or one shorter than the minimum, keeps the factory key. */
+#define PREFERENCES_LORA_KEY_FACTORY UINT64_C(12345)
+#define PREFERENCES_LORA_PASS_MIN 8
 
 typedef struct{
 	char *wifi_pass;
@@ -23,6 +30,7 @@ typedef struct{
 	int lora_freq_khz;
 	int lora_tracker_freq_khz;
 	bool lora_mode;
+	char *lora_pass;
 	uint64_t lora_key;
 
 	uint32_t key;

@@ -64,7 +64,7 @@ void DataPacket_init(){
     datapacket_set_sender(s_sender_id_ext, s_sender_id);
     #endif
 
-    Encryption_init(12345);
+    /* TMTC_init() applies the key stored in Preferences. */
 }
 
 uint32_t DataPacket_get_sender_id(void) {

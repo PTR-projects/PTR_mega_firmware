@@ -7,8 +7,11 @@
 
 #include "LORA_driver.h"
 #include "PTR_DataPacket.h"
+#include "encryption.h"
 #include "Packet_custom_cansat.h"
 #include "Cansat_driver.h"
+#include "Preferences.h"
+#include "CONFIG.h"
 #include "TMTC.h"
 
 static const char *TAG = "TMTC";
@@ -24,6 +27,8 @@ static uint8_t        s_tx_queue_buf[sizeof(tmtc_tx_job_t)];
 static QueueHandle_t  s_tx_queue;
 
 static void tmtc_dispatch_rx(uint8_t *buf, uint8_t size);
+static void tmtc_telemetry_phy(lora_phy_t *phy);
+static void tmtc_tracker_phy(lora_phy_t *phy);
 
 esp_err_t TMTC_init(void) {
     s_tx_queue = xQueueCreateStatic(1, sizeof(tmtc_tx_job_t),
@@ -33,8 +38,47 @@ esp_err_t TMTC_init(void) {
         return ESP_FAIL;
     }
     DataPacket_init();
+    {
+        Preferences_data_t pref;
+        uint64_t key = PREFERENCES_LORA_KEY_FACTORY;
+        if(Preferences_get(&pref) == ESP_OK)
+            key = pref.lora_key;
+        Encryption_init(key);
+    }
     LORA_startRX();
     return ESP_OK;
+}
+
+static void tmtc_telemetry_phy(lora_phy_t *phy) {
+    Preferences_data_t pref;
+    phy->freq_hz = 433125000UL;
+    phy->sf = CONFIG_LORA_TLM_SF;
+    phy->bw_khz = CONFIG_LORA_TLM_BW;
+    if(Preferences_get(&pref) == ESP_OK)
+        phy->freq_hz = (uint32_t)pref.lora_freq_khz * 1000UL;
+}
+
+static void tmtc_tracker_phy(lora_phy_t *phy) {
+    Preferences_data_t pref;
+    phy->freq_hz = 434250000UL;
+    phy->sf = CONFIG_LORA_TRK_SF;
+    phy->bw_khz = CONFIG_LORA_TRK_BW;
+    if(Preferences_get(&pref) == ESP_OK)
+        phy->freq_hz = (uint32_t)pref.lora_tracker_freq_khz * 1000UL;
+}
+
+void TMTC_sendTelemetry(const kppacket_t *pkt) {
+    lora_phy_t phy;
+    tmtc_telemetry_phy(&phy);
+    TMTC_send(pkt, &phy, &phy);
+}
+
+void TMTC_sendTracker(const kppacket_t *pkt) {
+    lora_phy_t tx;
+    lora_phy_t rx;
+    tmtc_tracker_phy(&tx);
+    tmtc_telemetry_phy(&rx);
+    TMTC_send(pkt, &tx, &rx);
 }
 
 void TMTC_send(const kppacket_t *pkt, const lora_phy_t *tx, const lora_phy_t *rx_after) {
