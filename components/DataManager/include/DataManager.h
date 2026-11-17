@@ -14,7 +14,8 @@
 /**
  * @brief Data structure representing a data package.
  * A data package contains sensor readings, AHRS data, flight state information, and other data.
- *  !!! Any change to this structure force a change in data parser in Web_driver !!!
+ *  Any change here must be matched in the LogSchema field table (LogSchema.c).
+ *  The web and SD parsers read that table from the log header.
  */
 typedef struct __attribute__((__packed__)){
 	uint32_t sys_time;

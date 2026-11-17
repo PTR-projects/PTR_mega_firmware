@@ -29,6 +29,8 @@
 #include "Web_driver.h"
 #include "Preferences.h"
 #include "DataManager.h"
+#include "LogSchema.h"
+#include "SimpleFS_driver.h"
 #include "PTR_DataPacket.h"
 #include "SysMgr.h"
 #include "Servo_driver.h"
@@ -216,10 +218,20 @@ void task_kpptr_storage(void *pvParameter){
 
 	DataPackage_t * DataPackage_ptr;
 	uint32_t write_error_cnt = 0;
+	bool schema_written = false;
+	bool schema_open = false;
 
 	vTaskDelay(pdMS_TO_TICKS( 2000 ));
 	ESP_LOGI(TAG, "Task Storage - ready!");
 	SysMgr_checkout(checkout_storage, check_ready);
+
+	if(LogSchema_init() != ESP_OK){
+		ESP_LOGE(TAG, "Log schema self-check failed");
+		SysMgr_checkout(checkout_storage, check_fail);
+		while(1){
+			vTaskDelay(pdMS_TO_TICKS(1000));
+		}
+	}
 
 	xLastWakeTime = xTaskGetTickCount ();
 	while(1){
@@ -244,13 +256,7 @@ void task_kpptr_storage(void *pvParameter){
 				continue;
 		}
 
-		// Skip if timeout occured (max 100ms)
-		if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) != ESP_OK){
-			ESP_LOGI(TAG, "Storage timeout");
-			continue;
-		}
-
-		// Skip if too many write errors occured but free used pointer
+		// Skip if too many write errors occured. Keep draining the queue so the producer does not block.
 		if(write_error_cnt > 1000){
 			static bool storage_fail_reported = false;
 			if(storage_fail_reported == false){
@@ -258,7 +264,41 @@ void task_kpptr_storage(void *pvParameter){
 				SysMgr_checkout(checkout_storage, check_fail);
 				storage_fail_reported = true;
 			}
-			DM_returnUsedPointerToMainRB(&DataPackage_ptr);
+			if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) == ESP_OK){
+				DM_returnUsedPointerToMainRB(&DataPackage_ptr);
+			}
+			continue;
+		}
+
+		/* One schema frame per loop, before any sample. A failed frame restarts the whole schema. */
+		if(!schema_written){
+			uint8_t schema_buf[LOG_SCHEMA_MAX_PAYLOAD];
+			uint16_t schema_len = 0;
+			esp_err_t next;
+
+			if(!schema_open){
+				LogSchema_rewind();
+				schema_open = true;
+			}
+
+			next = LogSchema_write(schema_buf, sizeof(schema_buf), &schema_len);
+			if(next == ESP_ERR_NOT_FOUND){
+				schema_written = true;
+				write_error_cnt = 0;
+				continue;
+			}
+			if(next != ESP_OK || SimpleFS_appendFrame(SFS_HEADER_SCHEMA, schema_buf, schema_len) != ESP_OK){
+				ESP_LOGE(TAG, "Storage task - schema write fail");
+				write_error_cnt++;
+				schema_open = false;
+				continue;
+			}
+			continue;
+		}
+
+		// Skip if timeout occured (max 100ms)
+		if(DM_getUsedPointerFromMainRB_wait(&DataPackage_ptr) != ESP_OK){
+			ESP_LOGI(TAG, "Storage timeout");
 			continue;
 		}
 

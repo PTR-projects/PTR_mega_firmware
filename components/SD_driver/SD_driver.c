@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -27,6 +29,7 @@ esp_err_t SD_exportFlightLog(void){
 #include "driver/sdmmc_host.h"
 #include "SimpleFS_driver.h"
 #include "DataManager.h"
+#include "LogSchema.h"
 
 static const char *TAG = "SD_driver";
 
@@ -170,12 +173,355 @@ static esp_err_t SD_writeBinFile(const char *path){
 	return err;
 }
 
-static bool SD_packetValid(const sfs_packet_t *pkt){
-	if(pkt->header.pre != SFS_HEADER_PRE){
-		return false;
-	}
+_Static_assert(sizeof(((sfs_packet_t *)0)->payload) == LOG_SCHEMA_MAX_PAYLOAD, "schema payload size");
+
+typedef struct {
+	char name[LOG_SCHEMA_NAME_MAX + 1];
+	uint8_t type;
+	uint8_t unit;
+	uint8_t bit_off;
+	uint8_t bit_len;
+	uint8_t advance;
+	float scale;
+	float offset;
+} sd_schema_field_t;
+
+static sd_schema_field_t sd_fields[LOG_SCHEMA_MAX_FIELDS];
+static uint16_t sd_field_count;
+static bool sd_schema_ready;
+
+static uint8_t sd_asm_blob[LOG_SCHEMA_BLOB_MAX];
+static uint16_t sd_asm_filled;
+static uint16_t sd_asm_blob_bytes;
+static uint16_t sd_asm_blob_crc;
+static uint16_t sd_asm_field_count;
+static uint16_t sd_asm_sample_bytes;
+static uint8_t sd_asm_chunk_count;
+static uint8_t sd_asm_next;
+static bool sd_asm_active;
+
+static bool SD_frameCrcOk(const sfs_packet_t *pkt){
 	uint16_t crc = SimpleFS_crc16((uint8_t *)pkt, sizeof(sfs_packet_t) - sizeof(pkt->CRC16));
 	return crc == pkt->CRC16;
+}
+
+static uint8_t SD_typeSize(uint8_t type){
+	switch(type){
+	case LOG_TYPE_I8:
+	case LOG_TYPE_U8:
+		return 1;
+	case LOG_TYPE_I16:
+	case LOG_TYPE_U16:
+	case LOG_TYPE_F16:
+		return 2;
+	case LOG_TYPE_I32:
+	case LOG_TYPE_U32:
+	case LOG_TYPE_F32:
+		return 4;
+	case LOG_TYPE_F64:
+		return 8;
+	default:
+		return 0;
+	}
+}
+
+static float SD_float16(uint16_t bits){
+	uint16_t exp = (bits >> 10) & 0x1Fu;
+	uint16_t frac = bits & 0x03FFu;
+	float magnitude;
+	float sign = (bits & 0x8000u) ? -1.0f : 1.0f;
+
+	if(exp == 0){
+		magnitude = ldexpf((float)frac / 1024.0f, -14);
+	} else if(exp == 31){
+		magnitude = ldexpf(1.0f, 128);
+	} else {
+		magnitude = ldexpf(1.0f + (float)frac / 1024.0f, (int)exp - 15);
+	}
+
+	return sign * magnitude;
+}
+
+static void SD_resetAssembly(void){
+	sd_asm_active = false;
+	sd_asm_filled = 0;
+	sd_asm_next = 0;
+}
+
+static esp_err_t SD_installSchema(void){
+	uint16_t pos = 0;
+	uint16_t cursor = 0;
+
+	if(sd_asm_field_count == 0 || sd_asm_field_count > LOG_SCHEMA_MAX_FIELDS){
+		return ESP_FAIL;
+	}
+	if(sd_asm_sample_bytes == 0 || sd_asm_sample_bytes > LOG_SCHEMA_MAX_PAYLOAD){
+		return ESP_FAIL;
+	}
+
+	for(uint16_t i = 0; i < sd_asm_field_count; i++){
+		uint8_t name_len;
+		uint8_t size;
+
+		if(pos >= sd_asm_blob_bytes){
+			return ESP_FAIL;
+		}
+		name_len = sd_asm_blob[pos++];
+		if(name_len < 1 || name_len > LOG_SCHEMA_NAME_MAX){
+			return ESP_FAIL;
+		}
+		if((uint32_t)pos + name_len + 5u + 8u > sd_asm_blob_bytes){
+			return ESP_FAIL;
+		}
+
+		memcpy(sd_fields[i].name, &sd_asm_blob[pos], name_len);
+		sd_fields[i].name[name_len] = '\0';
+		pos = (uint16_t)(pos + name_len);
+
+		sd_fields[i].type = sd_asm_blob[pos++];
+		sd_fields[i].unit = sd_asm_blob[pos++];
+		sd_fields[i].bit_off = sd_asm_blob[pos++];
+		sd_fields[i].bit_len = sd_asm_blob[pos++];
+		sd_fields[i].advance = sd_asm_blob[pos++];
+		memcpy(&sd_fields[i].scale, &sd_asm_blob[pos], sizeof(float));
+		pos = (uint16_t)(pos + sizeof(float));
+		memcpy(&sd_fields[i].offset, &sd_asm_blob[pos], sizeof(float));
+		pos = (uint16_t)(pos + sizeof(float));
+
+		size = SD_typeSize(sd_fields[i].type);
+		if(size == 0){
+			return ESP_FAIL;
+		}
+		if(sd_fields[i].bit_len != 0 &&
+				((uint16_t)sd_fields[i].bit_off + sd_fields[i].bit_len) > ((uint16_t)size * 8u)){
+			return ESP_FAIL;
+		}
+		if((uint32_t)cursor + size > sd_asm_sample_bytes){
+			return ESP_FAIL;
+		}
+		cursor = (uint16_t)(cursor + sd_fields[i].advance);
+		if(cursor > sd_asm_sample_bytes){
+			return ESP_FAIL;
+		}
+	}
+
+	if(pos != sd_asm_blob_bytes){
+		return ESP_FAIL;
+	}
+
+	sd_field_count = sd_asm_field_count;
+	return ESP_OK;
+}
+
+static void SD_acceptSchema(const uint8_t *payload, uint16_t payload_len){
+	log_schema_chunk_hdr_t hdr;
+	uint32_t blob_offset;
+	uint16_t slice;
+
+	if(payload_len < sizeof(hdr)){
+		return;
+	}
+
+	memcpy(&hdr, payload, sizeof(hdr));
+	if(hdr.magic != LOG_SCHEMA_MAGIC){
+		return;
+	}
+	if(hdr.version != LOG_SCHEMA_VERSION || hdr.flags != LOG_SCHEMA_FLAG_LE){
+		ESP_LOGW(TAG, "Ignoring schema version %u flags 0x%02X", hdr.version, hdr.flags);
+		SD_resetAssembly();
+		return;
+	}
+	if(hdr.chunk_count == 0 || hdr.chunk_index >= hdr.chunk_count){
+		SD_resetAssembly();
+		return;
+	}
+
+	if(hdr.chunk_index == 0){
+		SD_resetAssembly();
+		sd_asm_active = true;
+		sd_asm_chunk_count = hdr.chunk_count;
+		sd_asm_blob_bytes = hdr.blob_bytes;
+		sd_asm_blob_crc = hdr.blob_crc;
+		sd_asm_field_count = hdr.field_count;
+		sd_asm_sample_bytes = hdr.sample_bytes;
+		sd_asm_next = 0;
+	}
+
+	if(!sd_asm_active ||
+			hdr.chunk_index != sd_asm_next ||
+			hdr.chunk_count != sd_asm_chunk_count ||
+			hdr.blob_bytes != sd_asm_blob_bytes ||
+			hdr.blob_crc != sd_asm_blob_crc ||
+			hdr.field_count != sd_asm_field_count ||
+			hdr.sample_bytes != sd_asm_sample_bytes){
+		SD_resetAssembly();
+		return;
+	}
+
+	blob_offset = (uint32_t)hdr.chunk_index * LOG_SCHEMA_SLICE;
+	if(blob_offset >= hdr.blob_bytes || hdr.blob_bytes > LOG_SCHEMA_BLOB_MAX){
+		SD_resetAssembly();
+		return;
+	}
+
+	slice = (uint16_t)(hdr.blob_bytes - blob_offset);
+	if(slice > LOG_SCHEMA_SLICE){
+		slice = LOG_SCHEMA_SLICE;
+	}
+	if((uint32_t)sizeof(hdr) + slice > payload_len){
+		SD_resetAssembly();
+		return;
+	}
+	if((uint32_t)sd_asm_filled + slice > hdr.blob_bytes){
+		SD_resetAssembly();
+		return;
+	}
+
+	memcpy(&sd_asm_blob[sd_asm_filled], payload + sizeof(hdr), slice);
+	sd_asm_filled = (uint16_t)(sd_asm_filled + slice);
+	sd_asm_next++;
+
+	if(sd_asm_next != sd_asm_chunk_count){
+		return;
+	}
+	if(sd_asm_filled != sd_asm_blob_bytes ||
+			SimpleFS_crc16(sd_asm_blob, sd_asm_filled) != sd_asm_blob_crc ||
+			SD_installSchema() != ESP_OK){
+		ESP_LOGW(TAG, "Schema rejected");
+		SD_resetAssembly();
+		return;
+	}
+
+	sd_schema_ready = true;
+	ESP_LOGI(TAG, "Schema installed: %u fields", sd_field_count);
+	SD_resetAssembly();
+}
+
+static bool SD_readMeas(const uint8_t *payload, uint16_t payload_len, uint16_t cursor,
+		const sd_schema_field_t *field, double *meas){
+	uint8_t size = SD_typeSize(field->type);
+	const uint8_t *p;
+
+	if(size == 0 || (uint32_t)cursor + size > payload_len){
+		return false;
+	}
+
+	p = payload + cursor;
+	if(field->bit_len != 0){
+		uint64_t word = 0;
+		uint64_t mask;
+		for(uint8_t i = 0; i < size; i++){
+			word |= ((uint64_t)p[i]) << (8u * i);
+		}
+		mask = (field->bit_len >= 64) ? UINT64_MAX : ((1ULL << field->bit_len) - 1ULL);
+		word = (word >> field->bit_off) & mask;
+		*meas = (double)word;
+		return true;
+	}
+
+	switch(field->type){
+	case LOG_TYPE_I8: {
+		int8_t v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	case LOG_TYPE_U8: {
+		uint8_t v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	case LOG_TYPE_I16: {
+		int16_t v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	case LOG_TYPE_U16: {
+		uint16_t v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	case LOG_TYPE_I32: {
+		int32_t v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	case LOG_TYPE_U32: {
+		uint32_t v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	case LOG_TYPE_F16: {
+		uint16_t v;
+		memcpy(&v, p, sizeof(v));
+		*meas = SD_float16(v);
+		break;
+	}
+	case LOG_TYPE_F32: {
+		float v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	case LOG_TYPE_F64: {
+		double v;
+		memcpy(&v, p, sizeof(v));
+		*meas = v;
+		break;
+	}
+	default:
+		return false;
+	}
+	return true;
+}
+
+static void SD_printMeas(FILE *f, const sd_schema_field_t *field, double meas){
+	bool is_float = (field->type == LOG_TYPE_F16 || field->type == LOG_TYPE_F32 || field->type == LOG_TYPE_F64);
+	double value = meas * (double)field->scale - (double)field->offset;
+
+	if(!is_float && field->scale == 1.0f && field->offset == 0.0f){
+		if(field->type == LOG_TYPE_I8 || field->type == LOG_TYPE_I16 || field->type == LOG_TYPE_I32){
+			fprintf(f, "%ld", (long)meas);
+		} else {
+			fprintf(f, "%lu", (unsigned long)meas);
+		}
+		return;
+	}
+
+	fprintf(f, "%.6g", value);
+}
+
+static void SD_writeSchemaHeader(FILE *f){
+	for(uint16_t i = 0; i < sd_field_count; i++){
+		if(i > 0){
+			fputc(';', f);
+		}
+		fputs(sd_fields[i].name, f);
+	}
+	fputc('\n', f);
+}
+
+static bool SD_writeSchemaLine(FILE *f, const uint8_t *payload, uint16_t payload_len){
+	uint16_t cursor = 0;
+
+	for(uint16_t i = 0; i < sd_field_count; i++){
+		double meas = 0;
+		if(!SD_readMeas(payload, payload_len, cursor, &sd_fields[i], &meas)){
+			return false;
+		}
+		if(i > 0){
+			fputc(';', f);
+		}
+		SD_printMeas(f, &sd_fields[i], meas);
+		cursor = (uint16_t)(cursor + sd_fields[i].advance);
+	}
+	fputc('\n', f);
+	return true;
 }
 
 static void SD_writeCsvLine(FILE *f, const DataPackage_t *p){
@@ -222,13 +568,16 @@ static esp_err_t SD_writeCsvFile(const char *path){
 		return ESP_FAIL;
 	}
 
-	fprintf(f, "%s\n", CSV_HEADER);
-
 	SimpleFS_readMode();
 	SimpleFS_resetReadPointer();
 
+	sd_schema_ready = false;
+	sd_field_count = 0;
+	SD_resetAssembly();
+
 	sfs_packet_t pkt;
 	esp_err_t err = ESP_OK;
+	bool header_written = false;
 	int32_t n;
 	do {
 		n = SimpleFS_readMemory(sizeof(sfs_packet_t), &pkt);
@@ -243,18 +592,43 @@ static esp_err_t SD_writeCsvFile(const char *path){
 		if((size_t)n < sizeof(sfs_packet_t)){
 			break;
 		}
-		if(!SD_packetValid(&pkt)){
+		if(!SD_frameCrcOk(&pkt)){
 			continue;
 		}
 
-		DataPackage_t pkg;
-		memset(&pkg, 0, sizeof(pkg));
-		size_t copy_len = sizeof(DataPackage_t);
-		if(copy_len > sizeof(pkt.payload)){
-			copy_len = sizeof(pkt.payload);
+		if(pkt.header.pre == SFS_HEADER_SCHEMA){
+			SD_acceptSchema(pkt.payload, sizeof(pkt.payload));
+			continue;
 		}
-		memcpy(&pkg, pkt.payload, copy_len);
-		SD_writeCsvLine(f, &pkg);
+		if(pkt.header.pre != SFS_HEADER_PRE){
+			continue;
+		}
+
+		if(!header_written){
+			if(sd_schema_ready){
+				SD_writeSchemaHeader(f);
+			} else {
+				fprintf(f, "%s\n", CSV_HEADER);
+			}
+			header_written = true;
+		}
+
+		if(sd_schema_ready){
+			if(!SD_writeSchemaLine(f, pkt.payload, sizeof(pkt.payload))){
+				ESP_LOGE(TAG, "CSV schema decode failed");
+				err = ESP_FAIL;
+				break;
+			}
+		} else {
+			DataPackage_t pkg;
+			memset(&pkg, 0, sizeof(pkg));
+			size_t copy_len = sizeof(DataPackage_t);
+			if(copy_len > sizeof(pkt.payload)){
+				copy_len = sizeof(pkt.payload);
+			}
+			memcpy(&pkg, pkt.payload, copy_len);
+			SD_writeCsvLine(f, &pkg);
+		}
 	} while(n > 0);
 
 	fclose(f);

@@ -14,7 +14,7 @@ function main_arming_handler(){console.log("Main - Arming button pressed");if(co
 POST_simple("/cmd",'{"cmd":"arm","key":2137}');}
 function main_disarming_handler(){console.log("Main - Disarming button pressed");if(confirm('Do you want to Disarm?\n\nAfter that command Flight Computer will be disarmed and will not work during flight!\n\nIt will be safe to approach :)'))
 POST_simple("/cmd",'{"cmd":"disarm","key":2137}');}
-const SFS_PACKET_SIZE=128;const SFS_PREAMBLE=0xAA55;const SFS_PAYLOAD_OFFSET=4;const DATAPACKAGE_SIZE=112;const CSV_HEADER=['sys_time','accX','accY','accZ','gyroX','gyroY','gyroZ','magX','magY','magZ','accHX','accHY','accHZ','pressure','temp','latitude','longitude','altitude_gnss','gnss_sats','gnss_fix','altitude_press','altitude_kalman','ascent_rate_kalman','tilt','q0','q1','q2','q3','flightstate','ign1_cont','ign2_cont','ign3_cont','ign4_cont','ign1_state','ign2_state','ign3_state','ign4_state','vbat_mV','servo_1','servo_2','servo_3','servo_4','servo_en'].join(';');function pauseStatusPolling(){if(getDataIntervalID){clearInterval(getDataIntervalID);getDataIntervalID=null;}
+const SFS_PACKET_SIZE=128;const SFS_PREAMBLE=0xAA55;const SFS_PREAMBLE_SCHEMA=0xAA56;const SFS_PAYLOAD_OFFSET=4;const DATAPACKAGE_SIZE=112;const LOG_SCHEMA_MAGIC=0x314C5450;const LOG_SCHEMA_VERSION=1;const LOG_SCHEMA_FLAG_LE=0x01;const LOG_SCHEMA_HDR_SIZE=18;const LOG_SCHEMA_SLICE=104;const LOG_SCHEMA_NAME_MAX=19;const LOG_SCHEMA_MAX_PAYLOAD=122;const LOG_TYPE_I8=1;const LOG_TYPE_U8=2;const LOG_TYPE_I16=3;const LOG_TYPE_U16=4;const LOG_TYPE_I32=5;const LOG_TYPE_U32=6;const LOG_TYPE_F16=7;const LOG_TYPE_F32=8;const LOG_TYPE_F64=9;const CSV_HEADER=['sys_time','accX','accY','accZ','gyroX','gyroY','gyroZ','magX','magY','magZ','accHX','accHY','accHZ','pressure','temp','latitude','longitude','altitude_gnss','gnss_sats','gnss_fix','altitude_press','altitude_kalman','ascent_rate_kalman','tilt','q0','q1','q2','q3','flightstate','ign1_cont','ign2_cont','ign3_cont','ign4_cont','ign1_state','ign2_state','ign3_state','ign4_state','vbat_mV','servo_1','servo_2','servo_3','servo_4','servo_en'].join(';');function pauseStatusPolling(){if(getDataIntervalID){clearInterval(getDataIntervalID);getDataIntervalID=null;}
 clearInterval(getDataLiveIntervalID);}
 function resumeStatusPolling(){if(!getDataIntervalID){getDataIntervalID=setInterval(getDataStatus,1000);}}
 function storage_download_handler(){console.log("Storage - Download pressed");pauseStatusPolling();location.href='/storage/meas.bin';setTimeout(resumeStatusPolling,180000);}
@@ -23,10 +23,59 @@ POST_simple("/delete/storage/meas.bin",'');}
 function crc16_le(bytes,len){let crc=0xFFFF;for(let i=0;i<len;i++){crc^=bytes[i];for(let b=0;b<8;b++){crc=(crc&1)?((crc>>>1)^0xA001):(crc>>>1);}}
 return crc&0xFFFF;}
 function parseDataPackageCsvLine(view,base){const f=(o)=>view.getFloat32(base+o,true);const u8=(o)=>view.getUint8(base+o);const i8=(o)=>view.getInt8(base+o);const u16=(o)=>view.getUint16(base+o,true);const u32=(o)=>view.getUint32(base+o,true);const gnssRaw=u8(69);const gnssSats=gnssRaw&0x3F;const gnssFix=(gnssRaw>>6)&0x03;const ign=u8(100);return[u32(0),f(4),f(8),f(12),f(16),f(20),f(24),f(28),f(32),f(36),f(40),f(44),f(48),f(52),i8(56),f(57),f(61),f(65),gnssSats,gnssFix,f(70),f(74),f(78),u8(82),f(83),f(87),f(91),f(95),u8(99),(ign>>0)&1,(ign>>1)&1,(ign>>2)&1,(ign>>3)&1,(ign>>4)&1,(ign>>5)&1,(ign>>6)&1,(ign>>7)&1,u16(101),i8(103),i8(104),i8(105),i8(106),u8(107)].join(';');}
+function logTypeSize(type){switch(type){case LOG_TYPE_I8:case LOG_TYPE_U8:return 1;case LOG_TYPE_I16:case LOG_TYPE_U16:case LOG_TYPE_F16:return 2;case LOG_TYPE_I32:case LOG_TYPE_U32:case LOG_TYPE_F32:return 4;case LOG_TYPE_F64:return 8;default:return 0;}}
+function decodeFloat16(bits){const sign=(bits&0x8000)?-1:1;const exp=(bits>>10)&0x1f;const frac=bits&0x3ff;if(exp===0)
+return sign*Math.pow(2,-14)*(frac/1024);if(exp===31)
+return frac?NaN:sign*Infinity;return sign*Math.pow(2,exp-15)*(1+frac/1024);}
+function readSchemaName(view,offset,len){let name='';for(let i=0;i<len;i++)
+name+=String.fromCharCode(view.getUint8(offset+i));return name;}
+function readUnsigned(view,offset,size){if(size===1)
+return view.getUint8(offset);if(size===2)
+return view.getUint16(offset,true);if(size===4)
+return view.getUint32(offset,true);const lo=view.getUint32(offset,true);const hi=view.getUint32(offset+4,true);return hi*0x100000000+lo;}
+function extractBits(word,bitOff,bitLen){const shifted=bitOff===0?word:Math.floor(word/Math.pow(2,bitOff));const mask=Math.pow(2,bitLen)-1;return Math.floor(shifted)%(mask+1);}
+function readMeas(view,offset,field){const size=logTypeSize(field.type);if(field.bitLen!==0)
+return extractBits(readUnsigned(view,offset,size),field.bitOff,field.bitLen);switch(field.type){case LOG_TYPE_I8:return view.getInt8(offset);case LOG_TYPE_U8:return view.getUint8(offset);case LOG_TYPE_I16:return view.getInt16(offset,true);case LOG_TYPE_U16:return view.getUint16(offset,true);case LOG_TYPE_I32:return view.getInt32(offset,true);case LOG_TYPE_U32:return view.getUint32(offset,true);case LOG_TYPE_F16:return decodeFloat16(view.getUint16(offset,true));case LOG_TYPE_F32:return view.getFloat32(offset,true);case LOG_TYPE_F64:return view.getFloat64(offset,true);default:return null;}}
+function formatField(field,raw){const isFloat=field.type===LOG_TYPE_F16||field.type===LOG_TYPE_F32||field.type===LOG_TYPE_F64;if(!isFloat&&field.scale===1&&field.offset===0)
+return String(raw);return String(raw*field.scale-field.offset);}
+function newSchemaAssembly(){return{active:false,blob:null,filled:0,next:0,chunkCount:0,blobBytes:0,blobCrc:0,fieldCount:0,sampleBytes:0};}
+function readSchemaHeader(view){const base=SFS_PAYLOAD_OFFSET;return{magic:view.getUint32(base,true),version:view.getUint8(base+4),chunkIndex:view.getUint8(base+5),chunkCount:view.getUint8(base+6),flags:view.getUint8(base+7),fieldCount:view.getUint16(base+8,true),sampleBytes:view.getUint16(base+10,true),rateHz:view.getUint16(base+12,true),blobBytes:view.getUint16(base+14,true),blobCrc:view.getUint16(base+16,true)};}
+function parseSchemaBlob(asm){const view=new DataView(asm.blob.buffer,asm.blob.byteOffset,asm.blob.byteLength);let pos=0;let cursor=0;const fields=[];if(asm.sampleBytes===0||asm.sampleBytes>LOG_SCHEMA_MAX_PAYLOAD)
+return null;for(let i=0;i<asm.fieldCount;i++){if(pos>=asm.blobBytes)
+return null;const nameLen=view.getUint8(pos);pos+=1;if(nameLen<1||nameLen>LOG_SCHEMA_NAME_MAX)
+return null;if(pos+nameLen+5+8>asm.blobBytes)
+return null;const name=readSchemaName(view,pos,nameLen);pos+=nameLen;const type=view.getUint8(pos++);const unit=view.getUint8(pos++);const bitOff=view.getUint8(pos++);const bitLen=view.getUint8(pos++);const advance=view.getUint8(pos++);const scale=view.getFloat32(pos,true);pos+=4;const offset=view.getFloat32(pos,true);pos+=4;const size=logTypeSize(type);if(size===0)
+return null;if(bitLen!==0&&bitOff+bitLen>size*8)
+return null;if(cursor+size>asm.sampleBytes)
+return null;cursor+=advance;if(cursor>asm.sampleBytes)
+return null;fields.push({name:name,type:type,unit:unit,bitOff:bitOff,bitLen:bitLen,advance:advance,scale:scale,offset:offset});}
+if(pos!==asm.blobBytes)
+return null;return fields;}
+function acceptSchemaFrame(view,asm){const hdr=readSchemaHeader(view);if(hdr.magic!==LOG_SCHEMA_MAGIC)
+return asm.fields||null;if(hdr.version!==LOG_SCHEMA_VERSION||hdr.flags!==LOG_SCHEMA_FLAG_LE){asm.active=false;return asm.fields||null;}
+if(hdr.chunkCount===0||hdr.chunkIndex>=hdr.chunkCount){asm.active=false;return asm.fields||null;}
+if(hdr.chunkIndex===0){asm.active=true;asm.blob=new Uint8Array(hdr.blobBytes);asm.filled=0;asm.next=0;asm.chunkCount=hdr.chunkCount;asm.blobBytes=hdr.blobBytes;asm.blobCrc=hdr.blobCrc;asm.fieldCount=hdr.fieldCount;asm.sampleBytes=hdr.sampleBytes;}
+if(!asm.active||hdr.chunkIndex!==asm.next||hdr.chunkCount!==asm.chunkCount||hdr.blobBytes!==asm.blobBytes||hdr.blobCrc!==asm.blobCrc||hdr.fieldCount!==asm.fieldCount||hdr.sampleBytes!==asm.sampleBytes){asm.active=false;return asm.fields||null;}
+const blobOffset=hdr.chunkIndex*LOG_SCHEMA_SLICE;if(blobOffset>=hdr.blobBytes||hdr.blobBytes>asm.blob.length){asm.active=false;return asm.fields||null;}
+let slice=hdr.blobBytes-blobOffset;if(slice>LOG_SCHEMA_SLICE)
+slice=LOG_SCHEMA_SLICE;if(SFS_PAYLOAD_OFFSET+LOG_SCHEMA_HDR_SIZE+slice>view.byteLength){asm.active=false;return asm.fields||null;}
+if(asm.filled+slice>hdr.blobBytes){asm.active=false;return asm.fields||null;}
+const src=new Uint8Array(view.buffer,view.byteOffset+SFS_PAYLOAD_OFFSET+LOG_SCHEMA_HDR_SIZE,slice);asm.blob.set(src,asm.filled);asm.filled+=slice;asm.next++;if(asm.next!==asm.chunkCount)
+return asm.fields||null;if(asm.filled!==asm.blobBytes||crc16_le(asm.blob,asm.blob.length)!==asm.blobCrc){asm.active=false;return asm.fields||null;}
+const fields=parseSchemaBlob(asm);asm.active=false;if(!fields)
+return asm.fields||null;asm.fields=fields;return fields;}
+function decodeSchemaLine(view,base,fields){let cursor=0;const parts=[];for(let i=0;i<fields.length;i++){const field=fields[i];const size=logTypeSize(field.type);if(base+cursor+size>view.byteLength)
+return null;const raw=readMeas(view,base+cursor,field);if(raw===null)
+return null;parts.push(formatField(field,raw));cursor+=field.advance;}
+return parts.join(';');}
 function triggerCsvDownload(blobParts){const blob=new Blob(blobParts,{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='meas.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
 async function storage_download_csv_handler(){console.log("Storage - Download CSV pressed");const btn=document.getElementById('button-log-download-csv');const prevLabel=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Converting...';}
 pauseStatusPolling();try{const response=await fetch('/storage/meas.bin');if(!response.ok)
-throw new Error('HTTP '+response.status);const reader=response.body.getReader();const csvParts=[CSV_HEADER+'\n'];let leftover=new Uint8Array(0);let rowCount=0;let skipped=0;while(true){const{done,value}=await reader.read();if(done)break;const merged=new Uint8Array(leftover.length+value.length);merged.set(leftover,0);merged.set(value,leftover.length);let offset=0;while(offset+SFS_PACKET_SIZE<=merged.length){const packet=merged.subarray(offset,offset+SFS_PACKET_SIZE);const view=new DataView(packet.buffer,packet.byteOffset,packet.byteLength);const pre=view.getUint16(0,true);const crcStored=view.getUint16(126,true);const crcCalc=crc16_le(packet,126);if(pre===SFS_PREAMBLE&&crcStored===crcCalc){csvParts.push(parseDataPackageCsvLine(view,SFS_PAYLOAD_OFFSET)+'\n');rowCount++;}else{skipped++;}
+throw new Error('HTTP '+response.status);const reader=response.body.getReader();const csvParts=[];const schemaAsm=newSchemaAssembly();let schemaFields=null;let headerWritten=false;let leftover=new Uint8Array(0);let rowCount=0;let skipped=0;while(true){const{done,value}=await reader.read();if(done)break;const merged=new Uint8Array(leftover.length+value.length);merged.set(leftover,0);merged.set(value,leftover.length);let offset=0;while(offset+SFS_PACKET_SIZE<=merged.length){const packet=merged.subarray(offset,offset+SFS_PACKET_SIZE);const view=new DataView(packet.buffer,packet.byteOffset,packet.byteLength);const pre=view.getUint16(0,true);const crcStored=view.getUint16(126,true);const crcCalc=crc16_le(packet,126);if(crcStored===crcCalc&&pre===SFS_PREAMBLE_SCHEMA){const installed=acceptSchemaFrame(view,schemaAsm);if(installed)
+schemaFields=installed;}else if(crcStored===crcCalc&&pre===SFS_PREAMBLE){let line;if(schemaFields)
+line=decodeSchemaLine(view,SFS_PAYLOAD_OFFSET,schemaFields);else
+line=parseDataPackageCsvLine(view,SFS_PAYLOAD_OFFSET);if(line===null){skipped++;}else{if(!headerWritten){const header=schemaFields?schemaFields.map(function(field){return field.name;}).join(';'):CSV_HEADER;csvParts.push(header+'\n');headerWritten=true;}
+csvParts.push(line+'\n');rowCount++;}}else{skipped++;}
 offset+=SFS_PACKET_SIZE;}
 leftover=merged.subarray(offset);}
 if(rowCount===0){alert(skipped>0?'No valid measurement packets found (skipped '+skipped+').':'Measurement log is empty.');return;}

@@ -137,7 +137,7 @@ bool SimpleFS_isErasing(void)
 	return (access_locked_r && access_locked_w);
 }
 
-esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
+esp_err_t IRAM_ATTR SimpleFS_appendFrame(uint16_t preamble, void * buffer, uint32_t size){
 	if(!component_init_done){
 		ESP_LOGE(ESP_SIMPLEFS_TAG, "SimpleFS not initialized");
 		return ESP_FAIL;
@@ -158,7 +158,7 @@ esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
 	memset(&new_packet, 0, sizeof(sfs_packet_t));
 	memcpy(&(new_packet.payload), buffer, size);
 
-	new_packet.header.pre = SFS_HEADER_PRE;
+	new_packet.header.pre = preamble;
 	new_packet.header.filenum = curr_filename;
 	new_packet.header.packet_len = sizeof(sfs_packet_t)/sizeof(uint32_t);
 	new_packet.CRC16 = SimpleFS_crc16((void*)&new_packet, sizeof(sfs_packet_t) - sizeof((sfs_packet_t*)0)->CRC16);
@@ -172,6 +172,10 @@ esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
 	ESP_LOGV(ESP_SIMPLEFS_TAG, "Write pointer: %i", write_ptr);
 
 	return err;
+}
+
+esp_err_t IRAM_ATTR SimpleFS_appendPacket(void * buffer, uint32_t size){
+	return SimpleFS_appendFrame(SFS_HEADER_PRE, buffer, size);
 }
 
 uint8_t SimpleFS_memoryUsedPercentage(){
@@ -228,7 +232,9 @@ int32_t IRAM_ATTR SimpleFS_readMemory(uint32_t chunk_size, void * buffer){
 		ESP_LOGV(ESP_SIMPLEFS_TAG, "Trimm 0xFF");
 		uint32_t n_packets = chunk_size / sizeof(sfs_packet_t);
 		for(uint32_t i = 0; i < n_packets; i++){
-			if(((sfs_packet_t *)(&out[i * sizeof(sfs_packet_t)]))->header.pre != SFS_HEADER_PRE){
+			uint16_t pre = ((sfs_packet_t *)(&out[i * sizeof(sfs_packet_t)]))->header.pre;
+			/* 0xFFFF is erased flash. A schema frame is still part of the log. */
+			if(pre != SFS_HEADER_PRE && pre != SFS_HEADER_SCHEMA){
 				chunk_size = i * sizeof(sfs_packet_t);
 				break;
 			}
