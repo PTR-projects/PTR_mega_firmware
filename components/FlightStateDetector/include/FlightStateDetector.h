@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stdint.h>
+#include "esp_err.h"
+#include "AHRS_driver.h"
+
 /**
  * @brief Enum representing the different flight states.
  * 

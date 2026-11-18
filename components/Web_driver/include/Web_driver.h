@@ -1,10 +1,8 @@
 #pragma once
 
 #include "esp_err.h"
-#include "esp_http_server.h"
 #include "esp_vfs.h"
 
-#include "AHRS_driver.h"
 #include "DataManager.h"
 
 #include "Web_driver_json.h"

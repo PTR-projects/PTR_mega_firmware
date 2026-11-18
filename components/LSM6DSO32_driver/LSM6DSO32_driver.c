@@ -3,6 +3,7 @@
 #include "LSM6DSO32_driver.h"
 #include "LSM6DSO32_private.h"
 #include "LSM6DSO32_fifo.h"
+#include "BOARD_cfg.h"
 
 //#define LSM6DS_FIFO
 

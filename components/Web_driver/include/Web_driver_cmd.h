@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include "esp_err.h"
+
 typedef struct {
 	uint32_t key;
 } Web_driver_cmd_t;

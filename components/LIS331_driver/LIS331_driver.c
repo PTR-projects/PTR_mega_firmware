@@ -11,7 +11,6 @@
 #include "SPI_driver.h"
 #include "LIS331_driver.h"
 #include <string.h>
-#include "driver/uart.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"

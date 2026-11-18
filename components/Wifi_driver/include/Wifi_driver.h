@@ -2,8 +2,6 @@
 #define WIFI_DRIVER_H
 
 #include "esp_err.h"
-#include "esp_log.h"
-#include "esp_wifi.h"
 
 /**
  * @brief Represents the operational status of the Wi-Fi module.

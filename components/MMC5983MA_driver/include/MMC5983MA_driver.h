@@ -1,8 +1,7 @@
 #pragma once
 
-#include "SPI_driver.h"
 #include <stdbool.h>
-#include "freertos/FreeRTOS.h"
+#include <stdint.h>
 
 /**
  * @brief MAG measurement data

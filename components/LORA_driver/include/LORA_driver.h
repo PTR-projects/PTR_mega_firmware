@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include "esp_err.h"
+
 #define LORA_TX_NO_WAIT 0
 
 typedef struct {

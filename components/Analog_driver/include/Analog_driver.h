@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stdint.h>
+#include "esp_err.h"
+#include "BOARD_cfg.h"
+
 /**
  * @brief Data structure representing analog measurements.
  */

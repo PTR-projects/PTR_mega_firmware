@@ -2,6 +2,8 @@
 #define LSM6DSO32_PRIVATE_H
 
 #include "LSM6DSO32_driver.h"
+#include "BOARD_cfg.h"
+#include "SPI_driver.h"
 
 /**
  * @brief Configuration structure for LSM6DS sensor.

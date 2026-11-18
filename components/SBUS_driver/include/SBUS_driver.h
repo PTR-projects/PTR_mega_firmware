@@ -1,8 +1,8 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
 #include "esp_err.h"
-#include "BOARD_cfg.h"
-#include "driver/uart.h"
 
 #define SBUS_CHANNELS 16
 #define SBUS_SPEED 100000

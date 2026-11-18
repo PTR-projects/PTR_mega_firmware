@@ -6,6 +6,7 @@
 #include "MMC5983MA_driver.h"
 #include "LSM6DSO32_driver.h"
 #include "esp_log.h"
+#include "BOARD_cfg.h"
 #include "Sensors.h"
 
 static const char *TAG = "Sensors";

@@ -1,3 +1,4 @@
 idf_component_register(SRCS "MS5607_driver.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES SPI_driver BOARD_cfg CONFIG)
+                    REQUIRES SPI_driver
+                    PRIV_REQUIRES BOARD_cfg CONFIG)

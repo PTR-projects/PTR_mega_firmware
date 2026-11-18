@@ -6,9 +6,6 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
-#include "esp_wifi.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
 #include "Preferences.h"
 
 static const char *TAG = "Web_driver_json";

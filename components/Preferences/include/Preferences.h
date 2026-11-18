@@ -1,10 +1,7 @@
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
-#include "esp_log.h"
-#include "esp_wifi.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
 
 /* A password of at least 8 characters is SHA-256'd. The key is the first
  * 8 hash bytes, little-endian. The ground station uses the same rule.

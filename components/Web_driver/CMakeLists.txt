@@ -1,6 +1,7 @@
 idf_component_register(SRCS "Web_driver.c" "Web_driver_json.c" "Web_driver_cmd.c"
                     INCLUDE_DIRS "include"
-                    PRIV_REQUIRES  nvs_flash esp_http_server spiffs json IGN_driver Preferences DataManager Storage_driver BOARD_cfg AHRS_driver FlightStateDetector Wifi_driver
+                    REQUIRES vfs DataManager
+                    PRIV_REQUIRES esp_http_server spiffs json IGN_driver Preferences Storage_driver BOARD_cfg AHRS_driver FlightStateDetector Wifi_driver
                     )
 
 

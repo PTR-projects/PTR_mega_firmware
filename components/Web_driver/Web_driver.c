@@ -18,10 +18,6 @@
 #include "esp_http_server.h"
 #include "cJSON.h"
 
-
-#include "lwip/err.h"
-#include "lwip/sys.h"
-
 #include "Preferences.h"
 #include "DataManager.h"
 #include "Storage_driver.h"

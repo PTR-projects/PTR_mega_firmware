@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include "esp_err.h"
+
 typedef struct{
     int min_pulsewidth_us;
     int max_pulsewidth_us;

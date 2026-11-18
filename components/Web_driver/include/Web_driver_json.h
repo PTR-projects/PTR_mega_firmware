@@ -1,16 +1,5 @@
 #pragma once
-#include <stdio.h>
-#include <string.h>
-#include <sys/param.h>
-#include <sys/unistd.h>
-#include <sys/stat.h>
-#include <dirent.h>
-
-#include "esp_err.h"
-#include "esp_log.h"
-#include "esp_wifi.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
+#include <stdint.h>
 
 /**
 * @brief Struct storing all the status data
