@@ -6,6 +6,7 @@
   ******************************************************************************
  */
 
+#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "SPI_driver.h"
@@ -64,7 +65,7 @@ static uint8_t   LIS331_read_single(uint8_t sensor, uint8_t addr);
 static esp_err_t LIS331_write(uint8_t sensor, uint8_t addr, uint8_t data_out);
 static esp_err_t LIS331_set(uint8_t sensor, uint8_t reg_addr, uint8_t cmd_mask, uint8_t cmd_value);
 static uint8_t   LIS331_get(uint8_t sensor, uint8_t reg_addr, uint8_t cmd_mask);
-static uint8_t   LIS331_WhoAmI(uint8_t sensor) __attribute__((unused));
+static uint8_t   LIS331_WhoAmI(uint8_t sensor);
 
 static esp_err_t LIS331_spi_init(uint8_t sensor)
 {
@@ -123,6 +124,95 @@ static uint8_t LIS331_WhoAmI(uint8_t sensor)
 	return whois;
 }
 
+#define LIS331_WHO_AM_I_VALUE	0x32
+#define LIS331_SANITY_SAMPLES	50
+#define LIS331_AXIS_LIMIT_G		3.0f
+
+static float LIS331_stddev(const int16_t *values, int count)
+{
+	double mean = 0.0;
+	double accum = 0.0;
+
+	for(int i = 0; i < count; i++){
+		mean += (double)values[i];
+	}
+	mean /= (double)count;
+	for(int i = 0; i < count; i++){
+		double delta = (double)values[i] - mean;
+		accum += delta * delta;
+	}
+	return (float)sqrt(accum / (double)count);
+}
+
+static esp_err_t LIS331_waitSample(uint8_t sensor)
+{
+	for(int attempt = 0; attempt < 20; attempt++){
+		uint8_t status = LIS331_read_single(sensor, LIS331_STATUS_REG);
+		if((status & (LIS331_XOR_MASK | LIS331_YOR_MASK | LIS331_ZOR_MASK)) != 0){
+			ESP_LOGE(TAG, "LIS331 %u overflow status 0x%02x", sensor, status);
+			return ESP_FAIL;
+		}
+		if((status & LIS331_ZYXDA_MASK) != 0){
+			return ESP_OK;
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+	ESP_LOGE(TAG, "LIS331 %u data-ready timeout", sensor);
+	return ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t LIS331_sanity(void)
+{
+	static int16_t raw_x[LIS331_COUNT][LIS331_SANITY_SAMPLES];
+	static int16_t raw_y[LIS331_COUNT][LIS331_SANITY_SAMPLES];
+	static int16_t raw_z[LIS331_COUNT][LIS331_SANITY_SAMPLES];
+
+	for(uint8_t sensor = 0; sensor < LIS331_COUNT; sensor++){
+		uint8_t who = LIS331_WhoAmI(sensor);
+		if(who != LIS331_WHO_AM_I_VALUE){
+			ESP_LOGE(TAG, "LIS331 %u WHO_AM_I 0x%02x", sensor, who);
+			return ESP_FAIL;
+		}
+	}
+
+	for(int sample = 0; sample < LIS331_SANITY_SAMPLES; sample++){
+		for(uint8_t sensor = 0; sensor < LIS331_COUNT; sensor++){
+			if(LIS331_waitSample(sensor) != ESP_OK){
+				return ESP_FAIL;
+			}
+		}
+		if(LIS331_readMeas() != ESP_OK){
+			return ESP_FAIL;
+		}
+		for(uint8_t sensor = 0; sensor < LIS331_COUNT; sensor++){
+			float acc_x = LIS331_d[sensor].meas.accX;
+			float acc_y = LIS331_d[sensor].meas.accY;
+			float acc_z = LIS331_d[sensor].meas.accZ;
+			if((fabsf(acc_x) > LIS331_AXIS_LIMIT_G) || (fabsf(acc_y) > LIS331_AXIS_LIMIT_G) ||
+					(fabsf(acc_z) > LIS331_AXIS_LIMIT_G)){
+				ESP_LOGE(TAG, "LIS331 %u sample %d outside +/-3 g: %d %d %d mg",
+						sensor, sample, (int)(acc_x * 1000.0f), (int)(acc_y * 1000.0f), (int)(acc_z * 1000.0f));
+				return ESP_FAIL;
+			}
+			raw_x[sensor][sample] = LIS331_d[sensor].accX_raw;
+			raw_y[sensor][sample] = LIS331_d[sensor].accY_raw;
+			raw_z[sensor][sample] = LIS331_d[sensor].accZ_raw;
+		}
+	}
+
+	for(uint8_t sensor = 0; sensor < LIS331_COUNT; sensor++){
+		if((LIS331_stddev(raw_x[sensor], LIS331_SANITY_SAMPLES) <= 0.0f) ||
+				(LIS331_stddev(raw_y[sensor], LIS331_SANITY_SAMPLES) <= 0.0f) ||
+				(LIS331_stddev(raw_z[sensor], LIS331_SANITY_SAMPLES) <= 0.0f)){
+			ESP_LOGE(TAG, "LIS331 %u axis samples are stuck", sensor);
+			return ESP_FAIL;
+		}
+	}
+
+	ESP_LOGI(TAG, "LIS331 sanity passed");
+	return ESP_OK;
+}
+
 esp_err_t LIS331_init(LIS331_range_e range)
 {
 	for(uint8_t sensor = 0; LIS331_COUNT > sensor ; sensor++){
@@ -146,7 +236,7 @@ esp_err_t LIS331_init(LIS331_range_e range)
 		}
 	}
 
-	return ESP_OK;	//ESP_FAIL
+	return LIS331_sanity();
 }
 
 

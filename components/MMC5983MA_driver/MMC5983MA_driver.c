@@ -64,6 +64,7 @@ static bool MMC5983MA_isExtraCurrentAppliedPosToNeg() __attribute__((unused));
 static void MMC5983MA_applyExtracurrentNegToPos() __attribute__((unused));
 static void MMC5983MA_removeExtracurrentNegToPos() __attribute__((unused));
 static bool MMC5983MA_isExtraCurrentAppliedNegToPos() __attribute__((unused));
+static esp_err_t MMC5983MA_coilCheck(void);
 static uint32_t MMC5983MA_getMeasurementX() __attribute__((unused));
 static uint32_t MMC5983MA_getMeasurementY() __attribute__((unused));
 static uint32_t MMC5983MA_getMeasurementZ() __attribute__((unused));
@@ -89,8 +90,26 @@ esp_err_t MMC5983MA_spi_init(void)
 
 esp_err_t MMC5983MA_init()
 {
-	MMC5983MA_spi_init();
-	// Reset !!!
+	uint8_t ID = 0;
+	esp_err_t err;
+
+	err = MMC5983MA_spi_init();
+	if(err != ESP_OK){
+		return err;
+	}
+
+	MMC5983MA_read(MMC_PROD_ID_REG, &ID, 1);
+	if(ID != MMC_PROD_ID){
+		ESP_LOGW(TAG, "WARNING: MMC5883MA initialization returned: 0x%X", ID);
+		return ESP_FAIL;
+	}
+	ESP_LOGI(TAG, "MMC5883MA initialization returned: 0x%X", ID);
+
+	err = MMC5983MA_coilCheck();
+	if(err != ESP_OK){
+		return err;
+	}
+
 	MMC5983MA_enableAutomaticSetReset();
 	MMC5983MA_enablePeriodicSet();
 	MMC5983MA_setPeriodicSetSamples(100);
@@ -106,15 +125,7 @@ esp_err_t MMC5983MA_init()
 	MMC5983MA_d.gainY = 6660.5f;
 	MMC5983MA_d.gainZ = 6553.6f;
 
-	uint8_t ID = 0;
-	MMC5983MA_read(MMC_PROD_ID_REG, &ID, 1);
-
-	if(ID == MMC_PROD_ID){
-		ESP_LOGI(TAG, "MMC5883MA initialization returned: 0x%X", ID);
-		return ESP_OK;
-	}
-	ESP_LOGW(TAG, "WARNING: MMC5883MA initialization returned: 0x%X", ID);
-	return ESP_FAIL;
+	return ESP_OK;
 }
 
 esp_err_t MMC5983MA_readMeas()
@@ -917,6 +928,77 @@ static bool MMC5983MA_isExtraCurrentAppliedNegToPos()
     // Get the bit value from the shadow register since the IC does not
     // allow reading INT_CTRL_3_REG register.
     return MMC5983MA_isControlBitSet(MMC_INT_CTRL_3_REG, MMC_ST_ENM);
+}
+
+#define MMC_ST_MIN_DELTA	1638u
+#define MMC_RAW_FULL_SCALE	0x3FFFFu
+
+static void MMC5983MA_decodeRaw(const uint8_t buffer[7], uint32_t *x, uint32_t *y, uint32_t *z)
+{
+	*x = (((uint32_t)buffer[0]) << 10) | (((uint32_t)buffer[1]) << 2) | ((buffer[6] & 0xC0) >> 6);
+	*y = (((uint32_t)buffer[2]) << 10) | (((uint32_t)buffer[3]) << 2) | ((buffer[6] & 0x30) >> 4);
+	*z = (((uint32_t)buffer[4]) << 10) | (((uint32_t)buffer[5]) << 2) | ((buffer[6] & 0x0C) >> 2);
+}
+
+static esp_err_t MMC5983MA_readRawXYZ(uint32_t *x, uint32_t *y, uint32_t *z)
+{
+	uint8_t buffer[7] = {0};
+
+	/* A finished measurement leaves MEAS_M_DONE set. Clear it, then start a new one. */
+	MMC5983MA_writeSingleByte(MMC_STATUS_REG, MMC_MEAS_M_DONE);
+	MMC5983MA_setRegisterBit(MMC_INT_CTRL_0_REG, MMC_TM_M);
+	for(int attempt = 0; attempt < 100; attempt++){
+		if(MMC5983MA_isRegisterSet(MMC_STATUS_REG, MMC_MEAS_M_DONE)){
+			MMC5983MA_read(MMC_X_OUT_0_REG, buffer, 7);
+			MMC5983MA_decodeRaw(buffer, x, y, z);
+			return ESP_OK;
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+	ESP_LOGE(TAG, "measurement timeout");
+	return ESP_ERR_TIMEOUT;
+}
+
+static bool MMC5983MA_axisInRange(uint32_t raw)
+{
+	return raw <= MMC_RAW_FULL_SCALE;
+}
+
+static esp_err_t MMC5983MA_coilCheck(void)
+{
+	uint32_t positive[3] = {0};
+	uint32_t negative[3] = {0};
+	esp_err_t err = ESP_OK;
+
+	MMC5983MA_removeExtracurrentNegToPos();
+	MMC5983MA_applyExtraCurrentPosToNeg();
+	err = MMC5983MA_readRawXYZ(&positive[0], &positive[1], &positive[2]);
+
+	if(err == ESP_OK){
+		MMC5983MA_removeExtraCurrentPosToNeg();
+		MMC5983MA_applyExtracurrentNegToPos();
+		err = MMC5983MA_readRawXYZ(&negative[0], &negative[1], &negative[2]);
+	}
+
+	MMC5983MA_removeExtraCurrentPosToNeg();
+	MMC5983MA_removeExtracurrentNegToPos();
+	if(err != ESP_OK){
+		return err;
+	}
+
+	for(int axis = 0; axis < 3; axis++){
+		uint32_t delta = (positive[axis] > negative[axis]) ?
+				(positive[axis] - negative[axis]) : (negative[axis] - positive[axis]);
+		if(!MMC5983MA_axisInRange(positive[axis]) || !MMC5983MA_axisInRange(negative[axis]) ||
+				(delta < MMC_ST_MIN_DELTA)){
+			ESP_LOGE(TAG, "coil check axis %d failed: %lu vs %lu",
+					axis, (unsigned long)positive[axis], (unsigned long)negative[axis]);
+			return ESP_FAIL;
+		}
+	}
+
+	ESP_LOGI(TAG, "MMC5983MA coil check passed");
+	return ESP_OK;
 }
 
 static uint32_t MMC5983MA_getMeasurementX()

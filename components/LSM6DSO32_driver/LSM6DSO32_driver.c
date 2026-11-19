@@ -1,5 +1,7 @@
 #include <math.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "LSM6DSO32_driver.h"
 #include "LSM6DSO32_private.h"
 #include "LSM6DSO32_fifo.h"
@@ -80,7 +82,21 @@ float LSM6DSGyroDpsPerLsb[LSM6DS_GYRO_DPS_LIST_SIZE]=
 #define LSM6DS_GYRO_RATE LSM6DS_CTRL2_G_GYRO_RATE_1_66K_HZ
 #define INIT_LSM6DS_GYRO_DPS LSM6DS_GYRO_FS_2000_DPS
 
+#define LSM6_ST_SAMPLES			5
+#define LSM6_ST_SETTLE_MS		100
+#define LSM6_STATUS_XLDA		(1 << 0)
+#define LSM6_STATUS_GDA			(1 << 1)
+#define LSM6_ACC_MG_PER_LSB		0.122f
+#define LSM6_GYRO_DPS_PER_LSB	0.070f
+#define LSM6_ACC_ST_MIN_MG		50.0f
+#define LSM6_ACC_ST_MAX_MG		1700.0f
+#define LSM6_GYRO_ST_MIN_DPS	150.0f
+#define LSM6_GYRO_ST_MAX_DPS	700.0f
+
 static const int SPI_SLAVE_LSM6DSO32_PIN_ARRAY[LSM6DSO32_COUNT] = SPI_SLAVE_LSM6DSO32_PINS;
+
+static esp_err_t LSM6DSO32_applyFlightConfig(uint8_t sensor);
+static esp_err_t LSM6DSO32_selfTest(uint8_t sensor);
 
 
 /**
@@ -105,12 +121,186 @@ esp_err_t LSM6DSO32_SPIinit(){
 	return ESP_OK;
 }
 
+static esp_err_t LSM6DSO32_applyFlightConfig(uint8_t sensor)
+{
+	esp_err_t retVal = ESP_OK;
+
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, (LSM6DS_ACC_RATE | LSM6DSAccSensBits[INIT_LSM6DS_ACC_SENS] | LSM6DS_CTRL1_ACC_LPF2_EN));
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR,  (LSM6DS_GYRO_RATE | LSM6DSGyroDpsBits[INIT_LSM6DS_GYRO_DPS]));
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL3_C_ADDR,  LSM6DS_CTRL3_BDU | LSM6DS_CTRL3_INT_PP | LSM6DS_CTRL3_INT_H | LSM6DS_CTRL3_INC);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL4_C_ADDR,  LSM6DS_CTRL4_INT12_SEP | LSM6DS_CTRL4_I2C_DIS | LSM6DS_CTRL4_GYRO_LPF1_EN);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR,  LSM6DS_CTRL5_ACC_ULP_DIS | LSM6DS_CTRL5_ROUNDING_DIS | LSM6DS_CTRL5_GYRO_ST_DIS | LSM6DS_CTRL5_ACC_ST_DIS);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL6_C_ADDR,  LSM6DS_CTRL6_GYRO_LPF1_0);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL7_G_ADDR, 0);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL8_XL_ADDR, LSM6DS_CTRL8_ACC_LPF | LSM6DS_CTRL8_FILTER_ODR_4);
+	LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[INIT_LSM6DS_ACC_SENS];
+	LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[INIT_LSM6DS_GYRO_DPS];
+#if (LSM6DS_FIFO_BATCH_SIZE > 0) && defined LSM6DS_FIFO
+	retVal |= LSM6DSO32_configure_fifo(sensor);
+#endif
+	return retVal;
+}
+
+static esp_err_t LSM6DSO32_waitDrdy(uint8_t sensor, uint8_t mask)
+{
+	uint8_t status = 0;
+
+	for(int attempt = 0; attempt < 200; attempt++){
+		if(LSM6DSO32_Read(sensor, LSM6DS_STATUS_REG_ADDR, &status, 1) != ESP_OK){
+			return ESP_FAIL;
+		}
+		if((status & mask) == mask){
+			return ESP_OK;
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+	ESP_LOGE(TAG, "LSM6DSO32 %u data-ready timeout (mask 0x%02x)", sensor, mask);
+	return ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t LSM6DSO32_readAxes(uint8_t sensor, LSM6DSO32_register_addr_t reg, float lsb, float out[3])
+{
+	uint8_t raw[6];
+
+	if(LSM6DSO32_Read(sensor, reg, raw, sizeof(raw)) != ESP_OK){
+		return ESP_FAIL;
+	}
+	for(int axis = 0; axis < 3; axis++){
+		int16_t sample = (int16_t)((uint16_t)raw[axis * 2] | ((uint16_t)raw[axis * 2 + 1] << 8));
+		out[axis] = (float)sample * lsb;
+	}
+	return ESP_OK;
+}
+
+static esp_err_t LSM6DSO32_averageAxes(uint8_t sensor, LSM6DSO32_register_addr_t reg, uint8_t drdyMask, float lsb, float average[3])
+{
+	float sample[3];
+
+	if(LSM6DSO32_waitDrdy(sensor, drdyMask) != ESP_OK){
+		return ESP_FAIL;
+	}
+	if(LSM6DSO32_readAxes(sensor, reg, lsb, sample) != ESP_OK){
+		return ESP_FAIL;
+	}
+
+	average[0] = 0.0f;
+	average[1] = 0.0f;
+	average[2] = 0.0f;
+	for(int i = 0; i < LSM6_ST_SAMPLES; i++){
+		if(LSM6DSO32_waitDrdy(sensor, drdyMask) != ESP_OK){
+			return ESP_FAIL;
+		}
+		if(LSM6DSO32_readAxes(sensor, reg, lsb, sample) != ESP_OK){
+			return ESP_FAIL;
+		}
+		average[0] += sample[0];
+		average[1] += sample[1];
+		average[2] += sample[2];
+	}
+	average[0] /= (float)LSM6_ST_SAMPLES;
+	average[1] /= (float)LSM6_ST_SAMPLES;
+	average[2] /= (float)LSM6_ST_SAMPLES;
+	return ESP_OK;
+}
+
+static esp_err_t LSM6DSO32_checkDelta(uint8_t sensor, const char *name, const float off[3], const float on[3], float minLimit, float maxLimit)
+{
+	for(int axis = 0; axis < 3; axis++){
+		float delta = fabsf(on[axis] - off[axis]);
+		if((delta < minLimit) || (delta > maxLimit)){
+			ESP_LOGE(TAG, "LSM6DSO32 %u %s self-test axis %d delta %d outside %d..%d",
+					sensor, name, axis, (int)delta, (int)minLimit, (int)maxLimit);
+			return ESP_FAIL;
+		}
+	}
+	ESP_LOGI(TAG, "LSM6DSO32 %u %s self-test passed", sensor, name);
+	return ESP_OK;
+}
+
+static esp_err_t LSM6DSO32_reset(uint8_t sensor)
+{
+	uint8_t ctrl3 = LSM6DS_CTRL3_RST;
+
+	if(LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL3_C_ADDR, LSM6DS_CTRL3_RST) != ESP_OK){
+		return ESP_FAIL;
+	}
+	for(int attempt = 0; attempt < 100; attempt++){
+		if(LSM6DSO32_Read(sensor, LSM6DS_CTRL3_C_ADDR, &ctrl3, 1) != ESP_OK){
+			return ESP_FAIL;
+		}
+		if((ctrl3 & LSM6DS_CTRL3_RST) == 0){
+			return ESP_OK;
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+	ESP_LOGE(TAG, "LSM6DSO32 %u reset timeout", sensor);
+	return ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t LSM6DSO32_selfTest(uint8_t sensor)
+{
+	float off[3];
+	float on[3];
+	esp_err_t retVal;
+	const uint8_t ctrlBase = LSM6DS_CTRL5_ACC_ULP_DIS | LSM6DS_CTRL5_ROUNDING_DIS;
+
+	if(LSM6DSO32_reset(sensor) != ESP_OK){
+		return ESP_FAIL;
+	}
+	retVal = LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL3_C_ADDR, LSM6DS_CTRL3_BDU | LSM6DS_CTRL3_INC);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR, ctrlBase | LSM6DS_CTRL5_GYRO_ST_DIS | LSM6DS_CTRL5_ACC_ST_DIS);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR, LSM6DS_CTRL2_G_GYRO_RATE_SHUTDOWN);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, LSM6DS_CTRL1_XL_ACC_RATE_52_HZ | LSM6DS_CTRL1_XL_ACC_FS_4G);
+	if(retVal != ESP_OK){
+		return ESP_FAIL;
+	}
+
+	vTaskDelay(pdMS_TO_TICKS(LSM6_ST_SETTLE_MS));
+	if(LSM6DSO32_averageAxes(sensor, LSM6DS_OUTX_L_A_ADDR, LSM6_STATUS_XLDA, LSM6_ACC_MG_PER_LSB, off) != ESP_OK){
+		return ESP_FAIL;
+	}
+
+	if(LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR, ctrlBase | LSM6DS_CTRL5_GYRO_ST_DIS | LSM6DS_CTRL5_ACC_ST_POS) != ESP_OK){
+		return ESP_FAIL;
+	}
+	vTaskDelay(pdMS_TO_TICKS(LSM6_ST_SETTLE_MS));
+	if(LSM6DSO32_averageAxes(sensor, LSM6DS_OUTX_L_A_ADDR, LSM6_STATUS_XLDA, LSM6_ACC_MG_PER_LSB, on) != ESP_OK){
+		return ESP_FAIL;
+	}
+	retVal = LSM6DSO32_checkDelta(sensor, "accel", off, on, LSM6_ACC_ST_MIN_MG, LSM6_ACC_ST_MAX_MG);
+	LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR, ctrlBase | LSM6DS_CTRL5_GYRO_ST_DIS | LSM6DS_CTRL5_ACC_ST_DIS);
+	if(retVal != ESP_OK){
+		return ESP_FAIL;
+	}
+
+	retVal = LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, LSM6DS_CTRL1_XL_ACC_RATE_SHUTDOWN);
+	retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR, LSM6DS_CTRL2_G_GYRO_RATE_208_HZ | LSM6DS_CTRL2_G_GYRO_FS_2000_DPS);
+	if(retVal != ESP_OK){
+		return ESP_FAIL;
+	}
+	vTaskDelay(pdMS_TO_TICKS(LSM6_ST_SETTLE_MS));
+	if(LSM6DSO32_averageAxes(sensor, LSM6DS_OUTX_L_G_ADDR, LSM6_STATUS_GDA, LSM6_GYRO_DPS_PER_LSB, off) != ESP_OK){
+		return ESP_FAIL;
+	}
+
+	if(LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR, ctrlBase | LSM6DS_CTRL5_GYRO_ST_POS | LSM6DS_CTRL5_ACC_ST_DIS) != ESP_OK){
+		return ESP_FAIL;
+	}
+	vTaskDelay(pdMS_TO_TICKS(LSM6_ST_SETTLE_MS));
+	if(LSM6DSO32_averageAxes(sensor, LSM6DS_OUTX_L_G_ADDR, LSM6_STATUS_GDA, LSM6_GYRO_DPS_PER_LSB, on) != ESP_OK){
+		return ESP_FAIL;
+	}
+	retVal = LSM6DSO32_checkDelta(sensor, "gyro", off, on, LSM6_GYRO_ST_MIN_DPS, LSM6_GYRO_ST_MAX_DPS);
+	LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR, ctrlBase | LSM6DS_CTRL5_GYRO_ST_DIS | LSM6DS_CTRL5_ACC_ST_DIS);
+	return retVal;
+}
+
 /**
  * @brief Initializes LSM6DSO32 sensors.
  *
  * This function initializes the SPI communication for LSM6DSO32 sensors and configures
  * each sensor with default settings. It sets up the accelerometer and gyroscope parameters,
- * performs a WHO_AM_I check, and initializes internal data structures.
+ * performs a WHO_AM_I check and the datasheet self-test, and initializes internal data structures.
  *
  * @return esp_err_t ESP_OK if successful, otherwise an error code.
  */
@@ -119,26 +309,18 @@ esp_err_t LSM6DSO32_init(){
 	retVal = LSM6DSO32_SPIinit();
 	for(uint8_t sensor = 0; LSM6DSO32_COUNT > sensor ; sensor++)
 	{
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL1_XL_ADDR, (LSM6DS_ACC_RATE | LSM6DSAccSensBits[INIT_LSM6DS_ACC_SENS] | LSM6DS_CTRL1_ACC_LPF2_EN));
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL2_G_ADDR,  (LSM6DS_GYRO_RATE | LSM6DSGyroDpsBits[INIT_LSM6DS_GYRO_DPS]));
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL3_C_ADDR,  LSM6DS_CTRL3_BDU | LSM6DS_CTRL3_INT_PP | LSM6DS_CTRL3_INT_H | LSM6DS_CTRL3_INC);
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL4_C_ADDR,  LSM6DS_CTRL4_INT12_SEP | LSM6DS_CTRL4_I2C_DIS | LSM6DS_CTRL4_GYRO_LPF1_EN);
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL5_C_ADDR,  LSM6DS_CTRL5_ACC_ULP_DIS | LSM6DS_CTRL5_ROUNDING_DIS | LSM6DS_CTRL5_GYRO_ST_DIS | LSM6DS_CTRL5_ACC_ST_DIS);
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL6_C_ADDR,  LSM6DS_CTRL6_GYRO_LPF1_0);
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL7_G_ADDR, 0);	//default
-		retVal |= LSM6DSO32_SetRegister(sensor, LSM6DS_CTRL8_XL_ADDR, LSM6DS_CTRL8_ACC_LPF | LSM6DS_CTRL8_FILTER_ODR_4);
-		LSM6DSO32_d[sensor].config.LSM6DSAccSensMgPerLsbCurrent = LSM6DSAccSensGPerLsb[INIT_LSM6DS_ACC_SENS];
-		LSM6DSO32_d[sensor].config.LSM6DSGyroDpsPerLsb = LSM6DSGyroDpsPerLsb[INIT_LSM6DS_GYRO_DPS]; 
-		retVal |= (LSM6DSO32_WhoAmI(sensor) == LSM6DS_WHOAMI_RESPONSE ? ESP_OK : ESP_FAIL);
-#if (LSM6DS_FIFO_BATCH_SIZE > 0) && defined LSM6DS_FIFO
-		retVal |= LSM6DSO32_configure_fifo(sensor);
-#endif //LSM6DS_FIFO_BATCH_SIZE > 0
+		if(LSM6DSO32_WhoAmI(sensor) != LSM6DS_WHOAMI_RESPONSE){
+			retVal |= ESP_FAIL;
+			continue;
+		}
+		retVal |= LSM6DSO32_selfTest(sensor);
+		retVal |= LSM6DSO32_applyFlightConfig(sensor);
 	}
 
 	if(retVal != ESP_OK){
 		ESP_LOGE(TAG, "Problem with initialiation of LSM6DSO32");
 	}
-	
+
 	return retVal;
 }
 

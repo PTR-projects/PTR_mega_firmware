@@ -15,18 +15,24 @@ esp_err_t Sensors_axes_translation();
 static Sensors_t Sensors_d;
 
 esp_err_t Sensors_init(){
+	esp_err_t err = ESP_OK;
+
 	ESP_LOGI(TAG,"Sensor init start");
 	
 	memset(&Sensors_d, 0, sizeof(Sensors_d));
-	MS5607_init();
-	BMP581_init();
-	MMC5983MA_init();
-	LSM6DSO32_init();
-	LIS331_init(LIS331_RANGE_LOW);
+	err |= MS5607_init();
+	err |= BMP581_init();
+	err |= MMC5983MA_init();
+	err |= LSM6DSO32_init();
+	err |= LIS331_init(LIS331_RANGE_LOW);
 
 	Sensors_d.ref_press = 100930.0f;
 
-	return ESP_OK; 	//ESP_FAIL
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "Sensor init failed");
+		return ESP_FAIL;
+	}
+	return ESP_OK;
 }
 
 esp_err_t IRAM_ATTR Sensors_update(){

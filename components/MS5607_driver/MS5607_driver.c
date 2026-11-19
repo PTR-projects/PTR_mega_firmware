@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -57,6 +58,7 @@ static esp_err_t MS5607_readPress();
 static esp_err_t MS5607_readTemp();
 static esp_err_t MS5607_calcPress();
 static esp_err_t MS5607_calcTemp();
+static esp_err_t MS5607_sanity(void);
 
 static MS5607_t 		MS5607_d[MS5607_COUNT];
 
@@ -85,15 +87,7 @@ esp_err_t MS5607_init() {
 	ESP_LOGI(TAG, "OSR selected for %d Hz loop (conv wait %d ms)",
 			CONFIG_MAIN_LOOP_FREQUENCY, MS5607_CONV_DELAY_MS);
 
-	MS5607_reqPress();
-	vTaskDelay(pdMS_TO_TICKS(MS5607_CONV_DELAY_MS));
-	MS5607_readPress();
-	MS5607_reqTemp();
-	vTaskDelay(pdMS_TO_TICKS(MS5607_CONV_DELAY_MS));
-	MS5607_readTemp();
-	MS5607_reqPress();
-
-	return ESP_OK;
+	return MS5607_sanity();
 }
 
 esp_err_t MS5607_getReloadSmart(){
@@ -276,6 +270,103 @@ static esp_err_t MS5607_calcTemp() {
 		MS5607_d[sensor].meas.temp = ((float)TEMP) / 100.0f;
 	}
 
+	return ESP_OK;
+}
+
+#define MS5607_SANITY_SAMPLES	50
+#define MS5607_PRESS_MIN_PA		80000.0f
+#define MS5607_PRESS_MAX_PA		110000.0f
+#define MS5607_TEMP_MIN_C		(-20.0f)
+#define MS5607_TEMP_MAX_C		55.0f
+#define MS5607_RAW_RAIL			0x00FFFFFFu
+
+static float MS5607_stddev(const uint32_t *values, int count)
+{
+	double mean = 0.0;
+	double accum = 0.0;
+
+	for(int i = 0; i < count; i++){
+		mean += (double)values[i];
+	}
+	mean /= (double)count;
+	for(int i = 0; i < count; i++){
+		double delta = (double)values[i] - mean;
+		accum += delta * delta;
+	}
+	return (float)sqrt(accum / (double)count);
+}
+
+static esp_err_t MS5607_readCode(uint8_t sensor, uint32_t *code)
+{
+	uint8_t buf[3] = {0};
+
+	if(MS5607_read(sensor, MS5607_ADC_READ, buf, 3) != ESP_OK){
+		return ESP_FAIL;
+	}
+	*code = ((uint32_t)buf[0] << 16) | ((uint32_t)buf[1] << 8) | buf[2];
+	if((*code == 0u) || (*code == MS5607_RAW_RAIL)){
+		ESP_LOGE(TAG, "sensor %u raw code 0x%06lx", sensor, (unsigned long)*code);
+		return ESP_FAIL;
+	}
+	return ESP_OK;
+}
+
+static esp_err_t MS5607_sanity(void)
+{
+	static uint32_t pressure_code[MS5607_COUNT][MS5607_SANITY_SAMPLES];
+	static uint32_t temperature_code[MS5607_COUNT][MS5607_SANITY_SAMPLES];
+
+	for(int sample = 0; sample < MS5607_SANITY_SAMPLES; sample++){
+		for(uint8_t sensor = 0; sensor < MS5607_COUNT; sensor++){
+			if(MS5607_write(sensor, MS5607_CONVERT_D2_256) != ESP_OK){
+				return ESP_FAIL;
+			}
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+		for(uint8_t sensor = 0; sensor < MS5607_COUNT; sensor++){
+			if(MS5607_readCode(sensor, &temperature_code[sensor][sample]) != ESP_OK){
+				return ESP_FAIL;
+			}
+			MS5607_d[sensor].D2 = temperature_code[sensor][sample];
+		}
+		MS5607_calcTemp();
+
+		for(uint8_t sensor = 0; sensor < MS5607_COUNT; sensor++){
+			if(MS5607_write(sensor, MS5607_CONVERT_D1_256) != ESP_OK){
+				return ESP_FAIL;
+			}
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+		for(uint8_t sensor = 0; sensor < MS5607_COUNT; sensor++){
+			if(MS5607_readCode(sensor, &pressure_code[sensor][sample]) != ESP_OK){
+				return ESP_FAIL;
+			}
+			MS5607_d[sensor].D1 = pressure_code[sensor][sample];
+		}
+		MS5607_calcPress();
+
+		for(uint8_t sensor = 0; sensor < MS5607_COUNT; sensor++){
+			float press = MS5607_d[sensor].meas.press;
+			float temp = MS5607_d[sensor].meas.temp;
+			if((press < MS5607_PRESS_MIN_PA) || (press > MS5607_PRESS_MAX_PA) ||
+					(temp < MS5607_TEMP_MIN_C) || (temp > MS5607_TEMP_MAX_C)){
+				ESP_LOGE(TAG, "sensor %u sample %d out of ground range: %d Pa %d C",
+						sensor, sample, (int)press, (int)temp);
+				return ESP_FAIL;
+			}
+		}
+	}
+
+	for(uint8_t sensor = 0; sensor < MS5607_COUNT; sensor++){
+		if((MS5607_stddev(pressure_code[sensor], MS5607_SANITY_SAMPLES) <= 0.0f) ||
+				(MS5607_stddev(temperature_code[sensor], MS5607_SANITY_SAMPLES) <= 0.0f)){
+			ESP_LOGE(TAG, "sensor %u pressure or temperature samples are stuck", sensor);
+			return ESP_FAIL;
+		}
+	}
+
+	MS5607_reqPress();
+	ESP_LOGI(TAG, "MS5607 sanity passed");
 	return ESP_OK;
 }
 

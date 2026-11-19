@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -29,6 +30,17 @@ static const char *TAG = "BMP581";
 /* odr = 0x0A (100.299 Hz) at bit 2, pwr_mode = normal (0b01). */
 #define BMP581_ODR_100HZ_NORMAL 0x29
 #define BMP581_ODR_IS_VALID     0x80
+#define BMP581_REG_INT_STATUS   0x27
+#define BMP581_REG_DSP_CONFIG   0x30
+#define BMP581_REG_DSP_IIR      0x31
+#define BMP581_INT_DRDY         (1u << 0)
+#define BMP581_INT_OOR_P        (1u << 3)
+#define BMP581_RAW_INVALID      0x800000u
+#define BMP581_SANITY_SAMPLES   50
+#define BMP581_PRESS_MIN_PA     80000.0f
+#define BMP581_PRESS_MAX_PA     110000.0f
+#define BMP581_TEMP_MIN_C       (-20.0f)
+#define BMP581_TEMP_MAX_C       55.0f
 
 #if !defined(SPI_SLAVE_BMP581_PIN)
 
@@ -65,6 +77,88 @@ static int32_t bmp581_sign_extend_24(uint32_t raw)
 	return (int32_t)raw;
 }
 
+static float bmp581_stddev(const int32_t *values, int count)
+{
+	double mean = 0.0;
+	double accum = 0.0;
+
+	for (int i = 0; i < count; i++) {
+		mean += (double)values[i];
+	}
+	mean /= (double)count;
+	for (int i = 0; i < count; i++) {
+		double delta = (double)values[i] - mean;
+		accum += delta * delta;
+	}
+	return (float)sqrt(accum / (double)count);
+}
+
+static esp_err_t bmp581_wait_drdy(uint8_t *status)
+{
+	for (int attempt = 0; attempt < 50; attempt++) {
+		ESP_RETURN_ON_ERROR(bmp581_read(BMP581_REG_INT_STATUS, status, 1), TAG, "status read failed");
+		if ((*status & BMP581_INT_DRDY) != 0) {
+			return ESP_OK;
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+	ESP_LOGE(TAG, "data-ready timeout");
+	return ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t bmp581_sanity(void)
+{
+	int32_t press_raw[BMP581_SANITY_SAMPLES];
+	int32_t temp_raw[BMP581_SANITY_SAMPLES];
+
+	ESP_RETURN_ON_ERROR(bmp581_write(BMP581_REG_DSP_IIR, 0), TAG, "IIR bypass failed");
+	ESP_RETURN_ON_ERROR(bmp581_write(BMP581_REG_DSP_CONFIG, 0), TAG, "DSP bypass failed");
+
+	for (int sample = 0; sample < BMP581_SANITY_SAMPLES; sample++) {
+		uint8_t status = 0;
+		uint8_t raw[6];
+		uint32_t temp_code;
+		uint32_t press_code;
+		float temp;
+		float press;
+
+		ESP_RETURN_ON_ERROR(bmp581_wait_drdy(&status), TAG, "sample timeout");
+		if ((status & BMP581_INT_OOR_P) != 0) {
+			ESP_LOGE(TAG, "pressure overflow on sample %d", sample);
+			return ESP_FAIL;
+		}
+
+		ESP_RETURN_ON_ERROR(bmp581_read(BMP581_REG_TEMP_DATA, raw, sizeof(raw)), TAG, "data read failed");
+		temp_code = ((uint32_t)raw[2] << 16) | ((uint32_t)raw[1] << 8) | raw[0];
+		press_code = ((uint32_t)raw[5] << 16) | ((uint32_t)raw[4] << 8) | raw[3];
+		if ((temp_code == BMP581_RAW_INVALID) || (press_code == BMP581_RAW_INVALID)) {
+			ESP_LOGE(TAG, "invalid raw code temp 0x%06lx press 0x%06lx",
+					(unsigned long)temp_code, (unsigned long)press_code);
+			return ESP_FAIL;
+		}
+
+		temp_raw[sample] = bmp581_sign_extend_24(temp_code);
+		press_raw[sample] = bmp581_sign_extend_24(press_code);
+		temp = (float)temp_raw[sample] / 65536.0f;
+		press = (float)press_raw[sample] / 64.0f;
+		if ((press < BMP581_PRESS_MIN_PA) || (press > BMP581_PRESS_MAX_PA) ||
+				(temp < BMP581_TEMP_MIN_C) || (temp > BMP581_TEMP_MAX_C)) {
+			ESP_LOGE(TAG, "sample %d out of ground range: %d Pa %d C",
+					sample, (int)press, (int)temp);
+			return ESP_FAIL;
+		}
+	}
+
+	if ((bmp581_stddev(press_raw, BMP581_SANITY_SAMPLES) <= 0.0f) ||
+			(bmp581_stddev(temp_raw, BMP581_SANITY_SAMPLES) <= 0.0f)) {
+		ESP_LOGE(TAG, "pressure or temperature samples are stuck");
+		return ESP_FAIL;
+	}
+
+	ESP_LOGI(TAG, "BMP581 sanity passed");
+	return ESP_OK;
+}
+
 esp_err_t BMP581_init(void)
 {
 	uint8_t chip_id = 0;
@@ -91,8 +185,10 @@ esp_err_t BMP581_init(void)
 		return ESP_ERR_NOT_FOUND;
 	}
 
+	/* OSR 1x keeps the ADC noise used by the stuck check. IIR stays bypassed. */
 	ESP_RETURN_ON_ERROR(bmp581_write(BMP581_REG_OSR_CONFIG, BMP581_OSR_PRESS_EN), TAG, "OSR config failed");
 	ESP_RETURN_ON_ERROR(bmp581_write(BMP581_REG_ODR_CONFIG, BMP581_ODR_100HZ_NORMAL), TAG, "ODR config failed");
+	ESP_RETURN_ON_ERROR(bmp581_sanity(), TAG, "sanity check failed");
 
 	ESP_RETURN_ON_ERROR(bmp581_read(BMP581_REG_OSR_EFF, &osr_eff, 1), TAG, "OSR_EFF read failed");
 	if ((osr_eff & BMP581_ODR_IS_VALID) == 0) {
